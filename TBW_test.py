@@ -30,6 +30,7 @@ def run_temporal_integration_across_models(
         D=5,
         extra=5,
         stim_in=1.0,
+        bg_lambda: float = 0.0,
         device="cuda",
         modify_net=None,
         log_charges: bool = False,           # log charge totals
@@ -66,7 +67,8 @@ def run_temporal_integration_across_models(
         res = run_temporal_integration(
             net, offsets,
             loc=loc, T=T, D=D, extra=extra, stim_in=stim_in,
-            log_charges=log_charges
+            bg_lambda=bg_lambda,
+            log_charges=log_charges,
         )
         all_int.append(res["int_spikes"])
 
@@ -483,6 +485,154 @@ def calculate_fusion_from_integration(integration_results, method='robust_sigmoi
     return fusion_probs
 
 
+def score_temporal_fusion(
+        timecourse,
+        *,
+        aud_on: int,
+        vis_on: int,
+        smooth_sigma: float = 1.0,
+        peak_search_horizon: int = 12,
+        peak_presence_frac: float = 0.15,
+        merge_distance: int = 2,
+):
+    """
+    Return a continuous temporal fusion score in [0, 1].
+
+    Parameters
+    ----------
+    timecourse : array-like, shape (T,)
+        MSI population spike count per external frame (10 ms here), integrated
+        across all internal sub-steps.
+    aud_on, vis_on : int
+        Audio and visual onset frames in external-frame units.
+    smooth_sigma : float
+        Gaussian smoothing width in frames for robust peak detection.
+    peak_search_horizon : int
+        Number of frames after each stimulus onset within which the modality-
+        linked response peak is searched.
+    peak_presence_frac : float
+        Minimum local-peak amplitude, relative to the global maximum, required
+        to count that modality as having an explicit response.
+    merge_distance : int
+        If the audio-linked and visual-linked peak locations differ by at most
+        this many frames, they are treated as one merged event.
+    Returns
+    -------
+    score : float
+        Continuous fusion readout derived from the source-linked temporal
+        peaks. Values near 1 correspond to merged responses; values near 0
+        correspond to clearly separated or missing modality-linked responses.
+    """
+    smoothed = gaussian_filter1d(np.asarray(timecourse, dtype=float),
+                                 sigma=smooth_sigma, mode="nearest")
+    peak_max = float(smoothed.max())
+    if peak_max <= 1e-9:
+        return 0.0
+
+    def _local_peak(onset):
+        start = max(0, int(onset) - 1)
+        stop = min(smoothed.size, int(onset) + int(peak_search_horizon) + 1)
+        window = smoothed[start:stop]
+        if window.size == 0:
+            return int(onset), 0.0
+        peak_rel = int(np.argmax(window))
+        peak_idx = start + peak_rel
+        return peak_idx, float(smoothed[peak_idx])
+
+    aud_peak, aud_amp = _local_peak(aud_on)
+    vis_peak, vis_amp = _local_peak(vis_on)
+    if aud_on == vis_on:
+        return float(max(aud_amp, vis_amp) >= peak_max * peak_presence_frac)
+
+    presence_thresh = peak_max * peak_presence_frac
+    if aud_amp < presence_thresh or vis_amp < presence_thresh:
+        return 0.0
+
+    if abs(aud_peak - vis_peak) <= merge_distance:
+        return 1.0
+
+    lo, hi = sorted((aud_peak, vis_peak))
+    valley = float(smoothed[lo:hi + 1].min())
+    smaller_peak = min(aud_amp, vis_amp)
+    valley_ratio = valley / max(smaller_peak, 1e-9)
+    return float(np.clip(valley_ratio, 0.0, 1.0))
+
+
+def classify_temporal_fusion(
+        timecourse,
+        *,
+        aud_on: int,
+        vis_on: int,
+        valley_ratio_thresh: float = 0.60,
+        **score_kw,
+):
+    """
+    Binary version of `score_temporal_fusion`, kept for diagnostics.
+    """
+    score = score_temporal_fusion(
+        timecourse,
+        aud_on=aud_on,
+        vis_on=vis_on,
+        **score_kw,
+    )
+    return int(score > valley_ratio_thresh)
+
+
+def calculate_fusion_from_temporal_raster(
+        spike_raster,
+        offsets_ms,
+        *,
+        dt_ms: int = 10,
+        mode: str = "score",
+        **classifier_kw,
+):
+    """
+    Convert a batch temporal raster into fusion calls using source-linked peaks.
+
+    Parameters
+    ----------
+    spike_raster : array-like, shape (T, n_offsets)
+        MSI population spike count per frame for each onset offset.
+    offsets_ms : array-like, shape (n_offsets,)
+        Audio-visual onset offsets in milliseconds.
+    dt_ms : int
+        Duration of one external frame in milliseconds.
+    mode : {"score", "binary"}
+        Whether to return the continuous fusion score or a hard binary call.
+    classifier_kw : dict
+        Forwarded to the temporal fusion scorer/classifier.
+
+    Returns
+    -------
+    ndarray, shape (n_offsets,)
+        Fusion score or binary fusion call per offset.
+    """
+    raster = np.asarray(spike_raster, dtype=float)
+    offsets_steps = np.rint(np.asarray(offsets_ms, dtype=float) / float(dt_ms)).astype(int)
+
+    fusion = np.zeros(raster.shape[1], dtype=float)
+    for i_off, off in enumerate(offsets_steps):
+        aud_on = 0 if off >= 0 else abs(off)
+        vis_on = 0 if off <= 0 else off
+        if mode == "binary":
+            fusion[i_off] = classify_temporal_fusion(
+                raster[:, i_off],
+                aud_on=aud_on,
+                vis_on=vis_on,
+                **classifier_kw,
+            )
+        elif mode == "score":
+            fusion[i_off] = score_temporal_fusion(
+                raster[:, i_off],
+                aud_on=aud_on,
+                vis_on=vis_on,
+                **classifier_kw,
+            )
+        else:
+            raise ValueError(f"Unknown temporal fusion mode: {mode}")
+    return fusion
+
+
 def fit_psychometric_curve(offsets_ms, fusion_probs, p0=None,
                            use_weights=True, smooth_data=False,
                            robust_fit=True):
@@ -632,36 +782,76 @@ def fit_psychometric_curve(offsets_ms, fusion_probs, p0=None,
     }
 
 
-def run_fusion_across_models(model_paths, offsets, device="cuda",
-                             modify_net=None, fusion_method='preserve_peak'):
+def run_fusion_across_models(
+        model_paths,
+        offsets,
+        *,
+        device="cuda",
+        bg_lambda: float = 0.0,
+        modify_net=None,
+        fusion_method='temporal_peak_linked',
+):
     """
-    Updated to use better fusion probability calculation.
+    Evaluate temporal fusion across checkpoints.
+
+    `fusion_method='temporal_peak_linked'` uses the full MSI time-course and
+    derives a continuous fusion score from the audio-linked and visual-linked
+    temporal peaks. `temporal_peak_binary` keeps the hard thresholded version
+    for diagnostics; legacy integration-to-probability mappings remain
+    available for comparison.
     """
-    # Run temporal integration (existing code)
-    pooled_res = run_temporal_integration_across_models(
-        model_paths, offsets, device=device, modify_net=modify_net, log_charges=True
-    )
-
-    fusion_probs = calculate_fusion_from_integration(pooled_res, method=fusion_method)
-
+    all_int = []
     all_fusion = []
-    for model_spikes in pooled_res["all_int_spikes"]:
-        single_res = {
-            "offsets_ms": pooled_res["offsets_ms"],
-            "mean_int_spikes": model_spikes
-        }
-        fusion = calculate_fusion_from_integration(single_res, method=fusion_method)
+    offsets_ms = None
+
+    for path in model_paths:
+        net = load_msi_model(Path(path), device=device)
+
+        if callable(modify_net):
+            modify_net(net)
+
+        res = run_temporal_integration(
+            net, offsets,
+            bg_lambda=bg_lambda,
+        )
+        offsets_ms = res["offsets_ms"]
+        all_int.append(res["int_spikes"])
+
+        if fusion_method == 'temporal_peak_linked':
+            fusion = calculate_fusion_from_temporal_raster(
+                res["spike_raster"],
+                offsets_ms,
+                mode="score",
+            )
+        elif fusion_method == 'temporal_peak_binary':
+            fusion = calculate_fusion_from_temporal_raster(
+                res["spike_raster"],
+                offsets_ms,
+                mode="binary",
+            )
+        else:
+            single_res = {
+                "offsets_ms": offsets_ms,
+                "mean_int_spikes": res["int_spikes"],
+            }
+            fusion = calculate_fusion_from_integration(single_res, method=fusion_method)
         all_fusion.append(fusion)
 
+        del net
+        if str(device).startswith("cuda"):
+            torch.cuda.empty_cache()
+
+    all_int = np.vstack(all_int)
     all_fusion = np.vstack(all_fusion)
 
     return {
-        "offsets_ms": pooled_res["offsets_ms"],
+        "offsets_ms": offsets_ms,
         "mean_fusion": all_fusion.mean(0),
         "sem_fusion": all_fusion.std(0, ddof=1) / np.sqrt(len(model_paths)),
         "all_fusion": all_fusion,
-        "mean_int_spikes": pooled_res["mean_int_spikes"],  # Keep original spikes
-        "sem_int_spikes": pooled_res["sem_int_spikes"]
+        "mean_int_spikes": all_int.mean(0),
+        "sem_int_spikes": all_int.std(0, ddof=1) / np.sqrt(len(model_paths)),
+        "all_int_spikes": all_int,
     }
 
 
@@ -912,8 +1102,11 @@ def msi_timecourse_at_offset(net,
     spike_sum = torch.zeros(T, device=dev)
 
     for t in range(T):
-        net.update_all_layers_batch(xA[t][None, :], xV[t][None, :])
-        spike_sum[t] = net._latest_sMSI[0].sum()
+        _, _, _, _, sum_sM = net.update_all_layers_batch(
+            xA[t][None, :], xV[t][None, :],
+            return_spike_sum=True,
+        )
+        spike_sum[t] = sum_sM[0].sum()
 
     return spike_sum.cpu().numpy()
 
@@ -981,7 +1174,7 @@ def fit_psychometric_curve_improved(offsets_ms, fusion_probs, p0=None, **kwargs)
 
     # Get the smooth curve
     xs = fit_result["xs"]
-    ys = fit_result["ys"]
+    ys = np.clip(fit_result["ys"], 0.0, 1.0)
 
     criterion = 0.5
 
@@ -1015,7 +1208,10 @@ def fit_psychometric_curve_improved(offsets_ms, fusion_probs, p0=None, **kwargs)
         tbw = 0
 
     if "r_squared" not in fit_result:
-        residuals = fusion_probs - gaussian(offsets_ms, base, amp, mu, sigma)
+        residuals = fusion_probs - np.clip(
+            gaussian(offsets_ms, base, amp, mu, sigma),
+            0.0, 1.0,
+        )
         ss_res = np.sum(residuals ** 2)
         ss_tot = np.sum((fusion_probs - np.mean(fusion_probs)) ** 2)
         r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
@@ -1038,7 +1234,7 @@ def fit_psychometric_curve_improved(offsets_ms, fusion_probs, p0=None, **kwargs)
         "r_squared": r_squared,
         "peak_error": fit_result.get("peak_error", 0),
         "actual_peak": fit_result.get("peak_actual", fusion_probs.max()),
-        "fitted_peak": fit_result.get("peak_fitted", base + amp)
+        "fitted_peak": min(fit_result.get("peak_fitted", base + amp), 1.0)
     }
 # ────────────────────────────────────────────────────────────────
 # ────────────────────────────────────────────────────────────────
@@ -1047,7 +1243,8 @@ def plot_psychometric_tbw_ax(pooled_res,
                              reference_fit=None,
                              title_suffix="",
                              criterion=0.5,
-                             cont=False):
+                             cont=False,
+                             out_path: str = './Saved_Images/TBW_curve.svg'):
     """
     Identical visuals to plot_psychometric_tbw() but returns
     handles so callers can add extra graphics before plt.show().
@@ -1134,8 +1331,7 @@ def plot_psychometric_tbw_ax(pooled_res,
     plt.rcParams['pdf.fonttype'] = 42      # TrueType in PDF/PS
     plt.rcParams['ps.fonttype']  = 42
     plt.rcParams['svg.fonttype'] = 'none'
-    # if cont:
-    plt.savefig('./Saved_Images/TBW_curve.svg', format='svg')
+    plt.savefig(out_path, format='svg')
     return fig, ax, fit_M
 
 # ────────────────────────────────────────────────────────────────
@@ -1165,7 +1361,8 @@ def plot_timecourse_figure(timecourse: np.ndarray,
                            title: str,
                            color: str = "C0",
                            dt_ms: int = 10,
-                           figsize=(25, 14)):
+                           figsize=(25, 14),
+                           out_path: str = './Saved_Images/tbw_inset.svg'):
     """
     Display *timecourse* (1‑D NumPy) as a separate matplotlib figure.
 
@@ -1201,16 +1398,23 @@ def plot_timecourse_figure(timecourse: np.ndarray,
     ax.grid(False)
     fig.tight_layout()
     ax.tick_params(axis='both', which='major', length=30, width=1)
-    plt.savefig('./Saved_Images/tbw_inset.svg', format='svg')
+    plt.savefig(out_path, format='svg')
     return fig, ax
 
 
 # ────────────────────────────────────────────────────────────────
 #          ① TBW – CONTROL
 # ────────────────────────────────────────────────────────────────
-def main_tbw_profiles():
+def main_tbw_profiles(*, bg_lambda=None):
+    import os
     base_dir = Path("checkpoint")
     model_paths = [base_dir / f"msi_model_surr_10_{i:02d}.pt" for i in range(10)]
+
+    if bg_lambda is None:
+        bg_lambda = float(os.getenv("BG_LAMBDA", "0.0"))
+    else:
+        bg_lambda = float(bg_lambda)
+    out_suffix = "_bg" if bg_lambda > 0.0 else ""
 
     offsets = list(range(-50, 51, 2))
     max_off = offsets[-1]                        # +50  →  +500 ms
@@ -1218,8 +1422,13 @@ def main_tbw_profiles():
     # ---------- 1)  CONTROL TBW ------------------------------------------
     pooled_ctrl = run_fusion_across_models(model_paths,
                                            offsets,
-                                           device="cuda")
-    fig_c, ax_c, fit_ctrl = plot_psychometric_tbw_ax(pooled_ctrl, cont=True)
+                                           device="cuda",
+                                           bg_lambda=bg_lambda)
+    fig_c, ax_c, fit_ctrl = plot_psychometric_tbw_ax(
+        pooled_ctrl,
+        cont=True,
+        out_path=f'./Saved_Images/TBW_curve{out_suffix}.svg',
+    )
     try:
         fig_c.canvas.manager.set_window_title("TBW – CONTROL")
     except Exception:
@@ -1239,12 +1448,14 @@ def main_tbw_profiles():
     pooled_manip = run_fusion_across_models(model_paths,
                                             offsets,
                                             device="cuda",
+                                            bg_lambda=bg_lambda,
                                             modify_net=tweak_fn)
     fig_m, ax_m, _ = plot_psychometric_tbw_ax(
         pooled_manip,
         reference_fit=fit_ctrl,
         title_suffix="  (comparison)",
-        cont=False
+        cont=False,
+        out_path=f'./Saved_Images/TBW_curve_manip{out_suffix}.svg',
     )
     try:
         fig_m.canvas.manager.set_window_title(
@@ -1272,5 +1483,14 @@ def main_tbw_profiles():
 
 # keep the entry‑point guard
 if __name__ == "__main__":
-    main_tbw_profiles()
+    import argparse
 
+    p = argparse.ArgumentParser()
+    p.add_argument(
+        "--bg-lambda",
+        type=float,
+        default=None,
+        help="Ongoing background drive rate (Poisson lambda per frame). Defaults to env BG_LAMBDA or 0.",
+    )
+    args = p.parse_args()
+    main_tbw_profiles(bg_lambda=args.bg_lambda)

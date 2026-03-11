@@ -1,5 +1,57 @@
 from Training import *
 from matplotlib import font_manager
+from typing import Sequence
+
+
+def _circular_distance(idx_a: int, idx_b: int, n: int) -> int:
+    direct = abs(int(idx_a) - int(idx_b))
+    return int(min(direct, n - direct))
+
+
+def _valley_path_indices(idx_a: int, idx_b: int, n: int) -> np.ndarray:
+    direct = abs(int(idx_b) - int(idx_a))
+    if direct <= n - direct:
+        lo, hi = min(int(idx_a), int(idx_b)), max(int(idx_a), int(idx_b))
+        return np.arange(lo, hi + 1, dtype=int)
+    hi, lo = max(int(idx_a), int(idx_b)), min(int(idx_a), int(idx_b))
+    return np.r_[np.arange(hi, n, dtype=int), np.arange(0, lo + 1, dtype=int)]
+
+
+def classify_spatial_fusion(
+        profile: np.ndarray,
+        *,
+        source_indices: tuple[int, int] | None = None,
+        silent_as_fused: bool = False) -> bool:
+    """
+    Decide whether an MSI profile counts as "fused".
+
+    The legacy implementation chose the two tallest detected peaks globally,
+    which can pair two sub-peaks from the same spatial bump and incorrectly call
+    the trial fused. When `source_indices` are provided, this classifier instead
+    pairs the detected peaks nearest the audio and visual input locations and
+    evaluates the valley between those source-linked peaks.
+    """
+    sm = gaussian_filter1d(np.asarray(profile, dtype=float), sigma=2, mode="wrap")
+    if sm.max() < 1e-6:
+        return bool(silent_as_fused)
+
+    sm /= sm.max() + 1e-12
+    peaks, props = find_peaks(sm, height=0.2, distance=10)
+    if len(peaks) <= 1:
+        return True
+
+    if source_indices is None:
+        peak_a, peak_b = peaks[np.argsort(props["peak_heights"])[::-1][:2]]
+    else:
+        src_a, src_v = (int(source_indices[0]), int(source_indices[1]))
+        peak_a = int(peaks[np.argmin([_circular_distance(p, src_a, sm.size) for p in peaks])])
+        peak_b = int(peaks[np.argmin([_circular_distance(p, src_v, sm.size) for p in peaks])])
+        if peak_a == peak_b:
+            return True
+
+    valley_path = _valley_path_indices(int(peak_a), int(peak_b), sm.size)
+    valley = float(sm[valley_path].min())
+    return valley / (min(sm[int(peak_a)], sm[int(peak_b)]) + 1e-12) > 0.6
 
 
 def spatial_binding_diagnostics(
@@ -29,24 +81,6 @@ def spatial_binding_diagnostics(
         return torch.exp(-0.5 * ((xs - idx_centres.unsqueeze(1)) /
                                  net.sigma_in) ** 2) * intensity
 
-    def is_fused(profile: np.ndarray) -> bool:
-        sm = gaussian_filter1d(profile, sigma=2, mode='wrap')
-        if sm.max() < 1e-6:  # silent
-            return True
-        sm /= sm.max()
-        peaks, props = find_peaks(sm, height=0.2, distance=10)
-        if len(peaks) <= 1:
-            return True
-        p1, p2 = peaks[np.argsort(props['peak_heights'])[::-1][:2]]
-
-        def valley(i, j):
-            direct = abs(j - i)
-            seg = sm[min(i, j): max(i, j) + 1] if direct <= N - direct else \
-                np.r_[sm[max(i, j):], sm[:min(i, j) + 1]]
-            return seg.min()
-
-        return valley(p1, p2) / (min(sm[p1], sm[p2]) + 1e-12) > 0.6
-
     # ───── default lists ─────────────────────────────────────────────────
     if separations_deg is None:
         separations_deg = list(range(0, 61, 5))  # 0 … 60°
@@ -65,6 +99,8 @@ def spatial_binding_diagnostics(
 
     idxA = torch.as_tensor(idx(locA_deg), device=net.device)
     idxV = torch.as_tensor(idx(locV_deg), device=net.device)
+    idxA_np = idxA.detach().cpu().numpy()
+    idxV_np = idxV.detach().cpu().numpy()
 
     gA = make_gauss(idxA)
     gV = make_gauss(idxV)
@@ -85,7 +121,11 @@ def spatial_binding_diagnostics(
     for k in range(n_sep):
         s, e = k * n_trials, (k + 1) * n_trials
         for j in range(n_trials):
-            flags[k, j] = is_fused(profs[s + j])
+            trial_idx = s + j
+            flags[k, j] = classify_spatial_fusion(
+                profs[trial_idx],
+                source_indices=(int(idxA_np[trial_idx]), int(idxV_np[trial_idx])),
+            )
 
     fusion_prob = flags.mean(1)
 
@@ -136,7 +176,7 @@ def spatial_binding_diagnostics(
                 hist.append(net._latest_sMSI[0].cpu().numpy())
             hist = np.stack(hist)
             prof = hist.sum(0)
-            fused = is_fused(prof)
+            fused = classify_spatial_fusion(prof, source_indices=(int(i1), int(i2)))
 
             fig, (ax1, ax2) = plt.subplots(
                 1, 2, figsize=(8, 3),
@@ -193,7 +233,8 @@ def spatial_binding_curve_fast(
         separations_deg=range(0, 61, 5),
         n_trials=100,
         duration=20,
-        intensity=0.5):
+        intensity=0.5,
+        bg_lambda: float = 0.0):
     N, S = net.n, net.space_size
     rng = np.random.default_rng()
 
@@ -207,30 +248,14 @@ def spatial_binding_curve_fast(
     locA_deg = base_deg
     locV_deg = (base_deg + sep_rep) % S
 
-    def is_fused(profile: np.ndarray) -> bool:
-        sm = gaussian_filter1d(profile, sigma=2, mode='wrap')
-        if sm.max() < 1e-6:  # silent
-            return True
-        sm /= sm.max()
-        peaks, props = find_peaks(sm, height=0.2, distance=10)
-        if len(peaks) <= 1:
-            return True
-        p1, p2 = peaks[np.argsort(props['peak_heights'])[::-1][:2]]
-
-        def valley(i, j):
-            direct = abs(j - i)
-            seg = sm[min(i, j): max(i, j) + 1] if direct <= N - direct else \
-                np.r_[sm[max(i, j):], sm[:min(i, j) + 1]]
-            return seg.min()
-
-        return valley(p1, p2) / (min(sm[p1], sm[p2]) + 1e-12) > 0.6
-
     def to_idx(deg):  # degrees → neuron index
         return torch.round(
             torch.as_tensor(deg, device=net.device, dtype=torch.float32)
             * (N - 1) / (S - 1)).long()
 
     idxA, idxV = to_idx(locA_deg), to_idx(locV_deg)
+    idxA_np = idxA.detach().cpu().numpy()
+    idxV_np = idxV.detach().cpu().numpy()
 
     xs = torch.arange(N, device=net.device, dtype=torch.float32)
     g = lambda idx: torch.exp(-0.5 * ((xs - idx[:, None]) / net.sigma_in) ** 2) * intensity
@@ -240,6 +265,12 @@ def spatial_binding_curve_fast(
     xV = torch.zeros_like(xA)
     xA[:, :duration] = gA.unsqueeze(1)
     xV[:, :duration] = gV.unsqueeze(1)
+
+    # Optional ongoing low background drive (sampled on-device).
+    if bg_lambda and bg_lambda > 0.0:
+        lam = float(bg_lambda)
+        xA = xA + torch.poisson(torch.full_like(xA, lam))
+        xV = xV + torch.poisson(torch.full_like(xV, lam))
 
     # ----- single forward pass --------------------------------------
     net.reset_state(batch_size=B)
@@ -255,7 +286,11 @@ def spatial_binding_curve_fast(
     for k in range(n_sep):
         s, e = k * n_trials, (k + 1) * n_trials
         for j in range(n_trials):
-            flags[k, j] = is_fused(profs[s + j])  # your existing helper
+            trial_idx = s + j
+            flags[k, j] = classify_spatial_fusion(
+                profs[trial_idx],
+                source_indices=(int(idxA_np[trial_idx]), int(idxV_np[trial_idx])),
+            )
 
     return flags.mean(1)  #  P(fusion) curve
 
@@ -291,27 +326,6 @@ def compute_spatial_binding_curve(
             -0.5 * ((xs - idx_centres.unsqueeze(1)) / net.sigma_in) ** 2
         ) * intensity
 
-    def is_fused(profile: np.ndarray) -> bool:
-        sm = gaussian_filter1d(profile, sigma=2, mode="wrap")
-        if sm.max() < 1e-6:
-            return True
-        sm /= sm.max()
-        peaks, props = find_peaks(sm, height=0.2, distance=10)
-        if len(peaks) <= 1:
-            return True
-        p1, p2 = peaks[np.argsort(props["peak_heights"])[::-1][:2]]
-
-        def valley(i, j):
-            direct = abs(j - i)
-            seg = (
-                sm[min(i, j): max(i, j) + 1]
-                if direct <= N - direct
-                else np.r_[sm[max(i, j):], sm[: min(i, j) + 1]]
-            )
-            return seg.min()
-
-        return valley(p1, p2) / (min(sm[p1], sm[p2]) + 1e-12) > 0.6
-
     # ---------- main loop over separations ---------------------------
     fusion_prob = []
 
@@ -328,6 +342,8 @@ def compute_spatial_binding_curve(
 
             idxA = torch.as_tensor(idx(locA_deg), device=net.device)
             idxV = torch.as_tensor(idx(locV_deg), device=net.device)
+            idxA_np = idxA.detach().cpu().numpy()
+            idxV_np = idxV.detach().cpu().numpy()
 
             gA = make_gauss(idxA)
             gV = make_gauss(idxV)
@@ -345,8 +361,11 @@ def compute_spatial_binding_curve(
                 msi_sum += net._latest_sMSI
 
             profs = msi_sum.cpu().numpy()
-            for pr in profs:
-                fused_trials += is_fused(pr)
+            for trial_idx, pr in enumerate(profs):
+                fused_trials += classify_spatial_fusion(
+                    pr,
+                    source_indices=(int(idxA_np[trial_idx]), int(idxV_np[trial_idx])),
+                )
 
             # Good GPU hygiene
             del xA, xV, msi_sum, gA, gV, idxA, idxV
@@ -377,6 +396,7 @@ def run_spatial_binding_across_models(
         n_trials=20,
         intensity=1,
         duration=20,
+        bg_lambda: float = 0.0,
         device="cpu",
         modify_net=None,  # optional modifier
 ):
@@ -394,6 +414,7 @@ def run_spatial_binding_across_models(
                 n_trials=n_trials,
                 intensity=intensity,
                 duration=duration,
+                bg_lambda=bg_lambda,
             )
         )
         del net
@@ -614,7 +635,8 @@ def plot_msi_profile(profile: np.ndarray,
                      *,
                      title: str,
                      color: str = "C0",
-                     figsize=(20, 15)):
+                     figsize=(20, 15),
+                     out_path=Path("./Saved_Images/sbw_inset.svg")):
     """
     Render one MSI‑layer population response as a separate figure.
 
@@ -654,7 +676,10 @@ def plot_msi_profile(profile: np.ndarray,
         ax.spines[s].set_visible(False)
     plt.tight_layout()
     ax.tick_params(axis='both', which='major', length=20, width=1)
-    plt.savefig('./Saved_Images/sbw_inset.svg', format='svg')
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fmt = out_path.suffix.lstrip(".") or "svg"
+    plt.savefig(out_path, format=fmt)
     return fig, ax
 
 # ───────────────────────────────────────────────────────────────────
@@ -669,7 +694,8 @@ def msi_profile_at_disparity(net,
                              *,
                              centre_deg: float = 90.0,
                              duration: int = 20,
-                             intensity: float = .5) -> np.ndarray:
+                             intensity: float = .5,
+                             bg_lambda: float = 0.0) -> np.ndarray:
     """
     Run a brief bimodal pulse (Audio at *centre_deg*, Visual shifted by
     *disparity_deg*) through *net* and return the summed MSI‑layer spikes
@@ -688,8 +714,14 @@ def msi_profile_at_disparity(net,
     hist = torch.zeros(duration, n, device=dev)
 
     for _ in range(duration):
-        net.update_all_layers_batch(gauss_A.unsqueeze(0),
-                                    gauss_V.unsqueeze(0))
+        xA_ex = gauss_A.unsqueeze(0)
+        xV_ex = gauss_V.unsqueeze(0)
+        if bg_lambda and bg_lambda > 0.0:
+            lam = float(bg_lambda)
+            xA_ex = xA_ex + torch.poisson(torch.full_like(xA_ex, lam))
+            xV_ex = xV_ex + torch.poisson(torch.full_like(xV_ex, lam))
+
+        net.update_all_layers_batch(xA_ex, xV_ex)
         hist[_] = net._latest_sMSI[0]
 
     return hist.sum(0).cpu().numpy()
@@ -736,7 +768,8 @@ def plot_spatial_binding_pedestal_ax(
         reference_fit=None,
         ref_tint_alpha: float = .12,
         manip_tint_alpha: float = .18,
-        cont: False):
+        cont: False,
+        out_path: str = './Saved_Images/SBW_curve.svg'):
     """
     Returns (fig, ax) — draws pedestal fit for *pooled* data.
     If *reference_fit* ≠ None (tuple of xs, ys) the control curve
@@ -838,8 +871,7 @@ def plot_spatial_binding_pedestal_ax(
     ax.grid(False)
     plt.tight_layout()
     ax.tick_params(axis='both', which='major', length=20, width=1)
-    # if cont:
-    plt.savefig('./Saved_Images/SBW_curve.svg', format='svg')
+    plt.savefig(out_path, format='svg')
     return fig, ax
 
 
@@ -851,18 +883,26 @@ def plot_spatial_binding_pedestal_ax(
 #      ①  SBW (Control‑only)
 #      ②  SBW (Manipulated + control overlay)
 # ────────────────────────────────────────────────────────────────
-def main():
+def main(*, bg_lambda=None):
+    import os
     # ----- paths & common parameters -------------------------------------
     base_dir = Path("checkpoint")
     model_paths = [base_dir / f"msi_model_surr_10_{i:02d}.pt" for i in range(10)]
     separations = tuple(range(-80, 85, 5))
     max_sep = max(abs(s) for s in separations)          # 80 °
 
+    if bg_lambda is None:
+        bg_lambda = float(os.getenv("BG_LAMBDA", "0.0"))
+    else:
+        bg_lambda = float(bg_lambda)
+    out_suffix = "_bg" if bg_lambda > 0.0 else ""
+
     # ---------------------------------------------------------------------
     # ---------------------------------------------------------------------
     pooled_ctrl = run_spatial_binding_across_models(
         model_paths,
         separations_deg=separations,
+        bg_lambda=bg_lambda,
         device="cuda:0"
     )
 
@@ -871,7 +911,8 @@ def main():
     fig_ctrl, _ = plot_spatial_binding_pedestal_ax(
         pooled_ctrl,
         reference_fit=None,      # nothing overlaid here,
-        cont=True
+        cont=True,
+        out_path=f'./Saved_Images/SBW_curve{out_suffix}.svg',
     )
     try:                                    # nicer window‐title if backend supports it
         fig_ctrl.canvas.manager.set_window_title("SBW – CONTROL")
@@ -894,6 +935,7 @@ def main():
     pooled_mod = run_spatial_binding_across_models(
         model_paths,
         separations_deg=separations,
+        bg_lambda=bg_lambda,
         modify_net=manipulation,
         device="cuda:0"
     )
@@ -901,7 +943,8 @@ def main():
     fig_mod, ax_mod = plot_spatial_binding_pedestal_ax(
         pooled_mod,
         reference_fit=(xs_ref, ys_ref),
-        cont=False
+        cont=False,
+        out_path=f'./Saved_Images/SBW_curve_manip{out_suffix}.svg',
     )
     try:
         fig_mod.canvas.manager.set_window_title("SBW – MANIPULATED (+ control overlay)")
@@ -917,16 +960,19 @@ def main():
                                            disparity_deg=0,
                                            centre_deg=90,
                                            duration=20,
-                                           intensity=.5)
+                                           intensity=.5,
+                                           bg_lambda=bg_lambda)
     prof_sep = msi_profile_at_disparity(sample_net,
                                         disparity_deg=max_sep,
                                         centre_deg=45,
                                         duration=20,
-                                        intensity=.5)
+                                        intensity=.5,
+                                        bg_lambda=bg_lambda)
 
     plot_msi_profile(prof_fusion,
                      title="MSI activity – Δ azimuth 0°",
-                     color="C0")
+                     color="C0",
+                     out_path=Path(f"./Saved_Images/sbw_inset{out_suffix}.svg"))
     # plot_msi_profile(prof_sep,
     #                  title=f"MSI activity – Δ azimuth {max_sep}°",
     #                  color="C0")
@@ -940,8 +986,14 @@ def main():
 
 # usual guard
 if __name__ == "__main__":
-    main()
+    import argparse
 
-
-
-
+    p = argparse.ArgumentParser()
+    p.add_argument(
+        "--bg-lambda",
+        type=float,
+        default=None,
+        help="Ongoing background drive rate (Poisson lambda per frame). Defaults to env BG_LAMBDA or 0.",
+    )
+    args = p.parse_args()
+    main(bg_lambda=args.bg_lambda)

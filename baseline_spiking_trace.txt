@@ -1,0 +1,16 @@
+Using device: cuda
+device=cuda:0  dt_ms=0.1  n_substeps=100  ms_per_frame=10.0
+ckpt=checkpoint/msi_model_surr_10_00.pt
+frames=50  sim_time_s=0.500
+plasticity_enabled_in_update_all_layers_batch=False
+lr_uni=0.0  lr_msi=0.0  allow_inhib_plasticity=False
+
+--- Baseline spiking summary ---
+A         n= 180  total_spikes=           0  mean_rate=   0.0000 Hz  active_neurons=   0/180
+V         n= 180  total_spikes=           0  mean_rate=   0.0000 Hz  active_neurons=   0/180
+MSI_exc   n= 180  total_spikes=           0  mean_rate=   0.0000 Hz  active_neurons=   0/180
+MSI_inh   n=  54  total_spikes=           0  mean_rate=   0.0000 Hz  active_neurons=   0/54
+Out       n= 180  total_spikes=           0  mean_rate=   0.0000 Hz  active_neurons=   0/180
+
+TOTAL (all pops) spikes=0
+Baseline is exactly silent (no spikes observed).

@@ -3025,7 +3025,9 @@ def generate_flash_sound_batch(
 
 
 def run_temporal_integration(net, offsets, *, loc=90,
-                             T=60, D=5, extra=5, stim_in=1):
+                             T=60, D=5, extra=5, stim_in=1,
+                             bg_lambda: float = 0.0,
+                             log_charges: bool = False):
     """
     Evaluate MSI population response for a range of AV onset offsets.
 
@@ -3058,14 +3060,24 @@ def run_temporal_integration(net, offsets, *, loc=90,
         noise_std=0.0, device=net.device, max_len=max_len, stimulus_intensity=stim_in,
     )
 
+    # Optional ongoing low background drive (sampled on-device).
+    # Note: `log_charges` is accepted for compatibility (no-op here).
+    if bg_lambda and bg_lambda > 0.0:
+        lam = float(bg_lambda)
+        xA = xA + torch.poisson(torch.full_like(xA, lam))
+        xV = xV + torch.poisson(torch.full_like(xV, lam))
+
     # 2 .  run the network
     net.reset_state(len(offsets))
     rast = torch.zeros((max_len, len(offsets)), device=net.device)
 
     for t in range(max_len):
-        net.update_all_layers_batch(xA[:, t], xV[:, t], mask[:, t])
-        # population spike count (MSI excit.)
-        rast[t] = net._latest_sMSI.sum(dim=1)
+        _, _, _, _, sum_sM = net.update_all_layers_batch(
+            xA[:, t], xV[:, t], mask[:, t],
+            return_spike_sum=True,
+        )
+        # population spike count integrated across all 0.1 ms sub-steps
+        rast[t] = sum_sM.sum(dim=1)
 
     # 3 .  integrate *aligned* windows
     int_spikes = []
@@ -3427,4 +3439,3 @@ if __name__ == "__main__":
     print("\nAll replicas finished:")
     for p in saved:
         print("  •", p)
-
