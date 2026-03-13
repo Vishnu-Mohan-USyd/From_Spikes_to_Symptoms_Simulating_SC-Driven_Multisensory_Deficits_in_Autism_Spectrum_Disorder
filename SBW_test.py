@@ -251,6 +251,7 @@ def load_msi_model(ckpt_path: Path, *, device="cpu"):
     return net
 
 
+@torch.inference_mode()
 def spatial_binding_curve_fast(
         net,
         separations_deg=range(0, 61, 5),
@@ -390,10 +391,7 @@ def compute_spatial_binding_curve(
                     source_indices=(int(idxA_np[trial_idx]), int(idxV_np[trial_idx])),
                 )
 
-            # Good GPU hygiene
             del xA, xV, msi_sum, gA, gV, idxA, idxV
-            if net.device.type == "cuda":
-                torch.cuda.empty_cache()
 
         fusion_prob.append(fused_trials / n_trials)
 
@@ -431,7 +429,6 @@ def run_spatial_binding_across_models(
         if callable(modify_net):  
             modify_net(net)  # tweak parameters *in‑place*
         net.freeze_eval_updates = True
-
         curves.append(
             spatial_binding_curve_fast(
                 net,
@@ -443,8 +440,6 @@ def run_spatial_binding_across_models(
             )
         )
         del net
-        if device.startswith("cuda"):
-            torch.cuda.empty_cache()
 
     curves = np.vstack(curves)
     return {

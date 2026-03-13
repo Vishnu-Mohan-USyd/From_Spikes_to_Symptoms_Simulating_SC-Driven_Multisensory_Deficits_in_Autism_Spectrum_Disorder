@@ -6,7 +6,6 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 from torch import nn
-from torch.nn.utils import parametrize
 
 
 class Positive(nn.Module):
@@ -287,10 +286,7 @@ def apply_topographic_anchor_unimodal(net, layer="A", lr=1e-4, sigma=5.0):
     W = net.W_inA if layer == "A" else net.W_inV  # (n,n)
     spikes = net._latest_sA if layer == "A" else net._latest_sV  # (B,n)
     r = spikes.mean(0)  # (n,)
-
-    n = net.n
-    idx = torch.arange(n, device=W.device)
-    G = torch.exp(-0.5 * ((idx[:, None] - idx[None, :]) / sigma) ** 2)  # (n,n)
+    G = net._get_cached_gaussian_kernel(sigma)
 
     dW = lr * (r.unsqueeze(1) * G)  # Hebbian growth
     attr = "W_inA" if layer == "A" else "W_inV"
@@ -313,9 +309,7 @@ def apply_topographic_anchor_msi(net, layer="A", lr=1e-4, sigma=5.0):
     s_post = net._latest_sMSI  # shape (B, n)
     r_post = s_post.mean(dim=0)  # average over batch => shape (n,)
 
-    n_msi = net.n
-    idx = torch.arange(n_msi, device=W_AMPA.device)
-    G = torch.exp(-0.5 * ((idx[:, None] - idx[None, :]) / 2.0) ** 2)
+    G = net._get_cached_gaussian_kernel(2.0)
     dW_ampa = lr * (r_post.unsqueeze(1) * G)  # shape (n,n)
     dW_ampa_decay = lr * (r_post.unsqueeze(1) * W_AMPA)
     net._p_add("W_a2msi_AMPA" if layer == "A" else "W_v2msi_AMPA", dW_ampa - dW_ampa_decay)
@@ -425,9 +419,7 @@ def apply_local_competition_unimodal_fast(net,
     spikes = net._latest_sA if layer == "A" else net._latest_sV
     r = spikes.mean(0)  # (n,)
 
-    n = net.n
-    idx = torch.arange(n, device=W.device)
-    M = ((idx[:, None] - idx[None, :]).abs() <= neighbour_dist).float()
+    M = net._get_cached_neighbour_mask(neighbour_dist)
     s = torch.matmul(M, r)  # neighbour firing sum
 
     # heterosynaptic LTD (multiplicative)
@@ -451,10 +443,7 @@ def apply_local_competition_msi_fast(net, beta=5e-4, neighbour_dist=5):
     s_msi = net._latest_sMSI  # shape (B, n)
     r = s_msi.mean(dim=0)  # shape (n,)
 
-    n = net.n
-    idx = torch.arange(n, device=s_msi.device)
-    # Linear distance
-    M = ((idx[:, None] - idx[None, :]).abs() <= neighbour_dist).float()
+    M = net._get_cached_neighbour_mask(neighbour_dist)
 
     # sum of neighbor firing
     s = torch.matmul(M, r)  # shape (n,)
@@ -524,9 +513,12 @@ def generate_av_batch_tensor(
     if max_len is None:
         max_len = max(len(seq) for seq in loc_seqs)
 
-    xA_batch = torch.zeros((batch_size, max_len, n), dtype=torch.float32, device=device)
-    xV_batch = torch.zeros((batch_size, max_len, n), dtype=torch.float32, device=device)
-    valid_mask = torch.zeros((batch_size, max_len), dtype=torch.bool, device=device)
+    valid_mask_np = np.zeros((batch_size, max_len), dtype=bool)
+    active_mask_np = np.zeros((batch_size, max_len), dtype=bool)
+    audio_only_np = np.zeros((batch_size, max_len), dtype=bool)
+    visual_only_np = np.zeros((batch_size, max_len), dtype=bool)
+    center_idxA_np = np.full((batch_size, max_len), -1, dtype=np.int64)
+    center_idxV_np = np.full((batch_size, max_len), -1, dtype=np.int64)
 
     for b in range(batch_size):
         loc_seq = loc_seqs[b]
@@ -534,7 +526,7 @@ def generate_av_batch_tensor(
         offs = offset_applied[b] if offset_applied is not None else False
 
         T = len(loc_seq)
-        valid_mask[b, :T] = True
+        valid_mask_np[b, :T] = True
 
         a_off_seq = None
         v_off_seq = None
@@ -546,53 +538,59 @@ def generate_av_batch_tensor(
 
         for t in range(T):
             loc_t_deg = loc_seq[t]
-            if loc_t_deg == 999 or mod_seq[t] == 'X':
+            mode_t = mod_seq[t]
+            if loc_t_deg == 999 or mode_t == 'X':
                 continue
 
             if loc_jitter_std > 0.0:
                 loc_t_deg = float(np.clip(
                     loc_t_deg + np.random.normal(0, loc_jitter_std),
-                    0, space_size - 1))
+                    0,
+                    space_size - 1,
+                ))
 
-            # pick offsets for this frame
             if a_off_seq is not None:
                 a_off = a_off_seq[t] if t < len(a_off_seq) else 0.0
             else:
-                a_off = 0.0  # legacy path never shifted A
+                a_off = 0.0
 
             if v_off_seq is not None:
                 v_off = v_off_seq[t] if t < len(v_off_seq) else 0.0
             else:
-                v_off = (np.random.uniform(-3, 3) if bool(offs) else 0.0)
+                v_off = np.random.uniform(-3, 3) if bool(offs) else 0.0
 
-            # convert to neuron indices
-            center_idxA = location_to_index(loc_t_deg + a_off, n, space_size)
-            center_idxV = location_to_index(loc_t_deg + v_off, n, space_size)
+            active_mask_np[b, t] = True
+            audio_only_np[b, t] = mode_t == 'A'
+            visual_only_np[b, t] = mode_t == 'V'
+            center_idxA_np[b, t] = location_to_index(loc_t_deg + a_off, n, space_size)
+            center_idxV_np[b, t] = location_to_index(loc_t_deg + v_off, n, space_size)
 
-            # build analog Gaussians
-            gaussA = make_gaussian_vector_batch_gpu(
-                torch.tensor([center_idxA], device=device),
-                n, sigma_in, device
-            ) * stimulus_intensity
+    valid_mask = torch.as_tensor(valid_mask_np, dtype=torch.bool, device=device)
+    active_mask = torch.as_tensor(active_mask_np, dtype=torch.float32, device=device)
+    audio_only = torch.as_tensor(audio_only_np, dtype=torch.bool, device=device).unsqueeze(-1)
+    visual_only = torch.as_tensor(visual_only_np, dtype=torch.bool, device=device).unsqueeze(-1)
 
-            gaussV = make_gaussian_vector_batch_gpu(
-                torch.tensor([center_idxV], device=device),
-                n, sigma_in, device
-            ) * stimulus_intensity
+    xs = torch.arange(n, dtype=torch.float32, device=device).view(1, 1, n)
+    centers_a = torch.as_tensor(center_idxA_np.clip(min=0), dtype=torch.float32, device=device).unsqueeze(-1)
+    centers_v = torch.as_tensor(center_idxV_np.clip(min=0), dtype=torch.float32, device=device).unsqueeze(-1)
 
-            # respect modality for this frame
-            if mod_seq[t] == 'A':
-                gaussV.zero_()
-            elif mod_seq[t] == 'V':
-                gaussA.zero_()
+    xA_batch = torch.exp(-0.5 * ((xs - centers_a) / sigma_in) ** 2)
+    xV_batch = torch.exp(-0.5 * ((xs - centers_v) / sigma_in) ** 2)
+    xA_batch.mul_(stimulus_intensity).mul_(active_mask.unsqueeze(-1))
+    xV_batch.mul_(stimulus_intensity).mul_(active_mask.unsqueeze(-1))
 
-            # additive noise (unchanged)
-            if noise_std and noise_std > 0.0:
-                gaussA += torch.randn(1, n, device=device) * noise_std
-                gaussV += torch.randn(1, n, device=device) * noise_std
+    xV_batch.masked_fill_(audio_only, 0.0)
+    xA_batch.masked_fill_(visual_only, 0.0)
 
-            xA_batch[b, t] = gaussA[0]
-            xV_batch[b, t] = gaussV[0]
+    if noise_std and noise_std > 0.0:
+        active_index = active_mask.nonzero(as_tuple=False)
+        if active_index.numel() > 0:
+            stacked_noise = torch.randn((2 * active_index.size(0), n), device=device).mul_(noise_std)
+            noise_a = stacked_noise[0::2]
+            noise_v = stacked_noise[1::2]
+            flat_index = active_index[:, 0] * max_len + active_index[:, 1]
+            xA_batch.view(batch_size * max_len, n).index_add_(0, flat_index, noise_a)
+            xV_batch.view(batch_size * max_len, n).index_add_(0, flat_index, noise_v)
 
     return xA_batch, xV_batch, valid_mask
 
@@ -1069,7 +1067,8 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self.W_latV = torch.zeros((self.n, self.n), device=self.device)
         self.g_latA = 0.1  # Lateral inhibition gain for A
         self.g_latV = 0.1  # Lateral inhibition gain for V
-        self._probe = AMPANMDADebugger()  # ← add near other debug fields
+        self._probe = None
+        self.enable_probe = False
 
         self.tau_ampa_lp = 2.5  # ms  (same as self.tau_syn)
         self.ampa_alpha = 1.0  # scale factor per injection
@@ -1082,12 +1081,11 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
 
         def pos_init(shape, scale=3.0):
             """
-            Return a Parameter θ such that
-              W = softplus(θ) – log(2)
-            has mean ≈ 0  (because softplus(0)=log 2).
+            Return a direct weight Parameter W with the same initial value that
+            the old Positive() parametrization would expose.
             """
             theta = scale * torch.randn(*shape, device=self.device)  # θ ~ N(0,σ²)
-            return nn.Parameter(theta, requires_grad=False)  # θ is stored
+            return nn.Parameter(Positive()(theta), requires_grad=False)
 
         # define an MSI inhibitory subpopulation
         self.n_inh = int(0.3 * n_neurons)
@@ -1239,52 +1237,30 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self.conduction_delay_msi2out = conduction_delay_msi2out
 
         # unimodal->MSI excit
-        self.buffer_a2msi = deque([
-            torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device)
-            for _ in range(self.conduction_delay_a2msi)
-        ], maxlen=self.conduction_delay_a2msi)
-        self.buffer_v2msi = deque([
-            torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device)
-            for _ in range(self.conduction_delay_v2msi)
-        ], maxlen=self.conduction_delay_v2msi)
+        self.buffer_a2msi = None
+        self.buffer_v2msi = None
 
         # unimodal->MSI inh (dedicated inhibitory path):
         self.conduction_delay_inA_inh = conduction_delay_a2msi + 20
         self.conduction_delay_inV_inh = conduction_delay_v2msi + 20
-        self.buffer_inA_inh = deque([
-            torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device)
-            for _ in range(self.conduction_delay_inA_inh)
-        ], maxlen=self.conduction_delay_inA_inh)
-        self.buffer_inV_inh = deque([
-            torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device)
-            for _ in range(self.conduction_delay_inV_inh)
-        ], maxlen=self.conduction_delay_inV_inh)
+        self.buffer_inA_inh = None
+        self.buffer_inV_inh = None
 
         # unimodal->MSI_inh excit:
         self.conduction_delay_a2msi_inh = conduction_delay_a2msi + 20
         self.conduction_delay_v2msi_inh = conduction_delay_v2msi + 20
-        self.buffer_a2msi_inh = deque([
-            torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device)
-            for _ in range(self.conduction_delay_a2msi_inh)
-        ], maxlen=self.conduction_delay_a2msi_inh)
-        self.buffer_v2msi_inh = deque([
-            torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device)
-            for _ in range(self.conduction_delay_v2msi_inh)
-        ], maxlen=self.conduction_delay_v2msi_inh)
+        self.buffer_a2msi_inh = None
+        self.buffer_v2msi_inh = None
 
         # MSI_inh->MSI_exc
         self.conduction_delay_msi_inh2exc = max(self.conduction_delay_a2msi,
                                                 self.conduction_delay_v2msi) + 50
-        self.buffer_msi_inh2exc = deque([
-            torch.zeros((self.batch_size, self.n_inh), dtype=torch.float32, device=self.device)
-            for _ in range(self.conduction_delay_msi_inh2exc)
-        ], maxlen=self.conduction_delay_msi_inh2exc)
+        self.buffer_msi_inh2exc = None
 
         # MSI->Out
-        self.buffer_msi2out = deque([
-            torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device)
-            for _ in range(self.conduction_delay_msi2out)
-        ], maxlen=self.conduction_delay_msi2out)
+        self.buffer_msi2out = None
+        self._delay_positions = {}
+        self._kernel_cache = {}
 
         ################################################################
         # NMDA parameters and state variables
@@ -1330,25 +1306,11 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self.tau_fac = 20.0
 
         # --- debug counters -------------------------------------------------
-        self._dbg_spk_A = 0.0  # accumulated spikes in layer A
-        self._dbg_spk_V = 0.0  # accumulated spikes in layer V
-        self._dbg_spk_MSI = 0.0  # accumulated spikes in MSI excit
+        self._dbg_spk_A = torch.zeros((), dtype=torch.float32, device=self.device)
+        self._dbg_spk_V = torch.zeros((), dtype=torch.float32, device=self.device)
+        self._dbg_spk_MSI = torch.zeros((), dtype=torch.float32, device=self.device)
         self._dbg_steps = 0  # how many external frames have been seen
-
-        exc_names = [
-            "W_inA", "W_inV",
-            "W_a2msi_AMPA", "W_a2msi_NMDA",
-            "W_v2msi_AMPA", "W_v2msi_NMDA",
-        ]
-        for name in exc_names:
-            parametrize.register_parametrization(self, name, Positive())
-
-        for attr in ["W_inA_inh", "W_inV_inh", "W_msiInh2Exc_GABA",
-                     "W_a2msiInh_AMPA", "W_a2msiInh_NMDA",
-                     "W_v2msiInh_AMPA", "W_v2msiInh_NMDA"
-                     ]:
-            parametrize.register_parametrization(self, attr, NonNegative())
-
+        self._reset_delay_buffers()
 
         self.g_GABA = 0.7  # ① global scale  ↑  (was 0.4)
 
@@ -1370,7 +1332,6 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         init_W = self.near_mask.clone()
         self.W_MSI_inh = nn.Parameter(init_W,
                                       requires_grad=False)
-        parametrize.register_parametrization(self, "W_MSI_inh", Positive())
 
         self.register_buffer("W_MSI_inh_init", init_W.clone())
 
@@ -1392,37 +1353,71 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
     def set_inhib_plasticity(self, enable: bool):
         self.allow_inhib_plasticity = enable
 
+    def _translate_legacy_state_dict(self, state_dict):
+        if not any(key.startswith("parametrizations.") for key in state_dict):
+            return state_dict
+
+        translated = dict(state_dict)
+        positive_attrs = (
+            "W_inA",
+            "W_inV",
+            "W_a2msi_AMPA",
+            "W_a2msi_NMDA",
+            "W_v2msi_AMPA",
+            "W_v2msi_NMDA",
+            "W_MSI_inh",
+        )
+        nonnegative_attrs = (
+            "W_inA_inh",
+            "W_inV_inh",
+            "W_msiInh2Exc_GABA",
+            "W_a2msiInh_AMPA",
+            "W_a2msiInh_NMDA",
+            "W_v2msiInh_AMPA",
+            "W_v2msiInh_NMDA",
+        )
+        positive_proj = Positive()
+        nonnegative_proj = NonNegative()
+
+        for attr in positive_attrs:
+            legacy_key = f"parametrizations.{attr}.original"
+            if legacy_key in translated and attr not in translated:
+                translated[attr] = positive_proj(translated.pop(legacy_key))
+            else:
+                translated.pop(legacy_key, None)
+
+        for attr in nonnegative_attrs:
+            legacy_key = f"parametrizations.{attr}.original"
+            if legacy_key in translated and attr not in translated:
+                translated[attr] = nonnegative_proj(translated.pop(legacy_key))
+            else:
+                translated.pop(legacy_key, None)
+
+        return translated
+
+    def load_state_dict(self, state_dict, strict: bool = True, assign: bool = False):
+        translated = self._translate_legacy_state_dict(state_dict)
+        return super().load_state_dict(translated, strict=strict, assign=assign)
+
     def disable_all_inhibition(self):
         """
-        Sets all known inhibitory pathways to zero at the raw Parameter level
-        *including* reparametrized 'original' for a2msiInh/v2msiInh AMPA/NMDA.
-
-        After this, sums of W_a2msiInh_AMPA, W_a2msiInh_NMDA, etc.
-        must all be zero in the final forward pass.
+        Sets all known inhibitory pathways to zero at the parameter level.
         """
 
-        def forcibly_zero_reparam(attr: str):
-            if attr in self.parametrizations:  # wrapped
-                plist = self.parametrizations[attr]
-                theta = plist.original
-                if isinstance(plist[0], NonNegative):  # cannot hit zero exactly
-                    theta.fill_(-20.0)  # ≈ 2 × 10⁻⁹ after soft‑plus
-                else:  # Positive → exact 0 is OK
-                    theta.zero_()
-            else:  # not wrapped
+        with torch.no_grad():
+            for attr in (
+                "W_inA_inh",
+                "W_inV_inh",
+                "W_a2msiInh_AMPA",
+                "W_a2msiInh_NMDA",
+                "W_v2msiInh_AMPA",
+                "W_v2msiInh_NMDA",
+                "W_msiInh2Exc_GABA",
+                "W_MSI_inh",
+            ):
                 w = getattr(self, attr, None)
                 if w is not None:
                     w.zero_()
-
-        with torch.no_grad():
-            forcibly_zero_reparam("W_inA_inh")
-            forcibly_zero_reparam("W_inV_inh")
-            forcibly_zero_reparam("W_a2msiInh_AMPA")
-            forcibly_zero_reparam("W_a2msiInh_NMDA")
-            forcibly_zero_reparam("W_v2msiInh_AMPA")
-            forcibly_zero_reparam("W_v2msiInh_NMDA")
-            forcibly_zero_reparam("W_msiInh2Exc_GABA")
-            forcibly_zero_reparam("W_MSI_inh")
             self.g_GABA = 0.0
             self.allow_inhib_plasticity = False
 
@@ -1450,15 +1445,73 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
                eps: float = 1e-9,
                rel_clip: float = 0.25,
                abs_cap: float = 5.0):
-        """Clipped additive update for parametrised weights."""
+        """Clipped additive update for direct weight parameters."""
         with torch.no_grad():
-            W = getattr(self, attr)  # current ≥0 view
-            step = torch.clamp(dW, -rel_clip * W, rel_clip * W)
-            W_new = (W + step).clamp(min=eps, max=abs_cap)  # safe candidate
+            W = getattr(self, attr)
+            step_limit = rel_clip * W.abs().clamp_min(eps)
+            step = torch.clamp(dW, -step_limit, step_limit)
+            W.copy_((W + step).clamp(min=eps, max=abs_cap))
 
-            theta = self.parametrizations[attr].original
-            proj = self.parametrizations[attr][0]  # Positive() / NonNegative()
-            theta.copy_(proj.right_inverse(W_new))
+    def _ensure_delay_buffer(self,
+                             attr: str,
+                             *,
+                             delay: int,
+                             width: int) -> None:
+        buf_len = max(int(delay), 1)
+        expected_shape = (buf_len, self.batch_size, width)
+        buf = getattr(self, attr, None)
+        if buf is None or tuple(buf.shape) != expected_shape:
+            setattr(
+                self,
+                attr,
+                torch.zeros(expected_shape, dtype=torch.float32, device=self.device),
+            )
+        else:
+            buf.zero_()
+        self._delay_positions[attr] = 0
+
+    def _reset_delay_buffers(self) -> None:
+        self._ensure_delay_buffer("buffer_a2msi",
+                                  delay=self.conduction_delay_a2msi,
+                                  width=self.n)
+        self._ensure_delay_buffer("buffer_v2msi",
+                                  delay=self.conduction_delay_v2msi,
+                                  width=self.n)
+        self._ensure_delay_buffer("buffer_inA_inh",
+                                  delay=self.conduction_delay_inA_inh,
+                                  width=self.n)
+        self._ensure_delay_buffer("buffer_inV_inh",
+                                  delay=self.conduction_delay_inV_inh,
+                                  width=self.n)
+        self._ensure_delay_buffer("buffer_a2msi_inh",
+                                  delay=self.conduction_delay_a2msi_inh,
+                                  width=self.n)
+        self._ensure_delay_buffer("buffer_v2msi_inh",
+                                  delay=self.conduction_delay_v2msi_inh,
+                                  width=self.n)
+        self._ensure_delay_buffer("buffer_msi_inh2exc",
+                                  delay=self.conduction_delay_msi_inh2exc,
+                                  width=self.n_inh)
+        self._ensure_delay_buffer("buffer_msi2out",
+                                  delay=self.conduction_delay_msi2out,
+                                  width=self.n)
+
+    def _get_cached_gaussian_kernel(self, sigma: float) -> torch.Tensor:
+        key = ("gaussian", float(sigma), self.n, self.device.type, self.device.index)
+        kernel = self._kernel_cache.get(key)
+        if kernel is None or kernel.device != self.device:
+            dist = self.dist_mask.to(device=self.device)
+            kernel = torch.exp(-0.5 * (dist / float(sigma)) ** 2)
+            self._kernel_cache[key] = kernel
+        return kernel
+
+    def _get_cached_neighbour_mask(self, neighbour_dist: int) -> torch.Tensor:
+        key = ("neighbour", int(neighbour_dist), self.n, self.device.type, self.device.index)
+        mask = self._kernel_cache.get(key)
+        if mask is None or mask.device != self.device:
+            mask = (self.dist_mask.to(device=self.device) <= int(neighbour_dist)).float()
+            self._kernel_cache[key] = mask
+        return mask
 
     # ---------- MultiBatchAudVisMSINetworkTime.patch ----------
 
@@ -1652,40 +1705,11 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self.post_trace_v2msi_nmda = torch.zeros((self.batch_size, self.n), device=self.device)
         self.ampa_m.zero_()  # clear low-pass AMPA state
 
-        # clear conduction buffers
-        self.buffer_a2msi.clear()
-        self.buffer_v2msi.clear()
-        self.buffer_inA_inh.clear()
-        self.buffer_inV_inh.clear()
-        self.buffer_a2msi_inh.clear()
-        self.buffer_v2msi_inh.clear()
-        self.buffer_msi_inh2exc.clear()
-        self.buffer_msi2out.clear()
+        self._reset_delay_buffers()
         if hasattr(self, "ampa_m"):
             self.ampa_m = torch.zeros((self.batch_size, self.n),
                                       dtype=torch.float32,
                                       device=self.device)
-        # ------------------------------------------------
-
-        for _ in range(self.conduction_delay_a2msi):
-            self.buffer_a2msi.append(torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device))
-        for _ in range(self.conduction_delay_v2msi):
-            self.buffer_v2msi.append(torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device))
-        for _ in range(self.conduction_delay_inA_inh):
-            self.buffer_inA_inh.append(torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device))
-        for _ in range(self.conduction_delay_inV_inh):
-            self.buffer_inV_inh.append(torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device))
-        for _ in range(self.conduction_delay_a2msi_inh):
-            self.buffer_a2msi_inh.append(
-                torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device))
-        for _ in range(self.conduction_delay_v2msi_inh):
-            self.buffer_v2msi_inh.append(
-                torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device))
-        for _ in range(self.conduction_delay_msi_inh2exc):
-            self.buffer_msi_inh2exc.append(
-                torch.zeros((self.batch_size, self.n_inh), dtype=torch.float32, device=self.device))
-        for _ in range(self.conduction_delay_msi2out):
-            self.buffer_msi2out.append(torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device))
 
         # reset NMDA gating
         self.nmda_m = torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device)
@@ -1720,14 +1744,20 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
                                          device=self.device)
 
         # --- debug counters -------------------------------------------------
-        self._dbg_spk_A = 0.0  # accumulated spikes in layer A
-        self._dbg_spk_V = 0.0  # accumulated spikes in layer V
-        self._dbg_spk_MSI = 0.0  # accumulated spikes in MSI excit
+        self._dbg_spk_A.zero_()
+        self._dbg_spk_V.zero_()
+        self._dbg_spk_MSI.zero_()
         self._dbg_steps = 0  # how many external frames have been seen
 
         # reset RF tracking
         self.msi_rf_centers = torch.zeros((self.batch_size, self.n), device=self.device)
         self.msi_rf_certainty = torch.zeros((self.batch_size, self.n), device=self.device)
+
+    def _reset_debug_counters(self) -> None:
+        self._dbg_spk_A.zero_()
+        self._dbg_spk_V.zero_()
+        self._dbg_spk_MSI.zero_()
+        self._dbg_steps = 0
 
     def print_epoch_spike_summary(self, tag: str = "") -> None:
         """Print mean firing rates (Hz) for A, V, MSI layers."""
@@ -1736,9 +1766,9 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             return
 
         norm = self._dbg_steps * self.n  # total neuron-frames
-        rA = self._dbg_spk_A / norm
-        rV = self._dbg_spk_V / norm
-        rM = self._dbg_spk_MSI / norm
+        rA = self._dbg_spk_A.item() / norm
+        rV = self._dbg_spk_V.item() / norm
+        rM = self._dbg_spk_MSI.item() / norm
 
         # Convert to Hz
         ms_per_frame = self.n_substeps * self.dt
@@ -1752,8 +1782,7 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
               f"   (target={self.rho0 * hz_fact:5.2f} Hz)")
 
         # ready for next epoch
-        self._dbg_spk_A = self._dbg_spk_V = self._dbg_spk_MSI = 0.0
-        self._dbg_steps = 0
+        self._reset_debug_counters()
 
     def update_all_layers_batch(self,
                                 xA_batch,
@@ -1793,17 +1822,78 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
 
         decay_factor = 1.0 - self.dt / self.tau_syn
         spike_threshold = 30.0
-
-        # Expand for unimodal feedforward
-        xA_expanded = xA_batch.unsqueeze(1)
-        xV_expanded = xV_batch.unsqueeze(1)
-
-        W_inA_expanded = self.W_inA.unsqueeze(0).expand(batch_size, self.n, self.n)
-        W_inV_expanded = self.W_inV.unsqueeze(0).expand(batch_size, self.n, self.n)
+        input_step_scale = 1.0 / float(self.n_substeps)
+        decay_i = math.exp(-self.dt / self.tau_post_i)
+        alpha_rate = self.dt / self.rate_avg_tau
+        track_debug_rates = not self.freeze_eval_updates
+        probe = self._probe if self.enable_probe else None
+        zero_exc = torch.zeros((batch_size, self.n), dtype=torch.float32, device=self.device)
+        zero_inh = torch.zeros((batch_size, self.n_inh), dtype=torch.float32, device=self.device)
+        cached_eval_weights = None
+        if self.freeze_eval_updates:
+            cached_eval_weights = {
+                "W_inA": self.W_inA,
+                "W_inV": self.W_inV,
+                "W_a2msi_AMPA": self.W_a2msi_AMPA,
+                "W_v2msi_AMPA": self.W_v2msi_AMPA,
+                "W_a2msi_NMDA": self.W_a2msi_NMDA,
+                "W_v2msi_NMDA": self.W_v2msi_NMDA,
+                "W_inA_inh": self.W_inA_inh,
+                "W_inV_inh": self.W_inV_inh,
+                "W_a2msiInh_AMPA": self.W_a2msiInh_AMPA,
+                "W_v2msiInh_AMPA": self.W_v2msiInh_AMPA,
+                "W_a2msiInh_NMDA": self.W_a2msiInh_NMDA,
+                "W_v2msiInh_NMDA": self.W_v2msiInh_NMDA,
+                "W_msiInh2Exc_GABA": self.W_msiInh2Exc_GABA,
+                "W_msi2out": self.W_msi2out,
+                "W_latA": self.W_latA,
+                "W_latV": self.W_latV,
+                "W_MSI_inh": self.W_MSI_inh,
+            }
+        W_a2msiInh_AMPA = cached_eval_weights["W_a2msiInh_AMPA"] if cached_eval_weights is not None else self.W_a2msiInh_AMPA
+        W_v2msiInh_AMPA = cached_eval_weights["W_v2msiInh_AMPA"] if cached_eval_weights is not None else self.W_v2msiInh_AMPA
+        W_a2msiInh_NMDA = cached_eval_weights["W_a2msiInh_NMDA"] if cached_eval_weights is not None else self.W_a2msiInh_NMDA
+        W_v2msiInh_NMDA = cached_eval_weights["W_v2msiInh_NMDA"] if cached_eval_weights is not None else self.W_v2msiInh_NMDA
+        W_msiInh2Exc_GABA = cached_eval_weights["W_msiInh2Exc_GABA"] if cached_eval_weights is not None else self.W_msiInh2Exc_GABA
+        W_msi2out = cached_eval_weights["W_msi2out"] if cached_eval_weights is not None else self.W_msi2out
+        W_latA = cached_eval_weights["W_latA"] if cached_eval_weights is not None else self.W_latA
+        W_latV = cached_eval_weights["W_latV"] if cached_eval_weights is not None else self.W_latV
+        W_MSI_inh = cached_eval_weights["W_MSI_inh"] if cached_eval_weights is not None else self.W_MSI_inh
+        W_a2msi_AMPA = None
+        W_v2msi_AMPA = None
+        W_a2msi_NMDA = None
+        W_v2msi_NMDA = None
+        refresh_msi_exc_weight_views = True
+        buf_a2msi = self.buffer_a2msi
+        buf_v2msi = self.buffer_v2msi
+        buf_inA_inh = self.buffer_inA_inh
+        buf_inV_inh = self.buffer_inV_inh
+        buf_a2msi_inh = self.buffer_a2msi_inh
+        buf_v2msi_inh = self.buffer_v2msi_inh
+        buf_msi_inh2exc = self.buffer_msi_inh2exc
+        buf_msi2out = self.buffer_msi2out
+        pos_a2msi = self._delay_positions["buffer_a2msi"]
+        pos_v2msi = self._delay_positions["buffer_v2msi"]
+        pos_inA_inh = self._delay_positions["buffer_inA_inh"]
+        pos_inV_inh = self._delay_positions["buffer_inV_inh"]
+        pos_a2msi_inh = self._delay_positions["buffer_a2msi_inh"]
+        pos_v2msi_inh = self._delay_positions["buffer_v2msi_inh"]
+        pos_msi_inh2exc = self._delay_positions["buffer_msi_inh2exc"]
+        pos_msi2out = self._delay_positions["buffer_msi2out"]
+        delay_a2msi = self.conduction_delay_a2msi
+        delay_v2msi = self.conduction_delay_v2msi
+        delay_inA_inh = self.conduction_delay_inA_inh
+        delay_inV_inh = self.conduction_delay_inV_inh
+        delay_a2msi_inh = self.conduction_delay_a2msi_inh
+        delay_v2msi_inh = self.conduction_delay_v2msi_inh
+        delay_msi_inh2exc = self.conduction_delay_msi_inh2exc
+        delay_msi2out = self.conduction_delay_msi2out
 
         # ---- feedforward input ----
-        I_A_input = self.input_scaling * (xA_batch @ self.W_inA + self.b_uniA)
-        I_V_input = self.input_scaling * (xV_batch @ self.W_inV + self.b_uniV)
+        W_inA = cached_eval_weights["W_inA"] if cached_eval_weights is not None else self.W_inA
+        W_inV = cached_eval_weights["W_inV"] if cached_eval_weights is not None else self.W_inV
+        I_A_input = self.input_scaling * (xA_batch @ W_inA + self.b_uniA)
+        I_V_input = self.input_scaling * (xV_batch @ W_inV + self.b_uniV)
 
         for sub_i in range(self.n_substeps):
             # --- Decay old currents ---
@@ -1814,74 +1904,72 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             self.I_O.mul_(decay_factor)
 
             # Add external input (split across substeps)
-            self.I_A.add_(I_A_input / float(self.n_substeps))
-            self.I_V.add_(I_V_input / float(self.n_substeps))
+            self.I_A.add_(I_A_input * input_step_scale)
+            self.I_V.add_(I_V_input * input_step_scale)
 
             # --- Conduction-delay safe pops ---
-            if self.conduction_delay_a2msi > 0:
-                delayed_spikes_a2msi = self.buffer_a2msi.popleft()
+            if delay_a2msi > 0:
+                delayed_spikes_a2msi = buf_a2msi[pos_a2msi]
             else:
-                delayed_spikes_a2msi = torch.zeros((batch_size, self.n), device=self.device)
+                delayed_spikes_a2msi = zero_exc
 
-            if self.conduction_delay_v2msi > 0:
-                delayed_spikes_v2msi = self.buffer_v2msi.popleft()
+            if delay_v2msi > 0:
+                delayed_spikes_v2msi = buf_v2msi[pos_v2msi]
             else:
-                delayed_spikes_v2msi = torch.zeros((batch_size, self.n), device=self.device)
+                delayed_spikes_v2msi = zero_exc
 
-            if self.conduction_delay_inA_inh > 0:
-                delayed_spikes_inA_inh = self.buffer_inA_inh.popleft()
+            if delay_inA_inh > 0:
+                delayed_spikes_inA_inh = buf_inA_inh[pos_inA_inh]
             else:
-                delayed_spikes_inA_inh = torch.zeros((batch_size, self.n), device=self.device)
+                delayed_spikes_inA_inh = zero_exc
 
-            if self.conduction_delay_inV_inh > 0:
-                delayed_spikes_inV_inh = self.buffer_inV_inh.popleft()
+            if delay_inV_inh > 0:
+                delayed_spikes_inV_inh = buf_inV_inh[pos_inV_inh]
             else:
-                delayed_spikes_inV_inh = torch.zeros((batch_size, self.n), device=self.device)
+                delayed_spikes_inV_inh = zero_exc
 
-            if self.conduction_delay_a2msi_inh > 0:
-                delayed_spikes_a2msi_inh = self.buffer_a2msi_inh.popleft()
+            if delay_a2msi_inh > 0:
+                delayed_spikes_a2msi_inh = buf_a2msi_inh[pos_a2msi_inh]
             else:
-                delayed_spikes_a2msi_inh = torch.zeros((batch_size, self.n), device=self.device)
+                delayed_spikes_a2msi_inh = zero_exc
 
-            if self.conduction_delay_v2msi_inh > 0:
-                delayed_spikes_v2msi_inh = self.buffer_v2msi_inh.popleft()
+            if delay_v2msi_inh > 0:
+                delayed_spikes_v2msi_inh = buf_v2msi_inh[pos_v2msi_inh]
             else:
-                delayed_spikes_v2msi_inh = torch.zeros((batch_size, self.n), device=self.device)
+                delayed_spikes_v2msi_inh = zero_exc
 
-            if self.conduction_delay_msi_inh2exc > 0:
-                delayed_spikes_msi_inh2exc = self.buffer_msi_inh2exc.popleft()
+            if delay_msi_inh2exc > 0:
+                delayed_spikes_msi_inh2exc = buf_msi_inh2exc[pos_msi_inh2exc]
             else:
-                delayed_spikes_msi_inh2exc = torch.zeros((batch_size, self.n_inh), device=self.device)
+                delayed_spikes_msi_inh2exc = zero_inh
 
-            if self.conduction_delay_msi2out > 0:
-                delayed_spikes_msi2out = self.buffer_msi2out.popleft()
+            if delay_msi2out > 0:
+                delayed_spikes_msi2out = buf_msi2out[pos_msi2out]
             else:
-                delayed_spikes_msi2out = torch.zeros((batch_size, self.n), device=self.device)
+                delayed_spikes_msi2out = zero_exc
+
+            if refresh_msi_exc_weight_views:
+                W_a2msi_AMPA = cached_eval_weights["W_a2msi_AMPA"] if cached_eval_weights is not None else self.W_a2msi_AMPA
+                W_v2msi_AMPA = cached_eval_weights["W_v2msi_AMPA"] if cached_eval_weights is not None else self.W_v2msi_AMPA
+                W_a2msi_NMDA = cached_eval_weights["W_a2msi_NMDA"] if cached_eval_weights is not None else self.W_a2msi_NMDA
+                W_v2msi_NMDA = cached_eval_weights["W_v2msi_NMDA"] if cached_eval_weights is not None else self.W_v2msi_NMDA
+                refresh_msi_exc_weight_views = False
 
             # ============== A->MSI (AMPA+NMDA) ==============
-            # (Tsodyks-Markram STP usage for A->MSI)
-            W_a2msi_AMPA_expanded = self.W_a2msi_AMPA.unsqueeze(0).expand(batch_size, self.n, self.n)
-            W_v2msi_AMPA_expanded = self.W_v2msi_AMPA.unsqueeze(0).expand(batch_size, self.n, self.n)
-            W_a2msi_NMDA_expanded = self.W_a2msi_NMDA.unsqueeze(0).expand(batch_size, self.n, self.n)
-            W_v2msi_NMDA_expanded = self.W_v2msi_NMDA.unsqueeze(0).expand(batch_size, self.n, self.n)
-
             self.I_ampa_filtered.mul_(decay_factor)
 
             self.R_a += (1.0 - self.R_a) * (self.dt / self.tau_rec)
             use_A = self.u_a * self.R_a
             self.R_a -= use_A * delayed_spikes_a2msi
-            I_M_a_AMPA = torch.bmm(
-                W_a2msi_AMPA_expanded,
-                (use_A * delayed_spikes_a2msi).unsqueeze(2)
-            ).squeeze(2)
+            W_inA_inh = cached_eval_weights["W_inA_inh"] if cached_eval_weights is not None else self.W_inA_inh
+            W_inV_inh = cached_eval_weights["W_inV_inh"] if cached_eval_weights is not None else self.W_inV_inh
+
+            I_M_a_AMPA = F.linear(use_A * delayed_spikes_a2msi, W_a2msi_AMPA)
 
             self.R_v += (1.0 - self.R_v) * (self.dt / self.tau_rec)
             use_V = self.u_v * self.R_v
             self.R_v -= use_V * delayed_spikes_v2msi
-            I_M_v_AMPA = torch.bmm(
-                W_v2msi_AMPA_expanded,
-                (use_V * delayed_spikes_v2msi).unsqueeze(2)
-            ).squeeze(2)
+            I_M_v_AMPA = F.linear(use_V * delayed_spikes_v2msi, W_v2msi_AMPA)
 
             # -----------------------------------------------------------------
             # -----------------------------------------------------------------
@@ -1912,10 +2000,8 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             pre_V_nmda = gate_V_nmda * delayed_spikes_v2msi
             # ---------------------------------------------------------------
 
-            nmda_a = torch.bmm(W_a2msi_NMDA_expanded,
-                               pre_A_nmda.unsqueeze(2)).squeeze(2)
-            nmda_v = torch.bmm(W_v2msi_NMDA_expanded,
-                               pre_V_nmda.unsqueeze(2)).squeeze(2)
+            nmda_a = F.linear(pre_A_nmda, W_a2msi_NMDA)
+            nmda_v = F.linear(pre_V_nmda, W_v2msi_NMDA)
             inc_m_exc = self.nmda_alpha * (nmda_a + nmda_v)  # unchanged
             self.nmda_m.mul_(1.0 - self.dt / self.tau_nmda)
             self.nmda_m.add_(inc_m_exc)
@@ -1945,7 +2031,7 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             I_ampa_total = I_AMPA_curr + self.gAMPA_LP * self.ampa_m * (self.Erev_ampa - self.v_msi)
             I_nmda_total = I_nmda  # already includes nmda_m tail
 
-            if self._probe is not None:
+            if probe is not None:
                 # --- 1. true instantaneous currents -------------------------
                 J_ampa_step = I_AMPA_curr.detach()
                 J_nmda_step = I_nmda_step.detach()  # B
@@ -1973,7 +2059,7 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
                 # ‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑‑#
 
                 # (nothing else in this block changes)
-                self._probe.log(
+                probe.log(
                     Q_ampa=Q_ampa,
                     Q_nmda=Q_nmda,
                     I_M=self.I_M.detach(),
@@ -1985,44 +2071,31 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
                     n_spikes=n_new_spk  # unchanged
                 )
 
-            W_inA_inh_expanded = self.W_inA_inh.unsqueeze(0).expand(batch_size, self.n, self.n)
-            W_inV_inh_expanded = self.W_inV_inh.unsqueeze(0).expand(batch_size, self.n, self.n)
-            I_inA_inh = torch.bmm(W_inA_inh_expanded, delayed_spikes_inA_inh.unsqueeze(2)).squeeze(2)
-            I_inV_inh = torch.bmm(W_inV_inh_expanded, delayed_spikes_inV_inh.unsqueeze(2)).squeeze(2)
+            I_inA_inh = F.linear(delayed_spikes_inA_inh, W_inA_inh)
+            I_inV_inh = F.linear(delayed_spikes_inV_inh, W_inV_inh)
             self.I_M.sub_(self.g_FFinh
                           * (I_inA_inh + I_inV_inh))
 
             # ============== A->MSI_inh, V->MSI_inh ==============
-            Wa2miA_expanded = self.W_a2msiInh_AMPA.unsqueeze(0).expand(batch_size, self.n_inh, self.n)
-            Wa2miN_expanded = self.W_a2msiInh_NMDA.unsqueeze(0).expand(batch_size, self.n_inh, self.n)
-            Wv2miA_expanded = self.W_v2msiInh_AMPA.unsqueeze(0).expand(batch_size, self.n_inh, self.n)
-            Wv2miN_expanded = self.W_v2msiInh_NMDA.unsqueeze(0).expand(batch_size, self.n_inh, self.n)
-
             self.R_a_inh += (1.0 - self.R_a_inh) * (self.dt / self.tau_rec)
             use_A_inh = self.u_a_inh * self.R_a_inh
             spike_sum_a = delayed_spikes_a2msi_inh.sum(dim=1, keepdim=True)
             self.R_a_inh -= use_A_inh * spike_sum_a
 
-            raw_inp_a_AMPA = torch.bmm(Wa2miA_expanded, delayed_spikes_a2msi_inh.unsqueeze(2)).squeeze(2)
+            raw_inp_a_AMPA = F.linear(delayed_spikes_a2msi_inh, W_a2msiInh_AMPA)
             I_Mi_a_AMPA = (use_A_inh * raw_inp_a_AMPA)
 
-            raw_inp_a_NMDA = torch.bmm(
-                Wa2miN_expanded,
-                delayed_spikes_a2msi_inh.unsqueeze(2)
-            ).squeeze(2)
+            raw_inp_a_NMDA = F.linear(delayed_spikes_a2msi_inh, W_a2msiInh_NMDA)
 
             self.R_v_inh += (1.0 - self.R_v_inh) * (self.dt / self.tau_rec)
             use_V_inh = self.u_v_inh * self.R_v_inh
             spike_sum_v = delayed_spikes_v2msi_inh.sum(dim=1, keepdim=True)
             self.R_v_inh -= use_V_inh * spike_sum_v
 
-            raw_inp_v_AMPA = torch.bmm(Wv2miA_expanded, delayed_spikes_v2msi_inh.unsqueeze(2)).squeeze(2)
+            raw_inp_v_AMPA = F.linear(delayed_spikes_v2msi_inh, W_v2msiInh_AMPA)
             I_Mi_v_AMPA = (use_V_inh * raw_inp_v_AMPA)
 
-            raw_inp_v_NMDA = torch.bmm(
-                Wv2miN_expanded,
-                delayed_spikes_v2msi_inh.unsqueeze(2)
-            ).squeeze(2)
+            raw_inp_v_NMDA = F.linear(delayed_spikes_v2msi_inh, W_v2msiInh_NMDA)
 
             self.I_M_inh.add_(I_Mi_a_AMPA + I_Mi_v_AMPA + self.b_msi_inh)
             self.nmda_m_inh.mul_(1.0 - self.dt / self.tau_nmda)
@@ -2041,19 +2114,17 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             self.I_M_inh.add_(I_nmda_inh)
 
             # MSI_inh->MSI_ex
-            W_msiInh2Exc_expanded = self.W_msiInh2Exc_GABA.unsqueeze(0).expand(batch_size, self.n, self.n_inh)
-            I_M_inh2exc = torch.bmm(W_msiInh2Exc_expanded, delayed_spikes_msi_inh2exc.unsqueeze(2)).squeeze(2)
+            I_M_inh2exc = F.linear(delayed_spikes_msi_inh2exc, W_msiInh2Exc_GABA)
             self.I_M.sub_(I_M_inh2exc)
 
             # MSI->Out
-            W_msi2out_expanded = self.W_msi2out.unsqueeze(0).expand(batch_size, self.n, self.n)
-            I_O_msi = torch.bmm(W_msi2out_expanded, delayed_spikes_msi2out.unsqueeze(2)).squeeze(2)
+            I_O_msi = F.linear(delayed_spikes_msi2out, W_msi2out)
             self.I_O.add_((I_O_msi + self.b_out))
 
-            I_latA = torch.mm(self._latest_sA, self.W_latA)  # shape (B, n)
+            I_latA = torch.mm(self._latest_sA, W_latA)  # shape (B, n)
             self.I_A.sub_(self.g_latA * I_latA)
 
-            I_latV = torch.mm(self._latest_sV, self.W_latV)  # shape (B, n)
+            I_latV = torch.mm(self._latest_sV, W_latV)  # shape (B, n)
             self.I_V.sub_(self.g_latV * I_latV)
 
             # -------------- Izhikevich updates --------------
@@ -2062,37 +2133,40 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
                    - self.u_uniA + self.I_A)
             self.v_uniA += self.dt * dVA
             self.u_uniA += self.dt * (self.aA * (self.bA * self.v_uniA - self.u_uniA))
-            new_sA = (self.v_uniA >= spike_threshold).float()
-            self.v_uniA[self.v_uniA >= spike_threshold] = self.cA
-            self.u_uniA[self.v_uniA == self.cA] += self.dA
+            new_sA_mask = self.v_uniA >= spike_threshold
+            new_sA = new_sA_mask.to(self.v_uniA.dtype)
+            self.v_uniA.masked_fill_(new_sA_mask, self.cA)
+            self.u_uniA.add_(new_sA, alpha=self.dA)
 
             # V
             dVV = (0.04 * self.v_uniV.pow(2) + 5.0 * self.v_uniV + 140.0
                    - self.u_uniV + self.I_V)
             self.v_uniV += self.dt * dVV
             self.u_uniV += self.dt * (self.aV * (self.bV * self.v_uniV - self.u_uniV))
-            new_sV = (self.v_uniV >= spike_threshold).float()
-            self.v_uniV[self.v_uniV >= spike_threshold] = self.cV
-            self.u_uniV[self.v_uniV == self.cV] += self.dV
+            new_sV_mask = self.v_uniV >= spike_threshold
+            new_sV = new_sV_mask.to(self.v_uniV.dtype)
+            self.v_uniV.masked_fill_(new_sV_mask, self.cV)
+            self.u_uniV.add_(new_sV, alpha=self.dV)
 
             # MSI excit
             dVM = (0.04 * self.v_msi.pow(2) + 5.0 * self.v_msi + 140.0 - self.u_msi + self.I_M)
             self.v_msi += self.dt * dVM
             self.u_msi += self.dt * (self.aM * (self.bM * self.v_msi - self.u_msi))
-            new_sM = (self.v_msi >= spike_threshold).float()
-            self.v_msi[self.v_msi >= spike_threshold] = self.cM
-            self.u_msi[self.v_msi == self.cM] += self.dM
+            new_sM_mask = self.v_msi >= spike_threshold
+            new_sM = new_sM_mask.to(self.v_msi.dtype)
+            self.v_msi.masked_fill_(new_sM_mask, self.cM)
+            self.u_msi.add_(new_sM, alpha=self.dM)
 
             # (A) compute surround inhibition current
-            I_latM = torch.mm(new_sM, self.W_MSI_inh)  # shape (B, n)
+            I_latM = torch.mm(new_sM, W_MSI_inh)  # shape (B, n)
             # (B) apply it
             self.I_M.sub_(self.g_GABA * I_latM)
 
-            if self._probe is not None:
+            if probe is not None:
                 I_total = self.I_M.detach()  # includes inhibition
                 Q_exc = torch.clamp(I_total, min=0) * dt_sec
                 Q_inh = -torch.clamp(I_total, max=0) * dt_sec
-                self._probe.log_EI(Q_exc, Q_inh)  # add two extra slots
+                probe.log_EI(Q_exc, Q_inh)  # add two extra slots
 
             if epoch_idx == 5:
                 # instantaneous excitation
@@ -2110,30 +2184,28 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             if return_spike_sum:  # ****
                 sum_sM += new_sM  # ****
 
-            # iSTDP trace
-            decay_i = torch.tensor(-self.dt / self.tau_post_i, device=self.device, dtype=torch.float32)
-            decay_i = torch.exp(decay_i)
             self.post_i_trace.mul_(decay_i)
             self.post_i_trace.add_(new_sM)
 
-            alpha_rate = self.dt / self.rate_avg_tau
             self.post_rate_avg.mul_(1.0 - alpha_rate).add_(alpha_rate * new_sM)
 
             # MSI inh
             dVMi = (0.04 * self.v_msi_inh.pow(2) + 5.0 * self.v_msi_inh + 140.0 - self.u_msi_inh + self.I_M_inh)
             self.v_msi_inh += self.dt * dVMi
             self.u_msi_inh += self.dt * (self.aMi * (self.bMi * self.v_msi_inh - self.u_msi_inh))
-            new_sMi = (self.v_msi_inh >= spike_threshold).float()
-            self.v_msi_inh[self.v_msi_inh >= spike_threshold] = self.cMi
-            self.u_msi_inh[self.v_msi_inh == self.cMi] += self.dMi
+            new_sMi_mask = self.v_msi_inh >= spike_threshold
+            new_sMi = new_sMi_mask.to(self.v_msi_inh.dtype)
+            self.v_msi_inh.masked_fill_(new_sMi_mask, self.cMi)
+            self.u_msi_inh.add_(new_sMi, alpha=self.dMi)
 
             # Out
             dVO = (0.04 * self.v_out.pow(2) + 5.0 * self.v_out + 140.0 - self.u_out + self.I_O)
             self.v_out += self.dt * dVO
             self.u_out += self.dt * (self.aO * (self.bO * self.v_out - self.u_out))
-            new_sO = (self.v_out >= spike_threshold).float()
-            self.v_out[self.v_out >= spike_threshold] = self.cO
-            self.u_out[self.v_out == self.cO] += self.dO
+            new_sO_mask = self.v_out >= spike_threshold
+            new_sO = new_sO_mask.to(self.v_out.dtype)
+            self.v_out.masked_fill_(new_sO_mask, self.cO)
+            self.u_out.add_(new_sO, alpha=self.dO)
 
             if not self.freeze_eval_updates:
                 # iSTDP homeostasis on MSI_inh->MSI_ex if allowed
@@ -2161,22 +2233,30 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
                 new_sO *= mask_sub
 
             # Append next conduction if delay>0
-            if self.conduction_delay_a2msi > 0:
-                self.buffer_a2msi.append(new_sA.clone())
-            if self.conduction_delay_v2msi > 0:
-                self.buffer_v2msi.append(new_sV.clone())
-            if self.conduction_delay_inA_inh > 0:
-                self.buffer_inA_inh.append(new_sA.clone())
-            if self.conduction_delay_inV_inh > 0:
-                self.buffer_inV_inh.append(new_sV.clone())
-            if self.conduction_delay_a2msi_inh > 0:
-                self.buffer_a2msi_inh.append(new_sA.clone())
-            if self.conduction_delay_v2msi_inh > 0:
-                self.buffer_v2msi_inh.append(new_sV.clone())
-            if self.conduction_delay_msi_inh2exc > 0:
-                self.buffer_msi_inh2exc.append(new_sMi.clone())
-            if self.conduction_delay_msi2out > 0:
-                self.buffer_msi2out.append(new_sM.clone())
+            if delay_a2msi > 0:
+                buf_a2msi[pos_a2msi].copy_(new_sA)
+                pos_a2msi = (pos_a2msi + 1) % delay_a2msi
+            if delay_v2msi > 0:
+                buf_v2msi[pos_v2msi].copy_(new_sV)
+                pos_v2msi = (pos_v2msi + 1) % delay_v2msi
+            if delay_inA_inh > 0:
+                buf_inA_inh[pos_inA_inh].copy_(new_sA)
+                pos_inA_inh = (pos_inA_inh + 1) % delay_inA_inh
+            if delay_inV_inh > 0:
+                buf_inV_inh[pos_inV_inh].copy_(new_sV)
+                pos_inV_inh = (pos_inV_inh + 1) % delay_inV_inh
+            if delay_a2msi_inh > 0:
+                buf_a2msi_inh[pos_a2msi_inh].copy_(new_sA)
+                pos_a2msi_inh = (pos_a2msi_inh + 1) % delay_a2msi_inh
+            if delay_v2msi_inh > 0:
+                buf_v2msi_inh[pos_v2msi_inh].copy_(new_sV)
+                pos_v2msi_inh = (pos_v2msi_inh + 1) % delay_v2msi_inh
+            if delay_msi_inh2exc > 0:
+                buf_msi_inh2exc[pos_msi_inh2exc].copy_(new_sMi)
+                pos_msi_inh2exc = (pos_msi_inh2exc + 1) % delay_msi_inh2exc
+            if delay_msi2out > 0:
+                buf_msi2out[pos_msi2out].copy_(new_sM)
+                pos_msi2out = (pos_msi2out + 1) % delay_msi2out
 
             sA, sV, sM, sMi, sO = new_sA, new_sV, new_sM, new_sMi, new_sO
 
@@ -2186,10 +2266,10 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             self._latest_sMSI_inh = sMi
 
             # ---------- epoch-level debug counters ------------------------------
-            with torch.no_grad():  # tiny, avoid autograd tracking
-                self._dbg_spk_A += sA.sum().item()
-                self._dbg_spk_V += sV.sum().item()
-                self._dbg_spk_MSI += sM.sum().item()
+            if track_debug_rates:
+                self._dbg_spk_A.add_(sA.sum())
+                self._dbg_spk_V.add_(sV.sum())
+                self._dbg_spk_MSI.add_(sM.sum())
                 self._dbg_steps += sA.size(0)  # B external frames just processed
 
             if curr_debug:
@@ -2211,8 +2291,18 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
                     apply_topographic_anchor_msi(self, layer="V",
                                                  lr=0.8 * self.lr_msi,
                                                  sigma=3.0)
+                refresh_msi_exc_weight_views = True
 
             self.step_counter += 1
+
+        self._delay_positions["buffer_a2msi"] = pos_a2msi
+        self._delay_positions["buffer_v2msi"] = pos_v2msi
+        self._delay_positions["buffer_inA_inh"] = pos_inA_inh
+        self._delay_positions["buffer_inV_inh"] = pos_inV_inh
+        self._delay_positions["buffer_a2msi_inh"] = pos_a2msi_inh
+        self._delay_positions["buffer_v2msi_inh"] = pos_v2msi_inh
+        self._delay_positions["buffer_msi_inh2exc"] = pos_msi_inh2exc
+        self._delay_positions["buffer_msi2out"] = pos_msi2out
 
         # ------------------------------------------------------------------
         # ------------------------------------------------------------------
@@ -2298,12 +2388,11 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         pre_trace.mul_(tau_pre).add_(pre_spk)
         post_trace.mul_(tau_post).add_(post_spk)
 
-        dW = torch.zeros_like(getattr(self, W_attr))
-        for b in range(B):
-            dW += A_plus * torch.ger(post_spk[b], pre_trace[b]) \
-                  - A_minus * torch.ger(post_trace[b], pre_spk[b])
-
-        dW.mul_(lr / B)
+        dW = (
+            A_plus * (post_spk.transpose(0, 1) @ pre_trace)
+            - A_minus * (post_trace.transpose(0, 1) @ pre_spk)
+        )
+        dW.mul_(lr / float(B))
 
         # Apply via the positive reparam
         self._p_add(W_attr, dW)
@@ -2317,12 +2406,8 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
 
     def normalize_rows(self, attr: str, eps: float = 1e-8):
         with torch.no_grad():
-            W = getattr(self, attr)  # current positive view
-            theta = self.parametrizations[attr].original
-            P = self.parametrizations[attr][0]
-
-            Wnorm = W / (W.norm(2, 1, keepdim=True) + eps)
-            theta.copy_(P.right_inverse(Wnorm))
+            W = getattr(self, attr)
+            W.copy_(W / (W.norm(2, 1, keepdim=True) + eps))
 
     ########################################################
     #           UNSUPERVISED & SUPERVISED TRAINING
@@ -2473,11 +2558,8 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
                 # --- OPTIONAL: re-normalise AMPA/NMDA split -------------------
                 with torch.no_grad():
                     def set_param_weight(attr, W_new):
-                        """Helper to update a parametrized weight using right_inverse."""
-                        parametrization = self.parametrizations[attr]
-                        theta = parametrization.original
-                        module = parametrization[0]
-                        theta.copy_(module.right_inverse(W_new))
+                        """Helper to update a direct non-negative weight tensor."""
+                        getattr(self, attr).copy_(W_new.clamp_min(0.0))
 
                     # A -> MSI connections
                     W_tot_a = self.W_a2msi_AMPA + self.W_a2msi_NMDA
@@ -2872,8 +2954,7 @@ def run_sc_diagnostics(
     # ---------------------------------------------------------------------
     # ---------------------------------------------------------------------
     net.reset_state(batch_size=1)
-    net._dbg_spk_A = net._dbg_spk_V = net._dbg_spk_MSI = 0.0
-    net._dbg_steps = 0
+    net._reset_debug_counters()
 
     xA = torch.zeros(n_frames, N, device=device)
     xV = torch.zeros_like(xA)
@@ -2932,9 +3013,9 @@ def run_sc_diagnostics(
     # ---------------------------------------------------------------------
     sim_time_s = n_frames * n_sub * dt_ms / 1_000.0  # seconds
     spike_rates = {
-        "A": net._dbg_spk_A / (N * sim_time_s),
-        "V": net._dbg_spk_V / (N * sim_time_s),
-        "MSI": net._dbg_spk_MSI / (N * sim_time_s),
+        "A": net._dbg_spk_A.item() / (N * sim_time_s),
+        "V": net._dbg_spk_V.item() / (N * sim_time_s),
+        "MSI": net._dbg_spk_MSI.item() / (N * sim_time_s),
     }
 
     currents = {
@@ -3080,6 +3161,7 @@ def generate_flash_sound_batch(
     return loc_seqs, mod_seqs, offset_applied, seq_lengths
 
 
+@torch.inference_mode()
 def run_temporal_integration(net, offsets, *, loc=90,
                              T=60, D=5, extra=5, stim_in=1,
                              bg_lambda: float = 0.0,
@@ -3277,7 +3359,7 @@ def plot_temporal_binding(results, *, fit_model="gaussian", **fit_kw):
 
 
 def run_training(
-        batch_size=256,
+        batch_size=1000,
         n_unsup_epochs=80,
 ):
     """
@@ -3361,7 +3443,7 @@ def run_training(
     for epoch in range(n_unsup_epochs):
         last_ep = epoch
         epoch_start = time.time()
-        if 2 <= epoch <= 79:  # choose any window you like
+        if net.enable_probe and 2 <= epoch <= 79:  # choose any window you like
             if net._probe is None:
                 net._probe = AMPANMDADebugger()
             else:
@@ -3369,10 +3451,10 @@ def run_training(
         with torch.no_grad():
             W_before = net.W_inA.clone()  # snapshot *before* training
 
-        net.train_unsupervised_batch(1000, batch_size=256, debug=False, epoch_idx=epoch)  # run some sequences
+        net.train_unsupervised_batch(1000, batch_size=batch_size, debug=False, epoch_idx=epoch)  # run some sequences
         net.print_epoch_spike_summary(f"unsup {epoch + 1:02d}")
 
-        if 2 <= epoch <= 79:
+        if net.enable_probe and 2 <= epoch <= 79:
             net._probe.report(net, f"epoch {epoch}")
 
         with torch.no_grad():

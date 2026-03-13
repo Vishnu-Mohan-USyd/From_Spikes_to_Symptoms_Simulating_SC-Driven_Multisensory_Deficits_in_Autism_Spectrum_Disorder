@@ -76,8 +76,6 @@ def run_temporal_integration_across_models(
 
         # explicit clean‑up for big GPU models
         del net
-        if str(device).startswith("cuda"):
-            torch.cuda.empty_cache()
 
     all_int = np.vstack(all_int)                         # (n_models , n_offsets)
     return {
@@ -784,6 +782,7 @@ def fit_psychometric_curve(offsets_ms, fusion_probs, p0=None,
     }
 
 
+@torch.inference_mode()
 def run_fusion_across_models(
         model_paths,
         offsets,
@@ -859,8 +858,6 @@ def run_fusion_across_models(
         all_fusion.append(fusion)
 
         del net
-        if str(device).startswith("cuda"):
-            torch.cuda.empty_cache()
 
     all_int = np.vstack(all_int)
     all_fusion = np.vstack(all_fusion)

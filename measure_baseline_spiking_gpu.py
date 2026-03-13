@@ -55,9 +55,7 @@ def measure_baseline_spiking(
 
     # One batch element
     net.reset_state(batch_size=1)
-    net._dbg_spk_A = 0.0
-    net._dbg_spk_V = 0.0
-    net._dbg_spk_MSI = 0.0
+    net._reset_debug_counters()
 
     # External input: either exactly zero, or ongoing low Poisson background.
     xA0 = torch.zeros((1, n), device=device, dtype=torch.float32)
@@ -156,9 +154,9 @@ def main() -> None:
     )
 
     print("\n--- Baseline spiking summary ---")
-    print(f"A        mean_rate={net._dbg_spk_A / (net.n * sim_time_s):9.4f} Hz")
-    print(f"V        mean_rate={net._dbg_spk_V / (net.n * sim_time_s):9.4f} Hz")
-    print(f"MSI_exc  mean_rate={net._dbg_spk_MSI / (net.n * sim_time_s):9.4f} Hz")
+    print(f"A        mean_rate={net._dbg_spk_A.item() / (net.n * sim_time_s):9.4f} Hz")
+    print(f"V        mean_rate={net._dbg_spk_V.item() / (net.n * sim_time_s):9.4f} Hz")
+    print(f"MSI_exc  mean_rate={net._dbg_spk_MSI.item() / (net.n * sim_time_s):9.4f} Hz")
     print(_summarize("MSI_exc", spike_counts["MSI_exc"], sim_time_s))
 
     total_all = sum(float(v.detach().sum().item()) for v in spike_counts.values())
