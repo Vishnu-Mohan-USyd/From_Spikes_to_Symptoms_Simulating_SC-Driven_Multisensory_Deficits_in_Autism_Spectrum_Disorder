@@ -14,6 +14,8 @@ def load_msi_model(ckpt_path: Path, *, device="cuda"):
         setattr(net, k, v)
     # net.g_FFinh = 0.1
     net.to(device).eval()
+    net.freeze_eval_updates = False
+    net._frozen_eval_prepared = False
     return net
 
 
@@ -789,16 +791,18 @@ def run_fusion_across_models(
         device="cuda",
         bg_lambda: float = 0.0,
         modify_net=None,
-        fusion_method='temporal_peak_linked',
+        fusion_method='hybrid_peak_linked',
 ):
     """
     Evaluate temporal fusion across checkpoints.
 
-    `fusion_method='temporal_peak_linked'` uses the full MSI time-course and
-    derives a continuous fusion score from the audio-linked and visual-linked
-    temporal peaks. `temporal_peak_binary` keeps the hard thresholded version
-    for diagnostics; legacy integration-to-probability mappings remain
-    available for comparison.
+    `fusion_method='hybrid_peak_linked'` combines a source-linked temporal
+    overlap score with the legacy magnitude-based `preserve_peak` mapping. This
+    keeps the large-offset artifact suppressed while preserving sensitivity to
+    perturbation-driven response-magnitude changes. `temporal_peak_linked`
+    keeps the pure source-linked score; `temporal_peak_binary` keeps the hard
+    thresholded version for diagnostics; legacy integration-to-probability
+    mappings remain available for comparison.
     """
     all_int = []
     all_fusion = []
@@ -806,9 +810,11 @@ def run_fusion_across_models(
 
     for path in model_paths:
         net = load_msi_model(Path(path), device=device)
+        net.prepare_frozen_eval_state()
 
         if callable(modify_net):
             modify_net(net)
+        net.freeze_eval_updates = True
 
         res = run_temporal_integration(
             net, offsets,
@@ -817,7 +823,22 @@ def run_fusion_across_models(
         offsets_ms = res["offsets_ms"]
         all_int.append(res["int_spikes"])
 
-        if fusion_method == 'temporal_peak_linked':
+        if fusion_method == 'hybrid_peak_linked':
+            shape_score = calculate_fusion_from_temporal_raster(
+                res["spike_raster"],
+                offsets_ms,
+                mode="score",
+            )
+            magnitude_score = calculate_fusion_from_integration(
+                {
+                    "offsets_ms": offsets_ms,
+                    "mean_int_spikes": res["int_spikes"],
+                },
+                method="preserve_peak",
+            )
+            fusion = np.sqrt(np.clip(shape_score, 0.0, 1.0) *
+                             np.clip(magnitude_score, 0.0, 1.0))
+        elif fusion_method == 'temporal_peak_linked':
             fusion = calculate_fusion_from_temporal_raster(
                 res["spike_raster"],
                 offsets_ms,
@@ -1098,6 +1119,9 @@ def msi_timecourse_at_offset(net,
     xV[vis_on:vis_on + D] = gauss
 
     # Run the network ------------------------------------------------------
+    if not getattr(net, "_frozen_eval_prepared", False):
+        net.prepare_frozen_eval_state()
+    net.freeze_eval_updates = True
     net.reset_state(batch_size=1)
     spike_sum = torch.zeros(T, device=dev)
 

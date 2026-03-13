@@ -1058,6 +1058,12 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
 
         self.pv_nmda = 5.0
         self.targ_ratio = 5.0
+        self.freeze_eval_updates = False
+        self._frozen_eval_prepared = False
+        self.frozen_eval_calibration_frames = 20
+        self.frozen_eval_calibration_repeats = 1
+        self.frozen_eval_calibration_intensity = 0.5
+        self.frozen_eval_calibration_bg_lambda = 1e-5
 
         self.W_latA = torch.zeros((self.n, self.n), device=self.device)
         self.W_latV = torch.zeros((self.n, self.n), device=self.device)
@@ -1478,6 +1484,56 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             )
             tot += sSum.sum().item()
         return tot
+
+    def prepare_frozen_eval_state(self,
+                                  *,
+                                  frames: int | None = None,
+                                  repeats: int | None = None,
+                                  intensity: float | None = None,
+                                  bg_lambda: float | None = None,
+                                  centre_deg: float | None = None):
+        if self._frozen_eval_prepared:
+            return self
+
+        frames = int(self.frozen_eval_calibration_frames if frames is None else frames)
+        repeats = int(self.frozen_eval_calibration_repeats if repeats is None else repeats)
+        intensity = float(self.frozen_eval_calibration_intensity if intensity is None else intensity)
+        bg_lambda = float(self.frozen_eval_calibration_bg_lambda if bg_lambda is None else bg_lambda)
+        centre_deg = float((self.space_size - 1) / 2 if centre_deg is None else centre_deg)
+
+        xs = torch.arange(self.n, dtype=torch.float32, device=self.device)
+        centre_idx = int(round(centre_deg * (self.n - 1) / (self.space_size - 1))) % self.n
+        gauss = torch.exp(-0.5 * ((xs - centre_idx) / self.sigma_in) ** 2) * intensity
+
+        saved_freeze = self.freeze_eval_updates
+        saved_step_counter = self.step_counter
+        self.freeze_eval_updates = True
+
+        for _ in range(max(repeats, 1)):
+            self.reset_state(1)
+            for _t in range(max(frames, 1)):
+                xA = gauss.unsqueeze(0)
+                xV = gauss.unsqueeze(0)
+                if bg_lambda > 0.0:
+                    xA = xA + torch.poisson(torch.full_like(xA, bg_lambda))
+                    xV = xV + torch.poisson(torch.full_like(xV, bg_lambda))
+                self.update_all_layers_batch(xA, xV)
+
+                exc_fast = self.I_ampa_filtered.clamp(min=0).mean().item()
+                inh_mean = (-self.I_M).clamp(min=0).mean().item()
+                self.g_FFinh += 1e-3 * (exc_fast * self.targ_ratio - inh_mean)
+                self.g_FFinh = max(0.05, min(self.g_FFinh, 5.0))
+
+                if (self.step_counter % 100) == 0:
+                    exc_mean_long = self.I_M.clamp(min=0).mean().item()
+                    inh_mean_long = (-self.I_M).clamp(min=0).mean().item()
+                    self.g_FFinh += 2e-4 * (exc_mean_long * self.pv_nmda - inh_mean_long)
+                    self.g_FFinh = max(0.05, min(self.g_FFinh, 5.0))
+
+        self.freeze_eval_updates = saved_freeze
+        self.step_counter = saved_step_counter
+        self._frozen_eval_prepared = True
+        return self
 
     def auto_calibrate_input_gain(self,
                                   target_MSI_spikes: int = 300,
@@ -2079,23 +2135,22 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             self.v_out[self.v_out >= spike_threshold] = self.cO
             self.u_out[self.v_out == self.cO] += self.dO
 
-            # iSTDP homeostasis on MSI_inh->MSI_ex if allowed
-            if self.allow_inhib_plasticity:
-                pre_ff_inh = torch.cat([delayed_spikes_inA_inh,
-                                        delayed_spikes_inV_inh], dim=1)  # (B, 2n)
+            if not self.freeze_eval_updates:
+                # iSTDP homeostasis on MSI_inh->MSI_ex if allowed
+                if self.allow_inhib_plasticity:
+                    pre_ff_inh = torch.cat([delayed_spikes_inA_inh,
+                                            delayed_spikes_inV_inh], dim=1)  # (B, 2n)
 
-                W_ff_inh = torch.cat([self.W_inA_inh, self.W_inV_inh], dim=1)
+                    # Vogel‑Abbott update
+                    dw = self.eta_i * torch.bmm(
+                        (self.post_i_trace - self.rho0).unsqueeze(2),
+                        pre_ff_inh.unsqueeze(1)  # (B ,1 ,2n)
+                    ).mean(0)
 
-                # Vogel‑Abbott update
-                dw = self.eta_i * torch.bmm(
-                    (self.post_i_trace - self.rho0).unsqueeze(2),
-                    pre_ff_inh.unsqueeze(1)  # (B ,1 ,2n)
-                ).mean(0)
-
-                dw_A = dw[:, :self.n]
-                dw_V = dw[:, self.n:]
-                self._p_add("W_inA_inh", dw_A)
-                self._p_add("W_inV_inh", dw_V)
+                    dw_A = dw[:, :self.n]
+                    dw_V = dw[:, self.n:]
+                    self._p_add("W_inA_inh", dw_A)
+                    self._p_add("W_inV_inh", dw_V)
 
             if valid_mask is not None:
                 mask_sub = valid_mask.view(-1, 1)
@@ -2142,7 +2197,7 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
 
             # ------------------------------------------------------------------
             # ------------------------------------------------------------------
-            if sub_i % 10 == 0:
+            if not self.freeze_eval_updates and sub_i % 10 == 0:
                 apply_topographic_anchor_unimodal(self, layer="A",
                                                   lr=0.1 * self.lr_uni,
                                                   sigma=3.0)
@@ -2161,51 +2216,52 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
 
         # ------------------------------------------------------------------
         # ------------------------------------------------------------------
-        apply_topographic_anchor_unimodal(self, layer="A",
-                                          lr=1.0 * self.lr_uni,  # was 0.5
-                                          sigma=2.5)  # was 3.0
-        apply_topographic_anchor_unimodal(self, layer="V",
-                                          lr=1.0 * self.lr_uni,
-                                          sigma=2.5)
+        if not self.freeze_eval_updates:
+            apply_topographic_anchor_unimodal(self, layer="A",
+                                              lr=1.0 * self.lr_uni,  # was 0.5
+                                              sigma=2.5)  # was 3.0
+            apply_topographic_anchor_unimodal(self, layer="V",
+                                              lr=1.0 * self.lr_uni,
+                                              sigma=2.5)
 
-        apply_local_competition_unimodal_fast(self, "A",
-                                              beta=2.0 * self.lr_uni,  # was 0.8
-                                              neighbour_dist=4)
-        apply_local_competition_unimodal_fast(self, "V",
-                                              beta=2.0 * self.lr_uni,
-                                              neighbour_dist=4)
+            apply_local_competition_unimodal_fast(self, "A",
+                                                  beta=2.0 * self.lr_uni,  # was 0.8
+                                                  neighbour_dist=4)
+            apply_local_competition_unimodal_fast(self, "V",
+                                                  beta=2.0 * self.lr_uni,
+                                                  neighbour_dist=4)
 
-        if epoch_idx > 25:
-            apply_local_competition_msi_fast(self,
-                                             beta=1.5 * self.lr_msi,
-                                             neighbour_dist=6)
+            if epoch_idx > 25:
+                apply_local_competition_msi_fast(self,
+                                                 beta=1.5 * self.lr_msi,
+                                                 neighbour_dist=6)
 
-        soft_row_scaling(self)  # keeps norms near unity but *does not* freeze patterns
+            soft_row_scaling(self)  # keeps norms near unity but *does not* freeze patterns
 
-        # very slow scaling
-        if (self.step_counter % 10) == 0:
-            slow_synaptic_scaling(self.W_inA)
-            slow_synaptic_scaling(self.W_inV)
-            slow_synaptic_scaling(self.W_a2msi_AMPA)
-            slow_synaptic_scaling(self.W_v2msi_AMPA)
-            slow_synaptic_scaling(self.W_a2msi_NMDA)
-            slow_synaptic_scaling(self.W_v2msi_NMDA)
+            # very slow scaling
+            if (self.step_counter % 10) == 0:
+                slow_synaptic_scaling(self.W_inA)
+                slow_synaptic_scaling(self.W_inV)
+                slow_synaptic_scaling(self.W_a2msi_AMPA)
+                slow_synaptic_scaling(self.W_v2msi_AMPA)
+                slow_synaptic_scaling(self.W_a2msi_NMDA)
+                slow_synaptic_scaling(self.W_v2msi_NMDA)
 
-        # --- Fast AGC (PV‑like) ---------------------------------------------
-        exc_fast = self.I_ampa_filtered.clamp(min=0).mean().item()  # AMPA only
-        inh_mean = (-self.I_M).clamp(min=0).mean().item()
+            # --- Fast AGC (PV‑like) ---------------------------------------------
+            exc_fast = self.I_ampa_filtered.clamp(min=0).mean().item()  # AMPA only
+            inh_mean = (-self.I_M).clamp(min=0).mean().item()
 
-        target_ratio = self.targ_ratio # retain original set‑point
-        alpha_fast = 1e-3  # keep existing step size
-        self.g_FFinh += alpha_fast * (exc_fast * target_ratio - inh_mean)
-        self.g_FFinh = max(0.05, min(self.g_FFinh, 5.0))
-
-        if (self.step_counter % 100) == 0:  # ≈ 1 s interval
-            exc_mean_long = self.I_M.clamp(min=0).mean().item()
-            inh_mean_long = (-self.I_M).clamp(min=0).mean().item()
-            alpha_slow = 2e-4  # 5× slower
-            self.g_FFinh += alpha_slow * (exc_mean_long * self.pv_nmda - inh_mean_long)
+            target_ratio = self.targ_ratio # retain original set‑point
+            alpha_fast = 1e-3  # keep existing step size
+            self.g_FFinh += alpha_fast * (exc_fast * target_ratio - inh_mean)
             self.g_FFinh = max(0.05, min(self.g_FFinh, 5.0))
+
+            if (self.step_counter % 100) == 0:  # ≈ 1 s interval
+                exc_mean_long = self.I_M.clamp(min=0).mean().item()
+                inh_mean_long = (-self.I_M).clamp(min=0).mean().item()
+                alpha_slow = 2e-4  # 5× slower
+                self.g_FFinh += alpha_slow * (exc_mean_long * self.pv_nmda - inh_mean_long)
+                self.g_FFinh = max(0.05, min(self.g_FFinh, 5.0))
 
         if return_delayed and return_spike_sum:
             return (sA, sV, sM, sO,

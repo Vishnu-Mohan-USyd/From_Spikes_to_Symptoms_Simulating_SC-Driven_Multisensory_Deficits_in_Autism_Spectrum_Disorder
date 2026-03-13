@@ -17,6 +17,24 @@ def _valley_path_indices(idx_a: int, idx_b: int, n: int) -> np.ndarray:
     return np.r_[np.arange(hi, n, dtype=int), np.arange(0, lo + 1, dtype=int)]
 
 
+def _single_peak_counts_as_fused(
+        peak_idx: int,
+        source_indices: tuple[int, int] | None,
+        n: int,
+        *,
+        merge_distance: int = 12,
+        balance_tolerance: int = 4) -> bool:
+    if source_indices is None:
+        return True
+    src_a, src_v = (int(source_indices[0]), int(source_indices[1]))
+    dist_a = _circular_distance(int(peak_idx), src_a, n)
+    dist_v = _circular_distance(int(peak_idx), src_v, n)
+    return (
+        max(dist_a, dist_v) <= merge_distance
+        and abs(dist_a - dist_v) <= balance_tolerance
+    )
+
+
 def classify_spatial_fusion(
         profile: np.ndarray,
         *,
@@ -35,10 +53,13 @@ def classify_spatial_fusion(
     if sm.max() < 1e-6:
         return bool(silent_as_fused)
 
-    sm /= sm.max() + 1e-12
+    peak_max = float(sm.max())
+    sm /= peak_max + 1e-12
     peaks, props = find_peaks(sm, height=0.2, distance=10)
-    if len(peaks) <= 1:
-        return True
+    if len(peaks) == 0:
+        return bool(silent_as_fused)
+    if len(peaks) == 1:
+        return _single_peak_counts_as_fused(int(peaks[0]), source_indices, sm.size)
 
     if source_indices is None:
         peak_a, peak_b = peaks[np.argsort(props["peak_heights"])[::-1][:2]]
@@ -47,7 +68,7 @@ def classify_spatial_fusion(
         peak_a = int(peaks[np.argmin([_circular_distance(p, src_a, sm.size) for p in peaks])])
         peak_b = int(peaks[np.argmin([_circular_distance(p, src_v, sm.size) for p in peaks])])
         if peak_a == peak_b:
-            return True
+            return _single_peak_counts_as_fused(peak_a, source_indices, sm.size)
 
     valley_path = _valley_path_indices(int(peak_a), int(peak_b), sm.size)
     valley = float(sm[valley_path].min())
@@ -224,6 +245,8 @@ def load_msi_model(ckpt_path: Path, *, device="cpu"):
     for k, v in ckpt["mutable_hparams"].items():
         setattr(net, k, v)
     net.to(device).eval()
+    net.freeze_eval_updates = False
+    net._frozen_eval_prepared = False
     net.device = torch.device(device)  # make sure helpers pick this up
     return net
 
@@ -403,9 +426,11 @@ def run_spatial_binding_across_models(
     curves = []
     for p in model_paths:
         net = load_msi_model(Path(p), device=device)
+        net.prepare_frozen_eval_state()
 
         if callable(modify_net):  
             modify_net(net)  # tweak parameters *in‑place*
+        net.freeze_eval_updates = True
 
         curves.append(
             spatial_binding_curve_fast(
@@ -710,6 +735,9 @@ def msi_profile_at_disparity(net,
     g = lambda idx: torch.exp(-.5 * ((xs - idx) / net.sigma_in) ** 2) * intensity
     gauss_A, gauss_V = g(iA), g(iV)
 
+    if not getattr(net, "_frozen_eval_prepared", False):
+        net.prepare_frozen_eval_state()
+    net.freeze_eval_updates = True
     net.reset_state(batch_size=1)
     hist = torch.zeros(duration, n, device=dev)
 

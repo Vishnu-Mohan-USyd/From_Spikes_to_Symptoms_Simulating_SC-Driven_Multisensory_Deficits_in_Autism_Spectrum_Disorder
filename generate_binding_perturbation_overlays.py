@@ -29,6 +29,7 @@ class PerturbationSpec:
 def _apply_ff_inh_reduction(net) -> None:
     net.pv_nmda = 1
     net.targ_ratio = 1
+    net.g_FFinh *= 0.3
 
 
 def _apply_adaptation_reduction(net) -> None:
