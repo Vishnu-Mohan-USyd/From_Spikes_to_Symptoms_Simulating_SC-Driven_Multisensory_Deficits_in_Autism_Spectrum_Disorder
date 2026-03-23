@@ -1,5 +1,6 @@
 from Training import *
 from matplotlib import font_manager
+from typing import Sequence
 
 
 def spatial_binding_diagnostics(
@@ -39,13 +40,19 @@ def spatial_binding_diagnostics(
             return True
         p1, p2 = peaks[np.argsort(props['peak_heights'])[::-1][:2]]
 
+        # Two peaks within 15 neuron indices (~15 deg) = single fused blob
+        # (SC receptive fields are ~20-40 deg wide; Meredith & Stein 1986)
+        peak_sep = min(abs(p2 - p1), N - abs(p2 - p1))
+        if peak_sep <= 15:
+            return True
+
         def valley(i, j):
             direct = abs(j - i)
             seg = sm[min(i, j): max(i, j) + 1] if direct <= N - direct else \
                 np.r_[sm[max(i, j):], sm[:min(i, j) + 1]]
             return seg.min()
 
-        return valley(p1, p2) / (min(sm[p1], sm[p2]) + 1e-12) > 0.6
+        return valley(p1, p2) / (min(sm[p1], sm[p2]) + 1e-12) > 0.4
 
     # ───── default lists ─────────────────────────────────────────────────
     if separations_deg is None:
@@ -185,82 +192,86 @@ def load_msi_model(ckpt_path: Path, *, device="cpu"):
         setattr(net, k, v)
     net.to(device).eval()
     net.device = torch.device(device)  # make sure helpers pick this up
+    net.plasticity_enabled = False  # disable plasticity during evaluation
     return net
 
 
+@torch.inference_mode()
 def spatial_binding_curve_fast(
         net,
         separations_deg=range(0, 61, 5),
         n_trials=100,
         duration=20,
         intensity=0.5):
+    """Compute mean AV spike count profile vs spatial disparity.
+
+    Processes each separation as a SEPARATE forward pass with g_FFinh
+    reset before each one, eliminating batch cross-talk where the scalar
+    g_FFinh adapts to the batch-mean excitation and inflates the SBW.
+
+    Parameters
+    ----------
+    net : MultiBatchAudVisMSINetworkTime
+    separations_deg : iterable of int
+        Spatial disparities in degrees.
+    n_trials : int
+        Trials per separation (all processed as one batch per sep).
+    duration : int
+        Stimulus duration in timesteps.
+    intensity : float
+        Peak amplitude of Gaussian stimulus.
+
+    Returns
+    -------
+    np.ndarray
+        Mean AV spike count for each separation (shape: [n_sep]).
+    """
     N, S = net.n, net.space_size
     rng = np.random.default_rng()
-
-    # ----- build one giant batch ------------------------------------
+    separations_deg = list(separations_deg)
     n_sep = len(separations_deg)
-    B = n_sep * n_trials  # e.g. 13 × 100 = 1300
 
-    base_deg = rng.integers(30, 150, size=B)
-    sep_rep = np.repeat(separations_deg, n_trials)
+    initial_g_FFinh = net.g_FFinh
+    initial_step_counter = net.step_counter
+    xs = torch.arange(N, device=net.device, dtype=torch.float32)
 
-    locA_deg = base_deg
-    locV_deg = (base_deg + sep_rep) % S
-
-    def is_fused(profile: np.ndarray) -> bool:
-        sm = gaussian_filter1d(profile, sigma=2, mode='wrap')
-        if sm.max() < 1e-6:  # silent
-            return True
-        sm /= sm.max()
-        peaks, props = find_peaks(sm, height=0.2, distance=10)
-        if len(peaks) <= 1:
-            return True
-        p1, p2 = peaks[np.argsort(props['peak_heights'])[::-1][:2]]
-
-        def valley(i, j):
-            direct = abs(j - i)
-            seg = sm[min(i, j): max(i, j) + 1] if direct <= N - direct else \
-                np.r_[sm[max(i, j):], sm[:min(i, j) + 1]]
-            return seg.min()
-
-        return valley(p1, p2) / (min(sm[p1], sm[p2]) + 1e-12) > 0.6
-
-    def to_idx(deg):  # degrees → neuron index
+    def to_idx(deg):
         return torch.round(
             torch.as_tensor(deg, device=net.device, dtype=torch.float32)
             * (N - 1) / (S - 1)).long()
 
-    idxA, idxV = to_idx(locA_deg), to_idx(locV_deg)
+    def make_gauss(idx):
+        return torch.exp(-0.5 * ((xs - idx[:, None]) / net.sigma_in) ** 2) * intensity
 
-    xs = torch.arange(N, device=net.device, dtype=torch.float32)
-    g = lambda idx: torch.exp(-0.5 * ((xs - idx[:, None]) / net.sigma_in) ** 2) * intensity
-    gA, gV = g(idxA), g(idxV)
+    mean_spikes = np.zeros(n_sep)
 
-    xA = torch.zeros(B, duration, N, device=net.device)
-    xV = torch.zeros_like(xA)
-    xA[:, :duration] = gA.unsqueeze(1)
-    xV[:, :duration] = gV.unsqueeze(1)
+    for k, sep in enumerate(separations_deg):
+        # Fresh g_FFinh + step_counter for each separation — eliminates cross-talk
+        net.g_FFinh = initial_g_FFinh
+        net.step_counter = initial_step_counter
 
-    # ----- single forward pass --------------------------------------
-    net.reset_state(batch_size=B)
-    msi_sum = torch.zeros(B, N, device=net.device)
+        base_deg = rng.integers(0, S, size=n_trials)
+        locA_deg = base_deg
+        locV_deg = (base_deg + sep) % S
 
-    for t in range(duration):  # only 20 calls now
-        net.update_all_layers_batch(xA[:, t], xV[:, t])
-        msi_sum += net._latest_sMSI
+        idxA, idxV = to_idx(locA_deg), to_idx(locV_deg)
+        gA, gV = make_gauss(idxA), make_gauss(idxV)
 
-    # ----- decide “fused vs separated” ------------------------------
-    profs = msi_sum.cpu().numpy()
-    flags = np.zeros((n_sep, n_trials), dtype=bool)
-    for k in range(n_sep):
-        s, e = k * n_trials, (k + 1) * n_trials
-        for j in range(n_trials):
-            flags[k, j] = is_fused(profs[s + j])  # your existing helper
+        net.reset_state(batch_size=n_trials)
+        total = torch.zeros(n_trials, device=net.device)
+        for t in range(duration):
+            net.update_all_layers_batch(gA, gV)
+            total += net._latest_sMSI.sum(dim=1)
 
-    return flags.mean(1)  #  P(fusion) curve
+        mean_spikes[k] = total.mean().item()
+
+    # Restore g_FFinh + step_counter
+    net.g_FFinh = initial_g_FFinh
+    net.step_counter = initial_step_counter
+    return mean_spikes
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def compute_spatial_binding_curve(
         net,
         *,
@@ -301,6 +312,11 @@ def compute_spatial_binding_curve(
             return True
         p1, p2 = peaks[np.argsort(props["peak_heights"])[::-1][:2]]
 
+        # Two peaks within 15 neuron indices (~15 deg) = single fused blob
+        peak_sep = min(abs(p2 - p1), N - abs(p2 - p1))
+        if peak_sep <= 15:
+            return True
+
         def valley(i, j):
             direct = abs(j - i)
             seg = (
@@ -310,7 +326,7 @@ def compute_spatial_binding_curve(
             )
             return seg.min()
 
-        return valley(p1, p2) / (min(sm[p1], sm[p2]) + 1e-12) > 0.6
+        return valley(p1, p2) / (min(sm[p1], sm[p2]) + 1e-12) > 0.4
 
     # ---------- main loop over separations ---------------------------
     fusion_prob = []
@@ -358,6 +374,265 @@ def compute_spatial_binding_curve(
     return np.asarray(fusion_prob, dtype=float)
 
 
+@torch.inference_mode()
+def compute_sbw_fused_persep(
+        net,
+        *,
+        separations_deg: Sequence[int],
+        n_trials: int = 50,
+        intensity: float = 0.5,
+        duration: int = 20,
+        block_size: int = 32,
+):
+    """P(fusion) via is_fused() classifier with per-separation processing.
+
+    Each separation runs as a separate forward pass with g_FFinh and
+    step_counter restored to initial values, eliminating cross-talk.
+
+    Parameters
+    ----------
+    net : MultiBatchAudVisMSINetworkTime
+    separations_deg : sequence of int
+        Spatial disparities in degrees (e.g., range(-80, 85, 5)).
+    n_trials : int
+        Trials per separation.
+    intensity : float
+        Stimulus amplitude.
+    duration : int
+        Stimulus duration in timesteps.
+    block_size : int
+        Max trials per GPU batch.
+
+    Returns
+    -------
+    np.ndarray
+        P(fusion) for each separation (shape: [n_sep]).
+    """
+    N = net.n
+    S = net.space_size
+    rng = np.random.default_rng()
+
+    initial_g_FFinh = net.g_FFinh
+    initial_step_counter = net.step_counter
+
+    def idx(deg_arr):
+        a = np.asarray(deg_arr, dtype=float)
+        return np.round(a * (N - 1) / (S - 1)).astype(int)
+
+    def make_gauss(idx_centres: torch.Tensor):
+        xs = torch.arange(N, device=net.device, dtype=torch.float32)
+        return torch.exp(
+            -0.5 * ((xs - idx_centres.unsqueeze(1)) / net.sigma_in) ** 2
+        ) * intensity
+
+    def is_fused(profile: np.ndarray) -> bool:
+        sm = gaussian_filter1d(profile, sigma=2, mode="wrap")
+        if sm.max() < 1e-6:
+            return True
+        sm /= sm.max()
+        peaks, props = find_peaks(sm, height=0.2, distance=10)
+        if len(peaks) <= 1:
+            return True
+        p1, p2 = peaks[np.argsort(props["peak_heights"])[::-1][:2]]
+
+        peak_sep = min(abs(p2 - p1), N - abs(p2 - p1))
+        if peak_sep <= 15:
+            return True
+
+        def valley(i, j):
+            direct = abs(j - i)
+            seg = (
+                sm[min(i, j): max(i, j) + 1]
+                if direct <= N - direct
+                else np.r_[sm[max(i, j):], sm[: min(i, j) + 1]]
+            )
+            return seg.min()
+
+        return valley(p1, p2) / (min(sm[p1], sm[p2]) + 1e-12) > 0.4
+
+    fusion_prob = []
+    for sep in separations_deg:
+        # Restore initial state for each separation
+        net.g_FFinh = initial_g_FFinh
+        net.step_counter = initial_step_counter
+
+        fused_trials = 0
+        n_blocks = math.ceil(n_trials / block_size)
+
+        for blk in range(n_blocks):
+            bs = min(block_size, n_trials - blk * block_size)
+
+            base_deg = rng.integers(0, S, size=bs)
+            locA_deg = base_deg
+            locV_deg = (base_deg + sep) % S
+
+            idxA = torch.as_tensor(idx(locA_deg), device=net.device)
+            idxV = torch.as_tensor(idx(locV_deg), device=net.device)
+            gA = make_gauss(idxA)
+            gV = make_gauss(idxV)
+
+            net.reset_state(batch_size=bs)
+            msi_sum = torch.zeros(bs, N, device=net.device)
+
+            for t in range(duration):
+                net.update_all_layers_batch(gA, gV)
+                msi_sum += net._latest_sMSI
+
+            profs = msi_sum.cpu().numpy()
+            for pr in profs:
+                fused_trials += is_fused(pr)
+
+            del gA, gV, idxA, idxV, msi_sum
+            if net.device.type == "cuda":
+                torch.cuda.empty_cache()
+
+        fusion_prob.append(fused_trials / n_trials)
+
+    # Restore initial state
+    net.g_FFinh = initial_g_FFinh
+    net.step_counter = initial_step_counter
+    return np.asarray(fusion_prob, dtype=float)
+
+
+@torch.inference_mode()
+def compute_sbw_enhancement_persep(
+        net,
+        *,
+        separations_deg: Sequence[int],
+        n_trials: int = 50,
+        intensity: float = 0.5,
+        duration: int = 20,
+        block_size: int = 32,
+        roi_half: int = 20,
+):
+    """Absolute multisensory enhancement vs spatial disparity.
+
+    For each separation and trial, runs three conditions (AV bimodal,
+    A-only, V-only) and computes:
+
+        enhancement = av_roi_spikes - max(a_roi_spikes, v_roi_spikes)
+
+    where ROI is ±roi_half neurons around the auditory stimulus position.
+    Per-separation processing with g_FFinh + step_counter save/restore
+    before each of the 3 passes eliminates cross-talk.
+
+    Parameters
+    ----------
+    net : MultiBatchAudVisMSINetworkTime
+    separations_deg : sequence of int
+        Spatial disparities in degrees.
+    n_trials : int
+        Trials per separation.
+    intensity : float
+        Stimulus amplitude.
+    duration : int
+        Stimulus duration in timesteps.
+    block_size : int
+        Max trials per GPU batch.
+    roi_half : int
+        Half-width of ROI in neurons (~4*sigma_in). Default: 20.
+
+    Returns
+    -------
+    mean_enhancement : np.ndarray
+        Mean enhancement for each separation (shape: [n_sep]).
+    all_trial_enh : list of np.ndarray
+        Per-trial enhancement values for each separation.
+        all_trial_enh[k] has shape (n_trials,).
+    """
+    N = net.n
+    S = net.space_size
+    rng = np.random.default_rng()
+
+    initial_g_FFinh = net.g_FFinh
+    initial_step_counter = net.step_counter
+
+    xs = torch.arange(N, device=net.device, dtype=torch.float32)
+
+    def to_idx(deg):
+        return torch.round(
+            torch.as_tensor(deg, device=net.device, dtype=torch.float32)
+            * (N - 1) / (S - 1)).long()
+
+    def make_gauss(idx_centres):
+        return torch.exp(
+            -0.5 * ((xs - idx_centres[:, None]) / net.sigma_in) ** 2
+        ) * intensity
+
+    def roi_spikes(msi_sum, center_idx):
+        """Sum spikes in ±roi_half neurons around center_idx (with wrapping).
+
+        Parameters
+        ----------
+        msi_sum : (batch, N) tensor — total MSI spikes per neuron.
+        center_idx : (batch,) long tensor — ROI centre per trial.
+
+        Returns
+        -------
+        (batch,) tensor — total spikes in ROI.
+        """
+        B = msi_sum.shape[0]
+        offsets = torch.arange(-roi_half, roi_half + 1, device=msi_sum.device)
+        indices = (center_idx[:, None] + offsets[None, :]) % N  # (B, 2*roi_half+1)
+        return msi_sum.gather(1, indices).sum(dim=1)  # (B,)
+
+    def run_pass(stim_A, stim_V, bs):
+        """Run a single AV/A-only/V-only pass with fresh state."""
+        net.g_FFinh = initial_g_FFinh
+        net.step_counter = initial_step_counter
+        net.reset_state(batch_size=bs)
+        msi_sum = torch.zeros(bs, N, device=net.device)
+        for _ in range(duration):
+            net.update_all_layers_batch(stim_A, stim_V)
+            msi_sum += net._latest_sMSI
+        return msi_sum
+
+    mean_enhancement = np.zeros(len(separations_deg))
+    all_trial_enh = [None] * len(separations_deg)
+
+    for k, sep in enumerate(separations_deg):
+        trial_enhancements = []
+        n_blocks = math.ceil(n_trials / block_size)
+
+        for blk in range(n_blocks):
+            bs = min(block_size, n_trials - blk * block_size)
+
+            base_deg = rng.integers(0, S, size=bs)
+            locA_deg = base_deg
+            locV_deg = (base_deg + sep) % S
+
+            idxA = to_idx(locA_deg)
+            idxV = to_idx(locV_deg)
+            gA = make_gauss(idxA)
+            gV = make_gauss(idxV)
+            zeros = torch.zeros_like(gA)
+
+            # 3 passes: AV, A-only, V-only — each with fresh g_FFinh/step_counter
+            av_sum = run_pass(gA, gV, bs)
+            a_sum = run_pass(gA, zeros, bs)
+            v_sum = run_pass(zeros, gV, bs)
+
+            # ROI around auditory stimulus position
+            av_roi = roi_spikes(av_sum, idxA)
+            a_roi = roi_spikes(a_sum, idxA)
+            v_roi = roi_spikes(v_sum, idxA)
+
+            enh = av_roi - torch.max(a_roi, v_roi)
+            trial_enhancements.append(enh.cpu().numpy())
+
+            del gA, gV, zeros, av_sum, a_sum, v_sum
+            if net.device.type == "cuda":
+                torch.cuda.empty_cache()
+
+        all_enh = np.concatenate(trial_enhancements)
+        mean_enhancement[k] = all_enh.mean()
+        all_trial_enh[k] = all_enh
+
+    net.g_FFinh = initial_g_FFinh
+    net.step_counter = initial_step_counter
+    return mean_enhancement, all_trial_enh
+
+
 def fit_pedestal_curve(pooled, k_edge=4.0):
     x, y = pooled["separations_deg"], pooled["mean_prob"]
     p0 = [y.min(), y.max(), 25.0]  # base, top, half‑width
@@ -379,38 +654,161 @@ def run_spatial_binding_across_models(
         duration=20,
         device="cpu",
         modify_net=None,  # optional modifier
+        method="spike_profile",  # "spike_profile", "is_fused", or "enhancement"
+        block_size=32,
+        ref_baseline=None,
+        ref_peak_shift=None,
+        enhancement_threshold=0.0,
 ):
+    """Run SBW across model checkpoints.
+
+    Parameters
+    ----------
+    method : str
+        "spike_profile" — raw AV spike count profile (default).
+        "is_fused" — peak/valley classifier P(fusion).
+        "enhancement" — P(fusion) via enhancement thresholding.
+            Per-trial: enhancement = AV_roi - max(A_roi, V_roi).
+            P(fusion) = fraction of trials where enhancement > threshold.
+    enhancement_threshold : float
+        Spike-count threshold for the "enhancement" method.
+        A trial is classified as "fused" if enhancement > threshold.
+        Default: 0.0 (any positive enhancement counts as fusion).
+    ref_baseline : float or None
+        (Unused for enhancement method — kept for backward compatibility.)
+    ref_peak_shift : float or None
+        (Unused for enhancement method — kept for backward compatibility.)
+    """
     curves = []
     for p in model_paths:
         net = load_msi_model(Path(p), device=device)
 
-        if callable(modify_net):  
+        if callable(modify_net):
             modify_net(net)  # tweak parameters *in‑place*
 
-        curves.append(
-            spatial_binding_curve_fast(
+        if method == "is_fused":
+            curves.append(
+                compute_sbw_fused_persep(
+                    net,
+                    separations_deg=separations_deg,
+                    n_trials=n_trials,
+                    intensity=intensity,
+                    duration=duration,
+                    block_size=block_size,
+                )
+            )
+        elif method == "enhancement":
+            mean_enh, all_trial_enh = compute_sbw_enhancement_persep(
                 net,
                 separations_deg=separations_deg,
                 n_trials=n_trials,
                 intensity=intensity,
                 duration=duration,
+                block_size=block_size,
             )
-        )
+            # P(fusion) per separation: fraction of trials with enhancement > threshold
+            p_fusion = np.array([
+                (trial_enh > enhancement_threshold).mean()
+                for trial_enh in all_trial_enh
+            ])
+            curves.append(p_fusion)
+        else:
+            curves.append(
+                spatial_binding_curve_fast(
+                    net,
+                    separations_deg=separations_deg,
+                    n_trials=n_trials,
+                    intensity=intensity,
+                    duration=duration,
+                )
+            )
         del net
         if device.startswith("cuda"):
             torch.cuda.empty_cache()
 
-    curves = np.vstack(curves)
+    curves = np.vstack(curves)  # (n_models, n_sep)
+    sep_arr = np.asarray(separations_deg, float)
+
+    # ── Symmetrize: average mirror separations (+s and -s) ──
+    mag_to_cols = {}
+    for i, s in enumerate(separations_deg):
+        mag = abs(s)
+        mag_to_cols.setdefault(mag, []).append(i)
+
+    mags = np.array(sorted(mag_to_cols.keys()), dtype=float)
+    n_mags = len(mags)
+
+    curves_sym = np.zeros((curves.shape[0], n_mags))
+    for j, mag in enumerate(mags):
+        cols = mag_to_cols[mag]
+        curves_sym[:, j] = curves[:, cols].mean(axis=1)
+
+    if method == "enhancement":
+        # P(fusion) is already in [0, 1] — no normalization needed.
+        # Just average across models and mirror.
+        mean_onesided = curves_sym.mean(0)
+        all_onesided = curves_sym
+        baseline = 0.0
+        peak_shift = 1.0
+    else:
+        # Old normalization path for spike_profile / is_fused methods
+        mean_sym = curves_sym.mean(0)
+        baseline = ref_baseline if ref_baseline is not None else mean_sym[-1]
+        peak_shift = ref_peak_shift if ref_peak_shift is not None else (mean_sym - baseline).max()
+
+        if peak_shift > 1e-9:
+            mean_onesided = (mean_sym - baseline) / peak_shift
+            all_onesided = (curves_sym - baseline) / peak_shift
+            if ref_baseline is None:
+                mean_onesided = np.clip(mean_onesided, 0.0, 1.0)
+                all_onesided = np.clip(all_onesided, 0.0, 1.0)
+        else:
+            mean_onesided = np.zeros_like(mean_sym)
+            all_onesided = np.zeros_like(curves_sym)
+
+    # ── Mirror back to full symmetric curve for plotting ──
+    full_sep = np.concatenate([-mags[::-1], mags[1:]])
+    full_mean = np.concatenate([mean_onesided[::-1], mean_onesided[1:]])
+    full_sem_parts = all_onesided.std(0, ddof=1) / np.sqrt(curves.shape[0])
+    full_sem = np.concatenate([full_sem_parts[::-1], full_sem_parts[1:]])
+    full_all = np.concatenate([all_onesided[:, ::-1], all_onesided[:, 1:]], axis=1)
+
     return {
-        "separations_deg": np.asarray(separations_deg, float),
-        "mean_prob": curves.mean(0),
-        "sem_prob": curves.std(0, ddof=1) / np.sqrt(curves.shape[0]),
-        "all_prob": curves,
+        "separations_deg": full_sep,
+        "mean_prob": full_mean,
+        "sem_prob": full_sem,
+        "all_prob": full_all,
+        "ref_baseline": float(baseline),
+        "ref_peak_shift": float(peak_shift),
+        "enhancement_threshold": float(enhancement_threshold) if method == "enhancement" else None,
     }
 
 
 def gaussian(x, base, amp, mu, sigma):
+    """General Gaussian: base + amp * exp(-0.5*((x-mu)/sigma)^2)."""
     return base + amp * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
+
+
+def _gaussian_centered(x, amp, sigma):
+    """Zero-centered Gaussian for symmetric SBW data: amp * exp(-0.5*(x/sigma)^2)."""
+    return amp * np.exp(-0.5 * (x / sigma) ** 2)
+
+
+def fit_gaussian_curve(pooled):
+    """Fit a zero-centered Gaussian to the symmetrized SBW profile.
+
+    After symmetrization + baseline subtraction, the data is centered
+    at 0° with baseline ≈ 0, so we fit: P(sep) = amp * exp(-0.5*(sep/sigma)^2).
+
+    Returns (xs, ys, popt) where popt = (amp, sigma).
+    """
+    x, y = pooled["separations_deg"], pooled["mean_prob"]
+    p0 = [y.max(), 20.0]
+    popt, _ = curve_fit(_gaussian_centered, x, y, p0=p0,
+                        bounds=([0.1, 5], [3.0, 80]))
+    xs = np.linspace(x.min(), x.max(), 600)
+    ys = _gaussian_centered(xs, *popt)
+    return xs, ys, popt
 
 
 # ---------------- pedestal (3-parameter flattop) ----------------
@@ -663,7 +1061,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import numpy as np, torch, matplotlib.pyplot as plt
 from scipy.optimize import curve_fit   # already imported higher up
 
-@torch.no_grad()
+@torch.inference_mode()
 def msi_profile_at_disparity(net,
                              disparity_deg: float,
                              *,
@@ -736,7 +1134,8 @@ def plot_spatial_binding_pedestal_ax(
         reference_fit=None,
         ref_tint_alpha: float = .12,
         manip_tint_alpha: float = .18,
-        cont: False):
+        cont: False,
+        out_path=None):
     """
     Returns (fig, ax) — draws pedestal fit for *pooled* data.
     If *reference_fit* ≠ None (tuple of xs, ys) the control curve
@@ -838,8 +1237,8 @@ def plot_spatial_binding_pedestal_ax(
     ax.grid(False)
     plt.tight_layout()
     ax.tick_params(axis='both', which='major', length=20, width=1)
-    # if cont:
-    plt.savefig('./Saved_Images/SBW_curve.svg', format='svg')
+    save_path = out_path or './Saved_Images/SBW_curve.svg'
+    plt.savefig(save_path, format='svg')
     return fig, ax
 
 
