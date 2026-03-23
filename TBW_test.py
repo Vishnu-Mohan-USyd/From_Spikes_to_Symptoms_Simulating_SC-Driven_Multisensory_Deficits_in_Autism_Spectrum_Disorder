@@ -14,6 +14,7 @@ def load_msi_model(ckpt_path: Path, *, device="cuda"):
         setattr(net, k, v)
     # net.g_FFinh = 0.1
     net.to(device).eval()
+    net.plasticity_enabled = False  # disable plasticity during evaluation
     return net
 
 
@@ -483,6 +484,91 @@ def calculate_fusion_from_integration(integration_results, method='robust_sigmoi
     return fusion_probs
 
 
+# ──────────────────────────────────────────────────────────────────
+#  MEI-based fusion probability  (Stein & Stanford 2008)
+# ──────────────────────────────────────────────────────────────────
+@torch.inference_mode()
+def _run_unimodal_reference(net, *, loc=90, T=60, D=5, extra=5, stim_in=1):
+    """
+    Run A-only and V-only reference trials at the given location.
+
+    Returns
+    -------
+    a_spikes : float
+        Integrated MSI spike count for audio-only stimulus.
+    v_spikes : float
+        Integrated MSI spike count for visual-only stimulus.
+    """
+    from Training import generate_av_batch_tensor
+
+    n, S, sigma = net.n, net.space_size, net.sigma_in
+
+    # Build A-only and V-only sequences (batch of 2)
+    loc_seq = [999] * T
+    mod_A   = ['X'] * T
+    mod_V   = ['X'] * T
+    for t in range(D):
+        loc_seq[t] = loc
+        mod_A[t] = 'A'
+        mod_V[t] = 'V'
+
+    loc_seqs = [list(loc_seq), list(loc_seq)]
+    mod_seqs = [list(mod_A), list(mod_V)]
+
+    xA, xV, mask = generate_av_batch_tensor(
+        loc_seqs, mod_seqs, [False, False],
+        n=n, space_size=S, sigma_in=sigma,
+        noise_std=0.0, device=net.device, max_len=T,
+        stimulus_intensity=stim_in,
+    )
+
+    net.reset_state(2)
+    rast = torch.zeros((T, 2), device=net.device)
+    for t in range(T):
+        net.update_all_layers_batch(xA[:, t], xV[:, t], mask[:, t])
+        rast[t] = net._latest_sMSI.sum(dim=1)
+
+    # Integrate over the same window as bimodal trials (onset → onset+D+extra)
+    win_start = 0
+    win_stop = min(D + extra, T)
+    a_spikes = rast[win_start:win_stop, 0].sum().item()
+    v_spikes = rast[win_start:win_stop, 1].sum().item()
+    return a_spikes, v_spikes
+
+
+def calculate_fusion_mei(av_int_spikes, a_ref, v_ref, threshold=0.1):
+    """
+    Multisensory Enhancement Index (MEI) fusion probability.
+
+    Parameters
+    ----------
+    av_int_spikes : ndarray (n_offsets,)
+        Integrated AV spike counts per offset.
+    a_ref : float
+        A-only integrated spike count.
+    v_ref : float
+        V-only integrated spike count.
+    threshold : float
+        MEI threshold for "fused" (default 0.1 = 10% enhancement).
+
+    Returns
+    -------
+    fusion_probs : ndarray (n_offsets,)
+        P(fusion) at each offset — here 0 or 1 per offset since we have
+        one trial per model; averaging across models gives smooth curve.
+    mei_values : ndarray (n_offsets,)
+        Raw MEI values for diagnostics.
+    """
+    best_uni = max(a_ref, v_ref)
+    if best_uni < 1e-6:
+        # No unimodal response — can't compute MEI
+        return np.zeros_like(av_int_spikes), np.zeros_like(av_int_spikes)
+
+    mei = (av_int_spikes - best_uni) / best_uni
+    fused = (mei > threshold).astype(float)
+    return fused, mei
+
+
 def fit_psychometric_curve(offsets_ms, fusion_probs, p0=None,
                            use_weights=True, smooth_data=False,
                            robust_fit=True):
@@ -632,37 +718,153 @@ def fit_psychometric_curve(offsets_ms, fusion_probs, p0=None,
     }
 
 
-def run_fusion_across_models(model_paths, offsets, device="cuda",
-                             modify_net=None, fusion_method='preserve_peak'):
-    """
-    Updated to use better fusion probability calculation.
-    """
-    # Run temporal integration (existing code)
-    pooled_res = run_temporal_integration_across_models(
-        model_paths, offsets, device=device, modify_net=modify_net, log_charges=True
-    )
+def _normalize_spike_profile(spikes, n_extreme=5):
+    """Baseline-subtract and peak-normalize a spike count profile.
 
-    fusion_probs = calculate_fusion_from_integration(pooled_res, method=fusion_method)
+    Parameters
+    ----------
+    spikes : ndarray (n_points,)
+        Raw integrated spike counts across offsets or separations.
+    n_extreme : int
+        Number of points at each tail used to estimate the baseline
+        (mean of the *n_extreme* lowest points at each end).
+
+    Returns
+    -------
+    ndarray (n_points,)
+        Normalized profile in [0, 1]: 0 at extremes, 1 at peak.
+    """
+    spikes = np.asarray(spikes, dtype=float)
+    # Baseline = mean of n_extreme points at each end
+    baseline = np.concatenate([spikes[:n_extreme], spikes[-n_extreme:]]).mean()
+    shifted = spikes - baseline
+    peak = shifted.max()
+    if peak < 1e-9:
+        return np.zeros_like(spikes)
+    return np.clip(shifted / peak, 0.0, 1.0)
+
+
+def run_fusion_across_models(model_paths, offsets, device="cuda",
+                             modify_net=None, fusion_method='spike_profile',
+                             mei_threshold=0.1,
+                             loc=90, T=60, D=5, extra=5, stim_in=1.0):
+    """
+    Run AV temporal integration across model checkpoints and compute
+    fusion probability at each offset.
+
+    Parameters
+    ----------
+    fusion_method : str
+        'spike_profile'  : Normalized AV spike count profile (default).
+                           Baseline = mean of extreme offsets, peak-normalized
+                           to [0,1].  No unimodal passes needed.
+        'mei'            : Multisensory Enhancement Index (Stein & Stanford 2008).
+                           Compares AV spikes to best unimodal baseline.
+        'preserve_peak'  : Legacy percentile-based normalization.
+    mei_threshold : float
+        Enhancement fraction above best-unimodal to count as fused (default 0.1).
+    loc, T, D, extra, stim_in : passed to run_temporal_integration / unimodal ref.
+    """
+    from Training import run_temporal_integration
 
     all_fusion = []
-    for model_spikes in pooled_res["all_int_spikes"]:
-        single_res = {
-            "offsets_ms": pooled_res["offsets_ms"],
-            "mean_int_spikes": model_spikes
+    all_int = []
+    all_mei = []
+
+    for path in model_paths:
+        net = load_msi_model(Path(path), device=device)
+        if callable(modify_net):
+            modify_net(net)
+
+        # Save initial g_FFinh so each pass starts from the same value.
+        # AGC runs normally (as during training); we just ensure the
+        # unimodal reference starts from the same g_FFinh as the AV pass
+        # (Bug B fix — prevents AV drift from contaminating unimodal).
+        initial_g_FFinh = net.g_FFinh
+
+        # 1. AV bimodal integration
+        res = run_temporal_integration(
+            net, offsets, loc=loc, T=T, D=D, extra=extra, stim_in=stim_in
+        )
+        av_spikes = res["int_spikes"]  # (n_offsets,)
+        all_int.append(av_spikes)
+
+        if fusion_method == 'spike_profile':
+            # Raw spikes collected in all_int; normalization happens
+            # on the pooled average after the loop (see below).
+            pass
+        elif fusion_method == 'mei':
+            # Restore g_FFinh so unimodal starts from the same initial
+            # conditions as the AV run (Bug B fix)
+            net.g_FFinh = initial_g_FFinh
+
+            # 2. Unimodal references (A-only, V-only) for this model
+            a_ref, v_ref = _run_unimodal_reference(
+                net, loc=loc, T=T, D=D, extra=extra, stim_in=stim_in
+            )
+            fused, mei = calculate_fusion_mei(
+                av_spikes, a_ref, v_ref, threshold=mei_threshold
+            )
+            all_fusion.append(fused)
+            all_mei.append(mei)
+        else:
+            # Legacy path
+            single_res = {
+                "offsets_ms": res["offsets_ms"],
+                "mean_int_spikes": av_spikes
+            }
+            fusion = calculate_fusion_from_integration(
+                single_res, method=fusion_method
+            )
+            all_fusion.append(fusion)
+
+        # Restore state
+        net.g_FFinh = initial_g_FFinh
+        del net
+        if str(device).startswith("cuda"):
+            torch.cuda.empty_cache()
+
+    all_int = np.vstack(all_int)
+    n_models = len(model_paths)
+
+    if fusion_method == 'spike_profile':
+        # Normalize the POOLED average spike profile, not per-model.
+        # This preserves the true dome width (per-model normalization
+        # compresses width when peak locations vary across models).
+        mean_raw = all_int.mean(0)
+        mean_fusion = _normalize_spike_profile(mean_raw)
+
+        # SEM: normalize each model using the POOLED baseline/peak so
+        # all models share the same scale for meaningful SEM.
+        baseline = np.concatenate([mean_raw[:5], mean_raw[-5:]]).mean()
+        peak_shift = (mean_raw - baseline).max()
+        if peak_shift > 1e-9:
+            all_norm = np.clip((all_int - baseline) / peak_shift, 0.0, 1.0)
+        else:
+            all_norm = np.zeros_like(all_int)
+        sem_fusion = all_norm.std(0, ddof=1) / np.sqrt(n_models)
+
+        result = {
+            "offsets_ms": [o * 10 for o in offsets],
+            "mean_fusion": mean_fusion,
+            "sem_fusion": sem_fusion,
+            "all_fusion": all_norm,
+            "mean_int_spikes": all_int.mean(0),
+            "sem_int_spikes": all_int.std(0, ddof=1) / np.sqrt(n_models),
         }
-        fusion = calculate_fusion_from_integration(single_res, method=fusion_method)
-        all_fusion.append(fusion)
-
-    all_fusion = np.vstack(all_fusion)
-
-    return {
-        "offsets_ms": pooled_res["offsets_ms"],
-        "mean_fusion": all_fusion.mean(0),
-        "sem_fusion": all_fusion.std(0, ddof=1) / np.sqrt(len(model_paths)),
-        "all_fusion": all_fusion,
-        "mean_int_spikes": pooled_res["mean_int_spikes"],  # Keep original spikes
-        "sem_int_spikes": pooled_res["sem_int_spikes"]
-    }
+    else:
+        all_fusion = np.vstack(all_fusion)
+        result = {
+            "offsets_ms": [o * 10 for o in offsets],
+            "mean_fusion": all_fusion.mean(0),
+            "sem_fusion": all_fusion.std(0, ddof=1) / np.sqrt(n_models),
+            "all_fusion": all_fusion,
+            "mean_int_spikes": all_int.mean(0),
+            "sem_int_spikes": all_int.std(0, ddof=1) / np.sqrt(n_models),
+        }
+        if all_mei:
+            result["mean_mei"] = np.vstack(all_mei).mean(0)
+    return result
 
 
 def print_fit_diagnostics(fit, data_fusion=None):
@@ -878,7 +1080,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import numpy as np, torch, matplotlib.pyplot as plt
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def msi_timecourse_at_offset(net,
                              offset_steps: int,
                              *,
@@ -1047,7 +1249,8 @@ def plot_psychometric_tbw_ax(pooled_res,
                              reference_fit=None,
                              title_suffix="",
                              criterion=0.5,
-                             cont=False):
+                             cont=False,
+                             out_path=None):
     """
     Identical visuals to plot_psychometric_tbw() but returns
     handles so callers can add extra graphics before plt.show().
@@ -1134,8 +1337,8 @@ def plot_psychometric_tbw_ax(pooled_res,
     plt.rcParams['pdf.fonttype'] = 42      # TrueType in PDF/PS
     plt.rcParams['ps.fonttype']  = 42
     plt.rcParams['svg.fonttype'] = 'none'
-    # if cont:
-    plt.savefig('./Saved_Images/TBW_curve.svg', format='svg')
+    save_path = out_path or './Saved_Images/TBW_curve.svg'
+    plt.savefig(save_path, format='svg')
     return fig, ax, fit_M
 
 # ────────────────────────────────────────────────────────────────
