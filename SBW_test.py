@@ -507,14 +507,16 @@ def compute_sbw_enhancement_persep(
 ):
     """Absolute multisensory enhancement vs spatial disparity.
 
-    For each separation and trial, runs three conditions (AV bimodal,
-    A-only, V-only) and computes:
+    Batches ALL separations × trials into a single forward pass for each
+    of the 3 conditions (AV, A-only, V-only), giving ~33× speedup over
+    the per-separation sequential approach.
+
+    For each separation and trial, computes:
 
         enhancement = av_roi_spikes - max(a_roi_spikes, v_roi_spikes)
 
     where ROI is ±roi_half neurons around the auditory stimulus position.
-    Per-separation processing with g_FFinh + step_counter save/restore
-    before each of the 3 passes eliminates cross-talk.
+    g_FFinh and step_counter are saved/restored before each of the 3 passes.
 
     Parameters
     ----------
@@ -528,7 +530,8 @@ def compute_sbw_enhancement_persep(
     duration : int
         Stimulus duration in timesteps.
     block_size : int
-        Max trials per GPU batch.
+        Ignored (kept for API compatibility). All separations × trials
+        are batched into a single forward pass.
     roi_half : int
         Half-width of ROI in neurons (~4*sigma_in). Default: 20.
 
@@ -549,6 +552,9 @@ def compute_sbw_enhancement_persep(
 
     xs = torch.arange(N, device=net.device, dtype=torch.float32)
 
+    n_sep = len(separations_deg)
+    total_batch = n_sep * n_trials
+
     def to_idx(deg):
         return torch.round(
             torch.as_tensor(deg, device=net.device, dtype=torch.float32)
@@ -560,73 +566,57 @@ def compute_sbw_enhancement_persep(
         ) * intensity
 
     def roi_spikes(msi_sum, center_idx):
-        """Sum spikes in ±roi_half neurons around center_idx (with wrapping).
-
-        Parameters
-        ----------
-        msi_sum : (batch, N) tensor — total MSI spikes per neuron.
-        center_idx : (batch,) long tensor — ROI centre per trial.
-
-        Returns
-        -------
-        (batch,) tensor — total spikes in ROI.
-        """
-        B = msi_sum.shape[0]
+        """Sum spikes in ±roi_half neurons around center_idx (with wrapping)."""
         offsets = torch.arange(-roi_half, roi_half + 1, device=msi_sum.device)
-        indices = (center_idx[:, None] + offsets[None, :]) % N  # (B, 2*roi_half+1)
-        return msi_sum.gather(1, indices).sum(dim=1)  # (B,)
+        indices = (center_idx[:, None] + offsets[None, :]) % N
+        return msi_sum.gather(1, indices).sum(dim=1)
 
-    def run_pass(stim_A, stim_V, bs):
-        """Run a single AV/A-only/V-only pass with fresh state."""
+    # ── Generate ALL stimuli for ALL separations × trials at once ──
+    # Layout: [sep0_trial0, ..., sep0_trialN-1, sep1_trial0, ..., sepK_trialN-1]
+    all_locA = np.zeros(total_batch, dtype=int)
+    all_locV = np.zeros(total_batch, dtype=int)
+    for k, sep in enumerate(separations_deg):
+        s, e = k * n_trials, (k + 1) * n_trials
+        base = rng.integers(0, S, size=n_trials)
+        all_locA[s:e] = base
+        all_locV[s:e] = (base + sep) % S
+
+    idxA = to_idx(all_locA)
+    idxV = to_idx(all_locV)
+    gA = make_gauss(idxA)
+    gV = make_gauss(idxV)
+    zeros = torch.zeros_like(gA)
+
+    def run_pass(stim_A, stim_V):
+        """Run one full-batch forward pass with fresh state."""
         net.g_FFinh = initial_g_FFinh
         net.step_counter = initial_step_counter
-        net.reset_state(batch_size=bs)
-        msi_sum = torch.zeros(bs, N, device=net.device)
+        net.reset_state(batch_size=total_batch)
+        msi_sum = torch.zeros(total_batch, N, device=net.device)
         for _ in range(duration):
             net.update_all_layers_batch(stim_A, stim_V)
             msi_sum += net._latest_sMSI
         return msi_sum
 
-    mean_enhancement = np.zeros(len(separations_deg))
-    all_trial_enh = [None] * len(separations_deg)
+    # ── 3 passes total (AV, A-only, V-only) ──
+    av_sum = run_pass(gA, gV)
+    a_sum = run_pass(gA, zeros)
+    v_sum = run_pass(zeros, gV)
 
-    for k, sep in enumerate(separations_deg):
-        trial_enhancements = []
-        n_blocks = math.ceil(n_trials / block_size)
+    # ── Compute enhancement per trial ──
+    av_roi = roi_spikes(av_sum, idxA)
+    a_roi = roi_spikes(a_sum, idxA)
+    v_roi = roi_spikes(v_sum, idxA)
+    enh_all = (av_roi - torch.max(a_roi, v_roi)).cpu().numpy()
 
-        for blk in range(n_blocks):
-            bs = min(block_size, n_trials - blk * block_size)
+    del gA, gV, zeros, av_sum, a_sum, v_sum
+    if net.device.type == "cuda":
+        torch.cuda.empty_cache()
 
-            base_deg = rng.integers(0, S, size=bs)
-            locA_deg = base_deg
-            locV_deg = (base_deg + sep) % S
-
-            idxA = to_idx(locA_deg)
-            idxV = to_idx(locV_deg)
-            gA = make_gauss(idxA)
-            gV = make_gauss(idxV)
-            zeros = torch.zeros_like(gA)
-
-            # 3 passes: AV, A-only, V-only — each with fresh g_FFinh/step_counter
-            av_sum = run_pass(gA, gV, bs)
-            a_sum = run_pass(gA, zeros, bs)
-            v_sum = run_pass(zeros, gV, bs)
-
-            # ROI around auditory stimulus position
-            av_roi = roi_spikes(av_sum, idxA)
-            a_roi = roi_spikes(a_sum, idxA)
-            v_roi = roi_spikes(v_sum, idxA)
-
-            enh = av_roi - torch.max(a_roi, v_roi)
-            trial_enhancements.append(enh.cpu().numpy())
-
-            del gA, gV, zeros, av_sum, a_sum, v_sum
-            if net.device.type == "cuda":
-                torch.cuda.empty_cache()
-
-        all_enh = np.concatenate(trial_enhancements)
-        mean_enhancement[k] = all_enh.mean()
-        all_trial_enh[k] = all_enh
+    # ── Reshape to per-separation results ──
+    enh_reshaped = enh_all.reshape(n_sep, n_trials)
+    mean_enhancement = enh_reshaped.mean(axis=1)
+    all_trial_enh = [enh_reshaped[k] for k in range(n_sep)]
 
     net.g_FFinh = initial_g_FFinh
     net.step_counter = initial_step_counter

@@ -1119,6 +1119,7 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self.g_latV = 0.1  # Lateral inhibition gain for V
         self._probe = AMPANMDADebugger()  # ← add near other debug fields
         self.enable_probe = False  # opt-in: set True to collect AMPA/NMDA stats
+        self._ei_record = None  # E/I component recording (None = off)
 
         self.tau_ampa_lp = 2.5  # ms  (same as self.tau_syn)
         self.ampa_alpha = 1.0  # scale factor per injection
@@ -1666,6 +1667,22 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             mask = row > init
             W[mask.squeeze()] *= (init / row)[mask]
 
+    # ── E/I component recording ──────────────────────────────────
+    def start_ei_recording(self):
+        """Start recording separate E/I synaptic current components."""
+        self._ei_record = {
+            "I_E_mean": [], "I_I_mean": [],
+            "Q_E": [], "Q_I": [],
+            "AMPA": [], "NMDA": [],
+            "FFInh": [], "RecurInh": [], "LatInh": [],
+        }
+
+    def stop_ei_recording(self):
+        """Stop recording and return dict of numpy arrays."""
+        out = {k: np.asarray(v, dtype=float) for k, v in self._ei_record.items()}
+        self._ei_record = None
+        return out
+
     def reset_state(self, batch_size=None):
         if batch_size is not None:
             self.batch_size = batch_size
@@ -2114,6 +2131,28 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             I_latM = torch.mm(new_sM, self.W_MSI_inh)  # shape (B, n)
             # (B) apply it
             self.I_M.sub_(self.g_GABA * I_latM)
+
+            # ── E/I component recording (separate synaptic currents) ──
+            if self._ei_record is not None:
+                # Excitatory onto MSI excitatory
+                _I_E_ampa = torch.clamp(I_AMPA_curr, min=0.0)
+                _I_E_nmda = torch.clamp(I_nmda, min=0.0)
+                _I_E = _I_E_ampa + _I_E_nmda
+                # Inhibitory onto MSI excitatory
+                _I_I_ff = torch.clamp(self.g_FFinh * (I_inA_inh + I_inV_inh), min=0.0)
+                _I_I_recur = torch.clamp(I_M_inh2exc, min=0.0)
+                _I_I_lat = torch.clamp(self.g_GABA * I_latM, min=0.0)
+                _I_I = _I_I_ff + _I_I_recur + _I_I_lat
+
+                self._ei_record["I_E_mean"].append(_I_E.mean().item())
+                self._ei_record["I_I_mean"].append(_I_I.mean().item())
+                self._ei_record["Q_E"].append((_I_E * dt_s).mean().item())
+                self._ei_record["Q_I"].append((_I_I * dt_s).mean().item())
+                self._ei_record["AMPA"].append(_I_E_ampa.mean().item())
+                self._ei_record["NMDA"].append(_I_E_nmda.mean().item())
+                self._ei_record["FFInh"].append(_I_I_ff.mean().item())
+                self._ei_record["RecurInh"].append(_I_I_recur.mean().item())
+                self._ei_record["LatInh"].append(_I_I_lat.mean().item())
 
             if self.enable_probe and self._probe is not None:
                 I_total = self.I_M.detach()  # includes inhibition

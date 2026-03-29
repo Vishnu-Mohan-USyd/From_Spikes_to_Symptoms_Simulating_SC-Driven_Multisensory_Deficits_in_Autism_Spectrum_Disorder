@@ -1,7 +1,7 @@
 """Generate all 8 final figures (4 TBW + 4 SBW enhancement).
 
-TBW: spike profile normalization (unchanged)
-SBW: absolute enhancement metric (AV - max(A,V) in ROI)
+TBW: temporal fusion P(fusion) via is_temporally_fused() classifier
+SBW: P(fusion) via enhancement thresholding (AV - max(A,V) > threshold)
 
 Saves 8 SVGs to ./Saved_Images/
 """
@@ -49,38 +49,68 @@ CONDITIONS = {
 
 
 # ====================================================================
-# TBW figures (spike profile — unchanged)
+# TBW figures — P(fusion) via temporal fusion classifier
 # ====================================================================
-def run_tbw_all():
+def run_tbw_all(*, use_cache=False):
+    """Run TBW P(fusion) for all conditions using temporal fusion classifier.
+
+    Uses is_temporally_fused() with calibrated params:
+    sigma=2, valley_threshold=0.4, min_peak_height=0.2,
+    min_peak_separation=3, min_total=10.
+    10 models, 50 trials per offset.
+    """
     offsets = list(range(-50, 51, 2))
     saved = {}
 
+    cache_ctrl = CACHE_DIR / "tbw_control_tfusion.npz"
+
+    # Control first
     print("=" * 60)
-    print("TBW — CONTROL")
+    print("TBW — CONTROL (temporal fusion P(fusion))")
     print("=" * 60)
     t0 = time.time()
-    pooled_ctrl = run_fusion_across_models(
-        MODEL_PATHS, offsets, device="cuda",
-        fusion_method='spike_profile',
-    )
+    if use_cache and cache_ctrl.exists():
+        pooled_ctrl = _load_pooled(cache_ctrl)
+        print("  Loaded from cache")
+    else:
+        pooled_ctrl = run_fusion_across_models(
+            MODEL_PATHS, offsets, device="cuda",
+            fusion_method='temporal_fusion',
+            n_trials=50,
+        )
+        _save_pooled(pooled_ctrl, cache_ctrl)
+
     fig_ctrl, ax_ctrl, fit_ctrl = plot_psychometric_tbw_ax(
         pooled_ctrl, cont=True,
         out_path=str(SAVE_DIR / "TBW_control.svg"),
     )
     plt.close(fig_ctrl)
     saved["TBW_control"] = SAVE_DIR / "TBW_control.svg"
+
+    mf = pooled_ctrl["mean_fusion"]
+    print(f"  Peak: {mf.max():.3f} at {np.asarray(pooled_ctrl['offsets_ms'])[mf.argmax()]:.0f}ms")
+    print(f"  Extremes: {mf[:3].mean():.4f} / {mf[-3:].mean():.4f}")
     print(f"  Saved: {saved['TBW_control']}  ({time.time()-t0:.1f}s)")
 
+    # Perturbation conditions
     for cond_name, modify_fn in CONDITIONS.items():
         if cond_name == "control":
             continue
-        print(f"\nTBW — {cond_name.upper()}")
+        cache_path = CACHE_DIR / f"tbw_{cond_name}_tfusion.npz"
+        print(f"\nTBW — {cond_name.upper()} (temporal fusion P(fusion))")
         t0 = time.time()
-        pooled = run_fusion_across_models(
-            MODEL_PATHS, offsets, device="cuda",
-            fusion_method='spike_profile',
-            modify_net=modify_fn,
-        )
+        if use_cache and cache_path.exists():
+            pooled = _load_pooled(cache_path)
+            print("  Loaded from cache")
+        else:
+            pooled = run_fusion_across_models(
+                MODEL_PATHS, offsets, device="cuda",
+                fusion_method='temporal_fusion',
+                n_trials=50,
+                modify_net=modify_fn,
+            )
+            _save_pooled(pooled, cache_path)
+
         fig, ax, _ = plot_psychometric_tbw_ax(
             pooled,
             reference_fit=fit_ctrl,
@@ -90,6 +120,10 @@ def run_tbw_all():
         )
         plt.close(fig)
         saved[f"TBW_{cond_name}"] = SAVE_DIR / f"TBW_{cond_name}.svg"
+
+        mf = pooled["mean_fusion"]
+        print(f"  Peak: {mf.max():.3f} at {np.asarray(pooled['offsets_ms'])[mf.argmax()]:.0f}ms")
+        print(f"  Extremes: {mf[:3].mean():.4f} / {mf[-3:].mean():.4f}")
         print(f"  Saved: {saved[f'TBW_{cond_name}']}  ({time.time()-t0:.1f}s)")
 
     return saved
@@ -293,6 +327,7 @@ def run_sbw_all(*, use_cache=False, enhancement_threshold=0.0):
 if __name__ == "__main__":
     replot = "--replot" in sys.argv
     sbw_only = "--sbw-only" in sys.argv
+    tbw_only = "--tbw-only" in sys.argv
 
     # Parse --threshold=N (default 0)
     enh_threshold = 0.0
@@ -304,19 +339,22 @@ if __name__ == "__main__":
         print("REPLOT MODE — using cached data (no recomputation)\n")
     if sbw_only:
         print("SBW-ONLY MODE — skipping TBW\n")
+    if tbw_only:
+        print("TBW-ONLY MODE — skipping SBW\n")
     print(f"Enhancement threshold: {enh_threshold}\n")
 
     t_total = time.time()
     all_paths = {}
 
     if not sbw_only:
-        print("Generating TBW figures\n")
-        tbw_paths = run_tbw_all()
+        print("Generating TBW figures (temporal fusion P(fusion))\n")
+        tbw_paths = run_tbw_all(use_cache=replot)
         all_paths.update(tbw_paths)
         print()
 
-    sbw_paths = run_sbw_all(use_cache=replot, enhancement_threshold=enh_threshold)
-    all_paths.update(sbw_paths)
+    if not tbw_only:
+        sbw_paths = run_sbw_all(use_cache=replot, enhancement_threshold=enh_threshold)
+        all_paths.update(sbw_paths)
 
     print(f"\n{'='*60}")
     print(f"ALL DONE — {len(all_paths)} figures in {time.time()-t_total:.1f}s")

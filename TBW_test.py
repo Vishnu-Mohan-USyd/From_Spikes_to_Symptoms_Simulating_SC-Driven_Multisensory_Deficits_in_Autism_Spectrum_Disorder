@@ -718,6 +718,330 @@ def fit_psychometric_curve(offsets_ms, fusion_probs, p0=None,
     }
 
 
+def is_temporally_fused(temporal_profile, sigma=2.0, valley_threshold=0.4,
+                        min_peak_height=0.2, min_peak_separation=3,
+                        min_total=10.0):
+    """Temporal analog of spatial is_fused().
+
+    Smooths the MSI population spike-count time series, finds peaks,
+    and checks whether the two tallest peaks are separated by a deep
+    valley (= two distinct events) or merged (= one fused response).
+
+    The normalized profile is zero-padded before peak detection so that
+    peaks at the first/last timestep (common at extreme SOAs where one
+    stimulus response falls at the trial boundary) are properly detected
+    by scipy.signal.find_peaks.
+
+    Parameters
+    ----------
+    temporal_profile : 1D array
+        MSI population spike counts per timestep (1 step = 10 ms).
+    sigma : float
+        Gaussian smoothing kernel width in timesteps.
+    valley_threshold : float
+        Valley/smaller-peak ratio above which peaks are considered merged.
+    min_peak_height : float
+        Minimum peak height as fraction of max for peak detection.
+    min_peak_separation : int
+        Minimum timestep separation between peaks.
+    min_total : float
+        Minimum total spike count (noise floor). Trials below this are
+        classified as not-fused. Set low (default 10) to reject only
+        near-silent trials; temporal classification handles the rest.
+
+    Returns
+    -------
+    bool
+        True if response is a single fused event, False if two separate events.
+    """
+    from scipy.ndimage import gaussian_filter1d
+    from scipy.signal import find_peaks
+
+    sm = gaussian_filter1d(np.asarray(temporal_profile, dtype=float), sigma=sigma)
+    if sm.max() < 1e-6:
+        return False  # silent → not fused (no response)
+    if sm.sum() < min_total:
+        return False  # too weak → not fused (noise)
+    sm_norm = sm / sm.max()
+
+    # Zero-pad so find_peaks can detect peaks at trial boundaries.
+    # At extreme SOAs one stimulus response may fall at the first or last
+    # timestep; without padding these edge peaks are invisible to find_peaks,
+    # causing single-modality responses to be misclassified as "fused."
+    pad_w = min_peak_separation + 1
+    sm_padded = np.pad(sm_norm, pad_w, mode='constant', constant_values=0)
+    peaks, props = find_peaks(sm_padded, height=min_peak_height,
+                              distance=min_peak_separation)
+    peaks = peaks - pad_w                         # shift to original indices
+    valid = (peaks >= 0) & (peaks < len(sm_norm))
+    peaks = peaks[valid]
+    heights = props['peak_heights'][valid]
+
+    if len(peaks) <= 1:
+        return True  # one or no peak → fused
+
+    # Check valley between two tallest peaks
+    top2_idx = np.argsort(heights)[-2:]
+    p1, p2 = sorted(peaks[top2_idx])
+    valley = sm_norm[p1:p2 + 1].min()
+    smaller_peak = min(sm_norm[p1], sm_norm[p2])
+
+    return valley / smaller_peak > valley_threshold  # high valley = merged = fused
+
+
+def compute_tbw_temporal_fusion_persep(
+    net,
+    offsets,
+    *,
+    n_trials: int = 50,
+    T: int = 60,
+    D: int = 5,
+    stim_in: float = 1.0,
+    sigma: float = 2.0,
+    valley_threshold: float = 0.4,
+    min_peak_height: float = 0.2,
+    min_peak_separation: int = 3,
+    min_total: float = 10.0,
+):
+    """Compute per-trial temporal fusion probability at each offset.
+
+    Batches ALL offsets × trials into a single GPU forward pass for
+    massive speedup (51 offsets × 50 trials = 2550 batch elements).
+
+    For each offset, runs n_trials with random spatial locations.
+    Each trial's full temporal profile is classified as fused/not-fused
+    using is_temporally_fused().
+
+    Parameters
+    ----------
+    net : MultiBatchAudVisMSINetworkTime
+        Loaded model (plasticity_enabled=False).
+    offsets : list of int
+        AV onset asynchronies in macro-steps (10 ms each).
+    n_trials : int
+        Number of trials per offset (random locations).
+    T, D, stim_in : int/float
+        Temporal integration parameters.
+    sigma, valley_threshold, min_peak_height, min_peak_separation, min_total
+        Parameters for is_temporally_fused().
+
+    Returns
+    -------
+    p_fusion : np.ndarray (n_offsets,)
+        P(fusion) at each offset.
+    all_fused : list of np.ndarray
+        Per-trial binary fusion labels. all_fused[k] has shape (n_trials,).
+    """
+    from Training import (
+        generate_two_event_offset_seq,
+        generate_av_batch_tensor,
+    )
+
+    initial_g_FFinh = net.g_FFinh
+    initial_step_counter = net.step_counter
+    rng = np.random.default_rng()
+
+    n_offsets = len(offsets)
+    total_batch = n_offsets * n_trials
+
+    # ── Generate ALL stimuli for all offsets × trials at once ──
+    # Layout: [off0_trial0, off0_trial1, ..., off0_trialN-1,
+    #          off1_trial0, ..., offK_trialN-1]
+    all_locs = rng.integers(0, net.space_size, size=(n_offsets, n_trials))
+
+    loc_seqs = []
+    mod_seqs = []
+    for k, off in enumerate(offsets):
+        for i in range(n_trials):
+            ls, ms = generate_two_event_offset_seq(
+                loc=int(all_locs[k, i]), T=T, D=D, offset=off,
+                space_size=net.space_size,
+            )
+            loc_seqs.append(ls)
+            mod_seqs.append(ms)
+
+    off_flags = [False] * total_batch
+    xA, xV, mask = generate_av_batch_tensor(
+        loc_seqs, mod_seqs, off_flags,
+        n=net.n, space_size=net.space_size, sigma_in=net.sigma_in,
+        noise_std=0.0, device=net.device, max_len=T,
+        stimulus_intensity=stim_in,
+    )
+
+    # ── Single forward pass for ALL 2550 batch elements ──
+    net.g_FFinh = initial_g_FFinh
+    net.step_counter = initial_step_counter
+    net.reset_state(total_batch)
+    rast = torch.zeros((T, total_batch), device=net.device)
+    with torch.inference_mode():
+        for t in range(T):
+            net.update_all_layers_batch(xA[:, t], xV[:, t], mask[:, t])
+            rast[t] = net._latest_sMSI.sum(dim=1)
+
+    # ── Reshape to (T, n_offsets, n_trials) and classify ──
+    rast_np = rast.cpu().numpy().reshape(T, n_offsets, n_trials)
+    del rast, xA, xV, mask  # free GPU memory early
+
+    p_fusion = np.zeros(n_offsets)
+    all_fused = [None] * n_offsets
+    for k in range(n_offsets):
+        fused_arr = np.zeros(n_trials)
+        for i in range(n_trials):
+            fused_arr[i] = float(is_temporally_fused(
+                rast_np[:, k, i],
+                sigma=sigma,
+                valley_threshold=valley_threshold,
+                min_peak_height=min_peak_height,
+                min_peak_separation=min_peak_separation,
+                min_total=min_total,
+            ))
+        p_fusion[k] = fused_arr.mean()
+        all_fused[k] = fused_arr
+
+    if net.device.type == "cuda":
+        torch.cuda.empty_cache()
+
+    # Restore state
+    net.g_FFinh = initial_g_FFinh
+    net.step_counter = initial_step_counter
+    return p_fusion, all_fused
+
+
+def compute_tbw_enhancement_persep(
+    net,
+    offsets,
+    *,
+    n_trials: int = 50,
+    loc: int = 90,
+    T: int = 60,
+    D: int = 5,
+    extra: int = 5,
+    stim_in: float = 1.0,
+):
+    """Compute per-trial enhancement at each temporal offset.
+
+    For each offset, runs n_trials trials (all at the same spatial location)
+    with 3 passes each: AV bimodal, A-only, V-only.
+
+    Parameters
+    ----------
+    net : MultiBatchAudVisMSINetworkTime
+        Loaded model (plasticity_enabled=False).
+    offsets : list of int
+        AV onset asynchronies in macro-steps (10 ms each).
+    n_trials : int
+        Number of independent trials per offset.
+    loc : int
+        Spatial location in degrees.
+    T, D, extra, stim_in : int/float
+        Temporal integration parameters.
+
+    Returns
+    -------
+    mean_enhancement : np.ndarray (n_offsets,)
+        Mean enhancement across trials at each offset.
+    all_trial_enh : list of np.ndarray
+        Per-trial enhancement values. all_trial_enh[k] has shape (n_trials,).
+    """
+    from Training import (
+        generate_two_event_offset_seq,
+        generate_av_batch_tensor,
+    )
+
+    initial_g_FFinh = net.g_FFinh
+    initial_step_counter = net.step_counter
+    rng = np.random.default_rng()
+
+    n_offsets = len(offsets)
+    mean_enhancement = np.zeros(n_offsets)
+    all_trial_enh = [None] * n_offsets
+
+    for k, off in enumerate(offsets):
+        bs = n_trials
+        # Random spatial locations per trial (same as SBW) for trial-to-trial variability
+        locs = rng.integers(0, net.space_size, size=bs)
+
+        # Build per-trial stimulus sequences for AV, A-only, V-only
+        loc_seqs_av, mod_seqs_av = [], []
+        loc_seqs_a, mod_seqs_a = [], []
+        loc_seqs_v, mod_seqs_v = [], []
+
+        aud_on = 0 if off >= 0 else abs(off)
+        vis_on = 0 if off <= 0 else off
+
+        for trial_loc in locs:
+            trial_loc = int(trial_loc)
+
+            # AV bimodal
+            loc_seq, mod_seq = generate_two_event_offset_seq(
+                loc=trial_loc, T=T, D=D, offset=off, space_size=net.space_size
+            )
+            loc_seqs_av.append(loc_seq)
+            mod_seqs_av.append(mod_seq)
+
+            # A-only
+            ls_a = [999] * T
+            ms_a = ['X'] * T
+            for t in range(aud_on, aud_on + D):
+                ls_a[t] = trial_loc
+                ms_a[t] = 'A'
+            loc_seqs_a.append(ls_a)
+            mod_seqs_a.append(ms_a)
+
+            # V-only
+            ls_v = [999] * T
+            ms_v = ['X'] * T
+            for t in range(vis_on, vis_on + D):
+                ls_v[t] = trial_loc
+                ms_v[t] = 'V'
+            loc_seqs_v.append(ls_v)
+            mod_seqs_v.append(ms_v)
+
+        # Concatenate all 3 conditions into a single batch of 3*bs
+        all_loc_seqs = loc_seqs_av + loc_seqs_a + loc_seqs_v
+        all_mod_seqs = mod_seqs_av + mod_seqs_a + mod_seqs_v
+        off_flags = [False] * (3 * bs)
+
+        xA, xV, mask = generate_av_batch_tensor(
+            all_loc_seqs, all_mod_seqs, off_flags,
+            n=net.n, space_size=net.space_size, sigma_in=net.sigma_in,
+            noise_std=0.0, device=net.device, max_len=T,
+            stimulus_intensity=stim_in,
+        )
+
+        # Run network with fresh state
+        net.g_FFinh = initial_g_FFinh
+        net.step_counter = initial_step_counter
+        net.reset_state(3 * bs)
+        rast = torch.zeros((T, 3 * bs), device=net.device)
+        with torch.inference_mode():
+            for t in range(T):
+                net.update_all_layers_batch(xA[:, t], xV[:, t], mask[:, t])
+                rast[t] = net._latest_sMSI.sum(dim=1)
+
+        # Integration window
+        later_onset = abs(off)
+        win_start = later_onset
+        win_stop = min(win_start + D + extra, T)
+        int_spikes = rast[win_start:win_stop].sum(dim=0).cpu().numpy()  # (3*bs,)
+
+        av_spikes = int_spikes[:bs]
+        a_spikes = int_spikes[bs:2*bs]
+        v_spikes = int_spikes[2*bs:]
+
+        enh = av_spikes - np.maximum(a_spikes, v_spikes)
+        mean_enhancement[k] = enh.mean()
+        all_trial_enh[k] = enh
+
+        if net.device.type == "cuda":
+            torch.cuda.empty_cache()
+
+    # Restore state
+    net.g_FFinh = initial_g_FFinh
+    net.step_counter = initial_step_counter
+    return mean_enhancement, all_trial_enh
+
+
 def _normalize_spike_profile(spikes, n_extreme=5):
     """Baseline-subtract and peak-normalize a spike count profile.
 
@@ -735,8 +1059,8 @@ def _normalize_spike_profile(spikes, n_extreme=5):
         Normalized profile in [0, 1]: 0 at extremes, 1 at peak.
     """
     spikes = np.asarray(spikes, dtype=float)
-    # Baseline = mean of n_extreme points at each end
-    baseline = np.concatenate([spikes[:n_extreme], spikes[-n_extreme:]]).mean()
+    # Baseline = max of left and right tail means (handles asymmetric A/V drive)
+    baseline = max(spikes[:n_extreme].mean(), spikes[-n_extreme:].mean())
     shifted = spikes - baseline
     peak = shifted.max()
     if peak < 1e-9:
@@ -747,6 +1071,8 @@ def _normalize_spike_profile(spikes, n_extreme=5):
 def run_fusion_across_models(model_paths, offsets, device="cuda",
                              modify_net=None, fusion_method='spike_profile',
                              mei_threshold=0.1,
+                             enhancement_threshold=10.0,
+                             n_trials=50,
                              loc=90, T=60, D=5, extra=5, stim_in=1.0):
     """
     Run AV temporal integration across model checkpoints and compute
@@ -758,15 +1084,99 @@ def run_fusion_across_models(model_paths, offsets, device="cuda",
         'spike_profile'  : Normalized AV spike count profile (default).
                            Baseline = mean of extreme offsets, peak-normalized
                            to [0,1].  No unimodal passes needed.
+        'enhancement'    : P(fusion) via enhancement thresholding.
+                           Per-trial: enh = AV - max(A,V) in integration window.
+                           P(fusion) = fraction of trials where enh > threshold.
         'mei'            : Multisensory Enhancement Index (Stein & Stanford 2008).
                            Compares AV spikes to best unimodal baseline.
         'preserve_peak'  : Legacy percentile-based normalization.
+    enhancement_threshold : float
+        Spike-count threshold for 'enhancement' method (default 10.0).
+    n_trials : int
+        Number of trials per offset for 'enhancement' method (default 50).
     mei_threshold : float
         Enhancement fraction above best-unimodal to count as fused (default 0.1).
     loc, T, D, extra, stim_in : passed to run_temporal_integration / unimodal ref.
     """
     from Training import run_temporal_integration
 
+    # Enhancement method uses a completely different path (multi-trial per offset)
+    if fusion_method == 'enhancement':
+        all_pfusion = []  # (n_models, n_offsets) — P(fusion) per model
+        n_models = len(model_paths)
+
+        for path in model_paths:
+            net = load_msi_model(Path(path), device=device)
+            if callable(modify_net):
+                modify_net(net)
+
+            _mean_enh, all_trial_enh = compute_tbw_enhancement_persep(
+                net, offsets, n_trials=n_trials, loc=loc,
+                T=T, D=D, extra=extra, stim_in=stim_in,
+            )
+            # P(fusion) per offset for this model
+            p_fusion = np.array([
+                (trial_enh > enhancement_threshold).mean()
+                for trial_enh in all_trial_enh
+            ])
+            all_pfusion.append(p_fusion)
+
+            del net
+            if str(device).startswith("cuda"):
+                torch.cuda.empty_cache()
+
+        all_pfusion = np.vstack(all_pfusion)  # (n_models, n_offsets)
+        result = {
+            "offsets_ms": [o * 10 for o in offsets],
+            "mean_fusion": all_pfusion.mean(0),
+            "sem_fusion": all_pfusion.std(0, ddof=1) / np.sqrt(n_models),
+            "all_fusion": all_pfusion,
+            "mean_int_spikes": all_pfusion.mean(0),  # placeholder
+            "sem_int_spikes": all_pfusion.std(0, ddof=1) / np.sqrt(n_models),
+            "enhancement_threshold": float(enhancement_threshold),
+        }
+        return result
+
+    # Temporal fusion method: multi-trial per offset, is_temporally_fused classifier
+    if fusion_method == 'temporal_fusion':
+        import time as _time
+        all_pfusion = []  # (n_models, n_offsets)
+        n_models = len(model_paths)
+
+        for mi, path in enumerate(model_paths):
+            _t0 = _time.time()
+            net = load_msi_model(Path(path), device=device)
+            if callable(modify_net):
+                modify_net(net)
+
+            p_fusion, _all_fused = compute_tbw_temporal_fusion_persep(
+                net, offsets, n_trials=n_trials, T=T, D=D, stim_in=stim_in,
+                sigma=2.0, valley_threshold=0.4, min_peak_height=0.2,
+                min_peak_separation=3, min_total=10.0,
+            )
+            all_pfusion.append(p_fusion)
+            _dt = _time.time() - _t0
+            idx0 = offsets.index(0) if 0 in offsets else len(offsets) // 2
+            print(f"  Model {mi}/{n_models}: P(fus@0ms)={p_fusion[idx0]:.3f}, "
+                  f"peak={p_fusion.max():.3f}, {_dt:.1f}s")
+
+            del net
+            if str(device).startswith("cuda"):
+                torch.cuda.empty_cache()
+
+        all_pfusion = np.vstack(all_pfusion)  # (n_models, n_offsets)
+        result = {
+            "offsets_ms": [o * 10 for o in offsets],
+            "mean_fusion": all_pfusion.mean(0),
+            "sem_fusion": all_pfusion.std(0, ddof=1) / np.sqrt(n_models),
+            "all_fusion": all_pfusion,
+            "mean_int_spikes": all_pfusion.mean(0),  # alias for compatibility
+            "sem_int_spikes": all_pfusion.std(0, ddof=1) / np.sqrt(n_models),
+            "enhancement_threshold": None,
+        }
+        return result
+
+    # Standard path: one trial per offset per model (spike_profile, mei, etc.)
     all_fusion = []
     all_int = []
     all_mei = []
@@ -776,10 +1186,6 @@ def run_fusion_across_models(model_paths, offsets, device="cuda",
         if callable(modify_net):
             modify_net(net)
 
-        # Save initial g_FFinh so each pass starts from the same value.
-        # AGC runs normally (as during training); we just ensure the
-        # unimodal reference starts from the same g_FFinh as the AV pass
-        # (Bug B fix — prevents AV drift from contaminating unimodal).
         initial_g_FFinh = net.g_FFinh
 
         # 1. AV bimodal integration
@@ -790,15 +1196,9 @@ def run_fusion_across_models(model_paths, offsets, device="cuda",
         all_int.append(av_spikes)
 
         if fusion_method == 'spike_profile':
-            # Raw spikes collected in all_int; normalization happens
-            # on the pooled average after the loop (see below).
             pass
         elif fusion_method == 'mei':
-            # Restore g_FFinh so unimodal starts from the same initial
-            # conditions as the AV run (Bug B fix)
             net.g_FFinh = initial_g_FFinh
-
-            # 2. Unimodal references (A-only, V-only) for this model
             a_ref, v_ref = _run_unimodal_reference(
                 net, loc=loc, T=T, D=D, extra=extra, stim_in=stim_in
             )
@@ -808,7 +1208,6 @@ def run_fusion_across_models(model_paths, offsets, device="cuda",
             all_fusion.append(fused)
             all_mei.append(mei)
         else:
-            # Legacy path
             single_res = {
                 "offsets_ms": res["offsets_ms"],
                 "mean_int_spikes": av_spikes
@@ -818,7 +1217,6 @@ def run_fusion_across_models(model_paths, offsets, device="cuda",
             )
             all_fusion.append(fusion)
 
-        # Restore state
         net.g_FFinh = initial_g_FFinh
         del net
         if str(device).startswith("cuda"):
@@ -828,15 +1226,10 @@ def run_fusion_across_models(model_paths, offsets, device="cuda",
     n_models = len(model_paths)
 
     if fusion_method == 'spike_profile':
-        # Normalize the POOLED average spike profile, not per-model.
-        # This preserves the true dome width (per-model normalization
-        # compresses width when peak locations vary across models).
         mean_raw = all_int.mean(0)
         mean_fusion = _normalize_spike_profile(mean_raw)
 
-        # SEM: normalize each model using the POOLED baseline/peak so
-        # all models share the same scale for meaningful SEM.
-        baseline = np.concatenate([mean_raw[:5], mean_raw[-5:]]).mean()
+        baseline = max(mean_raw[:5].mean(), mean_raw[-5:].mean())
         peak_shift = (mean_raw - baseline).max()
         if peak_shift > 1e-9:
             all_norm = np.clip((all_int - baseline) / peak_shift, 0.0, 1.0)
@@ -1157,90 +1550,110 @@ def add_timecourse_inset(ax_parent,
     return ax_in
 
 
+def _asymmetric_pedestal(x, base, top, center, hw_left, hw_right, k):
+    """Asymmetric pedestal: product of two sigmoids with independent half-widths.
+
+    Parameters
+    ----------
+    x : array
+        SOA values in ms.
+    base : float
+        Floor P(fusion) at extreme offsets.
+    top : float
+        Ceiling P(fusion) near the center.
+    center : float
+        Center offset (ms) — allows peak to shift from 0.
+    hw_left : float
+        Half-width on the audio-leading (negative) side.
+    hw_right : float
+        Half-width on the visual-leading (positive) side.
+    k : float
+        Edge steepness (ms). Smaller = sharper transition.
+    """
+    left = 1.0 / (1.0 + np.exp(-(x - center + hw_left) / k))
+    right = 1.0 / (1.0 + np.exp((x - center - hw_right) / k))
+    return base + (top - base) * left * right
+
+
 def fit_psychometric_curve_improved(offsets_ms, fusion_probs, p0=None, **kwargs):
-    """
-    Adapter that uses fit_tbw_curve_improved for psychometric curve fitting.
-    This ensures consistent peak capture between spike and fusion probability fits.
-    """
+    """Fit an asymmetric pedestal (difference-of-sigmoids) to P(fusion) vs SOA.
 
-    # Define the Gaussian function first
-    def gaussian(x, base, amp, mu, sigma):
-        return base + amp * np.exp(-(x - mu) ** 2 / (2 * sigma ** 2))
+    Uses independent left/right half-widths to capture the audio-visual
+    asymmetry that a symmetric Gaussian cannot represent.
 
-    fit_result = fit_tbw_curve_improved(
-        offsets_ms,
-        fusion_probs,
-        model="gaussian",
-        p0=p0,
-        weight_by_value=True,
-        robust_baseline=True,
-        smooth_before_fit=False,
-        smooth_sigma=1.0
+    Returns a dict compatible with plot_psychometric_tbw_ax and _find_crossings.
+    """
+    from scipy.optimize import curve_fit
+
+    x = np.asarray(offsets_ms, dtype=float)
+    y = np.asarray(fusion_probs, dtype=float)
+
+    # Initial guesses
+    base0 = float(np.mean(np.concatenate([y[:3], y[-3:]])))
+    top0 = float(y.max())
+    center0 = float(x[np.argmax(y)])
+    hw0 = float((x.max() - x.min()) / 6)
+    k0 = 30.0  # moderate steepness for ms-scale x-axis
+
+    if p0 is None:
+        p0 = [base0, top0, center0, hw0, hw0, k0]
+
+    bounds = (
+        [-0.05, 0.3,  x.min(), 10,  10,  5],   # lower
+        [ 0.5,  1.05, x.max(), 400, 400, 150],  # upper
     )
 
-    # Extract the core parameters
-    base, amp, mu, sigma = fit_result["params"]
+    try:
+        popt, pcov = curve_fit(_asymmetric_pedestal, x, y, p0=p0,
+                               bounds=bounds, maxfev=10000)
+    except RuntimeError:
+        # Fallback: fix k, reduce free params
+        popt = np.array(p0)
+        pcov = np.zeros((6, 6))
 
-    # Get the smooth curve
-    xs = fit_result["xs"]
-    ys = fit_result["ys"]
+    base, top, center, hw_left, hw_right, k = popt
 
+    xs = np.linspace(x.min(), x.max(), 600)
+    ys = _asymmetric_pedestal(xs, *popt)
+
+    # Find 50% crossings
     criterion = 0.5
-
-    above_criterion = ys >= criterion
-    if above_criterion.any():
-        indices = np.where(above_criterion)[0]
-        if len(indices) > 0:
-            x_left = xs[indices[0]]
-            x_right = xs[indices[-1]]
-
-            # Left crossing
-            if indices[0] > 0:
-                y1, y2 = ys[indices[0] - 1], ys[indices[0]]
-                x1, x2 = xs[indices[0] - 1], xs[indices[0]]
-                if y2 != y1:
-                    x_left = x1 + (criterion - y1) * (x2 - x1) / (y2 - y1)
-
-            # Right crossing
-            if indices[-1] < len(ys) - 1:
-                y1, y2 = ys[indices[-1]], ys[indices[-1] + 1]
-                x1, x2 = xs[indices[-1]], xs[indices[-1] + 1]
-                if y2 != y1:
-                    x_right = x1 + (criterion - y1) * (x2 - x1) / (y2 - y1)
-
-            tbw = x_right - x_left
-        else:
-            x_left = x_right = mu
-            tbw = 0
+    crossings = _find_crossings(xs, ys, criterion)
+    if len(crossings) >= 2:
+        x_left = crossings[0]
+        x_right = crossings[-1]
+        tbw = x_right - x_left
     else:
-        x_left = x_right = mu
-        tbw = 0
+        x_left = center - hw_left
+        x_right = center + hw_right
+        tbw = hw_left + hw_right
 
-    if "r_squared" not in fit_result:
-        residuals = fusion_probs - gaussian(offsets_ms, base, amp, mu, sigma)
-        ss_res = np.sum(residuals ** 2)
-        ss_tot = np.sum((fusion_probs - np.mean(fusion_probs)) ** 2)
-        r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
-    else:
-        r_squared = fit_result["r_squared"]
+    # R-squared
+    y_pred = _asymmetric_pedestal(x, *popt)
+    ss_res = np.sum((y - y_pred) ** 2)
+    ss_tot = np.sum((y - np.mean(y)) ** 2)
+    r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
 
     return {
         "xs": xs,
         "ys": ys,
-        "params": fit_result["params"],
-        "cov": fit_result["cov"],
+        "params": popt,
+        "cov": pcov,
         "tbw": tbw,
-        "fwhm": fit_result["fwhm"],
-        "mu": mu,
-        "sigma": sigma,
+        "fwhm": hw_left + hw_right,
+        "mu": center,
+        "sigma": (hw_left + hw_right) / 2,  # compat
         "base": base,
-        "amp": amp,
+        "amp": top - base,
         "x_left": x_left,
         "x_right": x_right,
         "r_squared": r_squared,
-        "peak_error": fit_result.get("peak_error", 0),
-        "actual_peak": fit_result.get("peak_actual", fusion_probs.max()),
-        "fitted_peak": fit_result.get("peak_fitted", base + amp)
+        "hw_left": hw_left,
+        "hw_right": hw_right,
+        "k": k,
+        "peak_error": 0,
+        "actual_peak": float(y.max()),
+        "fitted_peak": float(top),
     }
 # ────────────────────────────────────────────────────────────────
 # ────────────────────────────────────────────────────────────────
@@ -1304,7 +1717,7 @@ def plot_psychometric_tbw_ax(pooled_res,
 
     # manipulated curve + guides
     ax.plot(xs_M, ys_M, lw=2.5, color='C1',
-            label='Gaussian fit (manipulated)', zorder=2)
+            label='Pedestal fit (manipulated)', zorder=2)
     mask_M = (xs_M >= xL_M) & (xs_M <= xR_M)
     ax.fill_between(xs_M, 0, criterion, where=mask_M,
                     color='C1', alpha=.18, zorder=1)
