@@ -1,11 +1,37 @@
 """E/I balance figure — separated synaptic currents, evoked window only.
 
-Uses existing run_ei_probe_separated() to record full traces, then slices
-to the evoked response window (stimulus + 100ms tail, Haider 2013) before
-computing E/I ratio.
+Uses ``EI_balance_test.run_ei_probe_separated`` to record the full
+substep-resolution traces of every excitatory and inhibitory component
+in MSI excit, then slices to the *evoked response window* before
+computing the E/I ratio.
 
-Evoked window: pulse_frames=5 (50ms) + 10 frames (100ms) = 15 frames.
-At 100 substeps/frame = substeps 0:1500.
+Evoked window
+-------------
+The brief used here is "stimulus + short post-stimulus tail" rather than
+the full 200 ms simulation, to mirror the in-vivo evoked-window
+methodology of Wehr & Zador (2003), Haider et al. (2006/2013) and
+Xue et al. (2014):
+
+    pulse_frames    = 5      (50 ms stimulus)
+    tail            = 7.5    (75 ms post-stimulus tail)
+    EVOKED_FRAMES   = 12.5   (125 ms total evoked window)
+    EVOKED_SUBSTEPS = 1250   (at n_substeps=100 -> substep index 0:1250)
+
+Bio references used in the scatter overlay
+------------------------------------------
+  - Rat A1, Wehr & Zador (2003)        — current-based, in vivo whole-cell.
+  - Mouse V1, Xue, Atallah & Scanziani (2014) — current-based.
+  - Mouse V1, Okun & Lampl (2008)      — current-based.
+
+Inputs
+------
+Checkpoints: ``checkpoint/msi_model_surr_10_{00..09}.pt``.
+
+Outputs / side effects
+----------------------
+Writes ``Saved_Images/EI_balance.{svg,png}``.  Prints a per-model
+breakdown plus the population summary (mean +/- SEM E, I, E/I ratio
+and component fractions).  Uses CUDA when available.
 """
 import sys, numpy as np, torch
 from pathlib import Path
@@ -32,7 +58,44 @@ EVOKED_SUBSTEPS = int(EVOKED_FRAMES * N_SUBSTEPS)  # 1250
 
 
 def run_ei_evoked(model_paths, device="cuda"):
-    """Run E/I probe on all models, extract evoked-window statistics."""
+    """Run separated E/I probe on all models and slice to the evoked window.
+
+    For each checkpoint:
+      1. ``load_msi_model`` -> ``net`` on ``device`` (plasticity off).
+      2. ``run_ei_probe_separated`` records full substep traces under a
+         centered synchronous AV pulse (centre_deg=90, pulse_frames=5,
+         n_frames=20, intensity=1.0).
+      3. The first ``EVOKED_SUBSTEPS`` (= 1250 at default config -> 125 ms)
+         of every component trace are averaged to produce the evoked-window
+         scalars (exc_mean, inh_mean, ei_ratio, AMPA, NMDA, FFInh, RecurInh,
+         LatInh) plus integrated charges Q_E_total / Q_I_total.
+
+    Inputs
+    ------
+    model_paths : iterable of pathlib.Path
+        Checkpoints to evaluate.
+    device : str
+        Torch device string (default "cuda").
+
+    Returns
+    -------
+    summary : dict
+        For each component key K in
+        {"exc_mean","inh_mean","ei_ratio","Q_E_total","Q_I_total",
+         "AMPA_mean","NMDA_mean","FFInh_mean","RecurInh_mean","LatInh_mean"}:
+          summary[K]         -> np.ndarray of shape (n_models,)
+          summary[K+"_mean"] -> float (across-model mean)
+          summary[K+"_sem"]  -> float (SEM, ddof=1; 0.0 if n_models<=1)
+
+    Side effects
+    ------------
+    Prints a per-model line as each checkpoint completes.  Frees the GPU
+    cache between models.
+
+    Randomness
+    ----------
+    The probe itself is deterministic given the network weights.
+    """
     results = []
 
     for i, p in enumerate(model_paths):

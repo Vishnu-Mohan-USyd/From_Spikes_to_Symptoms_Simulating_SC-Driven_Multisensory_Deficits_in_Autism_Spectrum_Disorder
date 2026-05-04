@@ -1,3 +1,41 @@
+"""SBW (Spatial Binding Window) measurement pipeline.
+
+Measures the spatial binding window of trained
+``MultiBatchAudVisMSINetworkTime`` checkpoints.  The canonical metric is
+P(fusion) via an *enhancement* threshold:
+
+    enhancement = AV_roi_spikes - max(A_roi_spikes, V_roi_spikes)
+    fused      <=>  enhancement > threshold      (default threshold = 10)
+
+ROI is +/- ``roi_half`` neurons around the auditory stimulus position.
+
+Pipeline (used by ``generate_all_fresh.py`` and ``replot_all_cosmetic.py``):
+
+  1. ``load_msi_model``                       — restore checkpoint.
+  2. ``compute_sbw_enhancement_persep``       — batched AV / A-only / V-only
+     forward passes; per-trial enhancement; threshold to P(fusion).
+     ``compute_sbw_fused_persep`` is the legacy peak/valley classifier
+     kept for cross-checks.
+  3. ``run_spatial_binding_across_models``    — drive across all
+     checkpoints, return per-model curves.
+  4. ``fit_pedestal_curve`` / ``plot_spatial_binding_pedestal`` — symmetric
+     pedestal (difference-of-sigmoids) fit; SBW = full-width at 50%.
+
+Units / shapes / randomness
+---------------------------
+Spatial axis: degrees on a circular ``space_size`` (default 180 deg)
+neuron ring; separations are signed integers.
+Stimulus:     Gaussian over ``net.n`` neurons with ``sigma = net.sigma_in``,
+              amplitude ``intensity``, duration ``duration`` timesteps.
+Trials:       random base location per trial via ``np.random.default_rng()``.
+Outputs:      ``p_fusion`` ndarray of shape ``(n_separations,)`` per model.
+
+Side effects
+------------
+``g_FFinh`` and ``step_counter`` are saved before each scan and restored
+afterwards so that SBW evaluation does not perturb adaptation state.
+GPU memory is freed between blocks.
+"""
 from Training import *
 from matplotlib import font_manager
 from typing import Sequence
@@ -13,10 +51,37 @@ def spatial_binding_diagnostics(
         intensity: float = 0.5,
         duration: int = 20,
         method: str = "ratio"):
-    """
-    GPU-batched P(fusion) curve  +  illustrative rasters/profiles.
-    Now draws a *linear fit* through the summary points, **and marks the 50 %-fusion
-    threshold on the plot**.
+    """GPU-batched P(fusion) curve + illustrative rasters/profiles.
+
+    Inputs
+    ------
+    net : MultiBatchAudVisMSINetworkTime
+        Loaded model (plasticity_enabled handled by caller).
+    separations_deg : sequence of int, optional
+        Disparities in degrees (default ``range(0, 61, 5)``).
+    example_seps : sequence of int, optional
+        Disparities for which raster/profile examples are drawn.
+    n_trials : int
+        Trials per separation (random base location each trial).
+    n_examples : int
+        Number of example trials shown per ``example_seps`` value.
+    intensity, duration : stimulus amplitude and duration (timesteps).
+    method : {"ratio", ...}
+        Fusion-classifier mode (kept for backward-compat).
+
+    Returns
+    -------
+    dict — figure handles + the per-separation P(fusion) curve, plus
+    a linear fit and the marked 50%-fusion threshold.
+
+    Side effects
+    ------------
+    Allocates B = n_sep * n_trials batch elements on ``net.device`` for
+    a single forward pass; renders matplotlib figures (no file write).
+
+    Randomness
+    ----------
+    Uses ``np.random.default_rng()`` (no seed pinned).
     """
     # ───── helpers ────────────────────────────────────────────────────────
     N = net.n

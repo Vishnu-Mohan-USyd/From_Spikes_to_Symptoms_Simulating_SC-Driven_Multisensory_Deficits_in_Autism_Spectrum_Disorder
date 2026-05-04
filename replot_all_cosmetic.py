@@ -1,4 +1,44 @@
-"""Replot all 10 TBW + SBW figures matching template style from cached data."""
+"""Replot all 10 TBW + SBW figures matching template style from cached data.
+
+Cosmetic-only re-plot: reads the pooled per-condition metrics produced
+by ``generate_all_fresh.py`` (saved to ``cache/{tbw,sbw}_{condition}.npz``)
+and re-renders the figures without re-running any simulations.  Use this
+when you only want to change colors, fonts, axis labels, fit ranges,
+control overlays, etc.
+
+Inputs
+------
+Reads:  ``cache/tbw_{cond}.npz``, ``cache/sbw_{cond}_t10.npz``
+        for cond in
+        {control, ff_inhibition, adaptation, nmda, nmda_increase}.
+
+Each ``.npz`` contains pooled offset/separation, mean P(fusion), SEM,
+and the per-model curves.
+
+Cosmetic conventions
+--------------------
+Color scheme (kept consistent across all figures):
+  - Data points       : ``#939598`` grey, black edge
+  - Control fit/line  : ``#39b54a`` green, dashed (7.4, 3.2)
+  - Perturbation fit  : ``#b469a3`` purple/mauve, solid 3pt
+
+SBW figures additionally apply:
+  - **Control-floor subtraction**: each perturbation curve has the
+    fitted control "base" P(fusion) at extreme separations subtracted,
+    so figures focus on relative narrowing/broadening rather than
+    absolute floor differences.
+  - **Symmetric pedestal fit**: a difference-of-sigmoids with a single
+    half-width (hw_left == hw_right) and free centre — sharper than the
+    asymmetric variant used for TBW.
+
+TBW figures use the asymmetric pedestal fit from
+``TBW_test.fit_psychometric_curve_improved`` so audio-leading vs.
+visual-leading widths can differ.
+
+Outputs / side effects
+----------------------
+Writes:  ``Saved_Images/{TBW,SBW}_{cond}.svg`` (+ matching .png).
+"""
 import sys, numpy as np
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))

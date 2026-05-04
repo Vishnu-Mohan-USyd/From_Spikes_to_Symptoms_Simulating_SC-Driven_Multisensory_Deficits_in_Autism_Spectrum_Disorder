@@ -1,15 +1,49 @@
 """Generate all 10 TBW + SBW figures FRESH (full simulations, not from cache).
 
-TBW: temporal fusion P(fusion) via is_temporally_fused() classifier
-     10 models x 50 trials x 51 offsets (-50..+50 in steps of 2)
-SBW: P(fusion) via enhancement thresholding (threshold=10)
-     10 models x 50 trials x 33 separations (-80..+80 in steps of 5)
+Conditions (5 per axis, 10 total figures)
+-----------------------------------------
+Each TBW and SBW figure is produced for the following 5 perturbation
+conditions, applied via per-condition ``modify_net`` callables before
+each forward pass:
 
+  1. ``control``        — baseline (no modification).
+  2. ``ff_inhibition``  — feed-forward inhibition perturbation.
+  3. ``adaptation``     — short-term-depression / adaptation perturbation.
+  4. ``nmda``           — NMDA conductance reduction.
+  5. ``nmda_increase``  — NMDA conductance increase.
+
+Methods
+-------
+TBW: ``temporal_fusion`` P(fusion) via ``is_temporally_fused()`` classifier
+     (peak/valley separation on the smoothed MSI population time-series).
+     10 models x 50 trials x 51 offsets (-50..+50 in steps of 2).
+SBW: P(fusion) via *enhancement thresholding* with threshold = 10 spikes.
+     Per-trial: enhancement = AV_roi - max(A_roi, V_roi).
+     10 models x 50 trials x 33 separations (-80..+80 in steps of 5).
+
+Plotting
+--------
 Plots use the template cosmetic style:
   - Data: #939598 grey with black edge
   - Perturbation fit: #b469a3 purple/mauve, solid 3pt
   - Control overlay: #39b54a green, dashed (7.4, 3.2)
-  - SBW uses symmetric pedestal fit + control-floor subtraction
+  - SBW uses symmetric pedestal fit + control-floor subtraction.
+
+Inputs
+------
+Reads checkpoints from ``checkpoint/msi_model_surr_10_{00..09}.pt``.
+
+Outputs / side effects
+----------------------
+Writes figures to ``Saved_Images/{TBW,SBW}_{condition}.svg`` (and .png)
+and the underlying pooled metrics to ``cache/{tbw,sbw}_{condition}.npz``
+for later cosmetic-only replots.
+
+Randomness
+----------
+Per-trial stimulus locations sampled from ``np.random.default_rng()``.
+No seed is pinned at this entry-point — check ``run_fusion_across_models``
+and ``run_spatial_binding_across_models`` for any internal seeding.
 """
 import sys, time, numpy as np, torch
 from pathlib import Path

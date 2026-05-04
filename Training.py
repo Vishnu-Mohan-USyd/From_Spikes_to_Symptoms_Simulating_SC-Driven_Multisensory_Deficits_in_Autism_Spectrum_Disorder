@@ -1,3 +1,57 @@
+"""Training core: ``MultiBatchAudVisMSINetworkTime`` and supporting utilities.
+
+This module defines the multi-layer audio-visual MSI spiking network used
+across all measurement scripts (TBW_test, SBW_test, EI_balance_test) and
+the training driver ``run_training`` / ``train_and_save``.
+
+Network architecture (see ``MultiBatchAudVisMSINetworkTime`` for details)
+------------------------------------------------------------------------
+Layers: A (auditory), V (visual), MSI excit, MSI inh, Readout.
+Dynamics:
+  - Conductance-based LIF with explicit AMPA + NMDA split on every
+    excitatory projection (A->MSI, V->MSI, A->MSI_inh, V->MSI_inh).
+  - Tsodyks-Markram short-term depression on AMPA synapses.
+  - Dedicated MSI_inh -> MSI_exc GABA projection plus a direct
+    inhibitory pathway from unimodal layers to MSI_exc (FFInh).
+  - Lateral / surround inhibition in MSI_exc.
+  - Conduction delays on A->MSI, V->MSI, MSI->Readout (default 5 substeps).
+  - STDP plasticity on early layers (toggle via ``plasticity_enabled``).
+  - Supervised readout training.
+
+Substep timing
+--------------
+Each external "frame" / timestep is divided into ``n_substeps`` (default
+100) integration substeps; with ``dt = 0.1 ms`` this gives a 10 ms outer
+step and 0.1 ms inner step.
+
+Key hyper-parameters of MultiBatchAudVisMSINetworkTime
+------------------------------------------------------
+  - ``pv_nmda``  (default 5.0)  — PV-cell NMDA scaling.
+  - ``targ_ratio`` (default 5.0) — homeostatic target E/I ratio used by
+    the AGC (automatic gain control) loop.
+  - ``gNMDA``                   — global NMDA conductance gain.
+  - ``g_GABA``                  — MSI_inh -> MSI_exc GABA conductance.
+  - ``g_FFinh``                 — feed-forward inhibition gain (saved/
+    restored by the SBW/TBW probes so adaptation state is preserved).
+  - ``input_scaling`` (150.0)   — input current scaling.
+  - AGC dynamics                — moving-average homeostatic adjustment of
+    inhibitory gains to maintain target firing-rate balance during
+    training; disabled in ``eval()`` paths used by the measurement
+    scripts (``net.plasticity_enabled = False``).
+
+Side effects
+------------
+At construction the network logs ``Using device: <cuda|cpu>``.  Methods
+that record E/I traces or AMPA/NMDA stats keep their own buffers
+(``net._ei_record``, ``net._probe``) which must be explicitly started
+and stopped by the caller.
+
+Randomness
+----------
+Weight initialisation uses ``torch.randn`` and ``np.random.randn`` (no
+global seed pinned in this module — pin one in the calling script for
+reproducibility).
+"""
 import time
 from collections import deque
 from datetime import datetime

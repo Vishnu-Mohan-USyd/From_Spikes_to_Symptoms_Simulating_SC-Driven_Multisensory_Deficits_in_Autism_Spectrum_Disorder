@@ -1,3 +1,43 @@
+"""E/I balance probes for ``MultiBatchAudVisMSINetworkTime``.
+
+Provides two flavours of E/I measurement:
+
+  * **Sign-based** (legacy, ``run_ei_probe_with_offset`` /
+    ``run_ei_probe_fast`` / ``run_ei_probe_averaged``): pools all positive
+    inputs to MSI excit as "E" and all negative as "I".  Fast and
+    self-contained but conflates intra-cellular sources.
+
+  * **Separated synaptic** (``run_ei_probe_separated``, preferred):
+    records each component independently via
+    ``net.start_ei_recording()`` / ``net.stop_ei_recording()``:
+
+        Excitatory: AMPA, NMDA
+        Inhibitory: FFInh (feed-forward), RecurInh (MSI->MSI),
+                    LatInh (lateral / surround).
+
+    This is the canonical probe used by ``run_ei_balance.py``: it lets
+    us decompose the E/I ratio into bio-plausible components and report
+    fractional contributions matching Wehr & Zador (2003), Xue et al.
+    (2014) etc.
+
+Units / shapes
+--------------
+Synaptic currents are stored in arbitrary model units (see
+``Training.py`` for the conductance-based dynamics).  Traces returned by
+``net.stop_ei_recording()`` are 1-D arrays over substeps
+(``n_frames * n_substeps``, default 100 substeps/frame -> 1 ms / substep
+when n_frames ticks at 10 ms each).  Summary scalars are population
+means over MSI excit neurons and substeps.
+
+Randomness
+----------
+The probes are deterministic given the network weights and stimulus.
+
+Side effects
+------------
+``run_ei_probe_separated`` saves and restores ``plasticity_enabled``
+and ``g_FFinh`` so that probing does not perturb adaptation state.
+"""
 from Training import *
 from matplotlib import font_manager
 

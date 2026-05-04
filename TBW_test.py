@@ -1,3 +1,40 @@
+"""TBW (Temporal Binding Window) measurement pipeline.
+
+This module measures and plots the temporal binding window of trained
+``MultiBatchAudVisMSINetworkTime`` checkpoints.  The canonical metric is
+``temporal_fusion`` P(fusion), evaluated by the ``is_temporally_fused``
+peak/valley classifier on the MSI population spike-count time-series; an
+``enhancement`` (per-trial AV-vs-best-unimodal threshold) variant is also
+provided for cross-checks.
+
+Pipeline (used by ``generate_all_fresh.py`` and ``replot_all_cosmetic.py``):
+
+  1. ``load_msi_model``                  — restore checkpoint, plasticity off.
+  2. ``compute_tbw_temporal_fusion_persep`` — batched forward pass over
+     n_offsets x n_trials; classify each MSI time-series as fused/not.
+  3. ``run_fusion_across_models``        — pool across checkpoints, returns
+     mean +/- SEM P(fusion) per SOA.
+  4. ``fit_psychometric_curve_improved`` — asymmetric pedestal fit;
+     ``_find_crossings`` extracts the 50%-fusion x-coordinates that define
+     the TBW half-width.
+
+Units / shapes / randomness
+---------------------------
+Time:  one external timestep = 10 ms (n_substeps = 100 substeps per frame).
+SOA:   passed as integer ``offsets`` in macro-steps (10 ms each); plotted
+       and stored in ms (offsets_ms).
+Trials: random spatial location per trial, drawn from
+       ``np.random.default_rng()`` (no global seed pinned in this module).
+Outputs are returned as ``np.ndarray`` (P(fusion) per offset) plus the
+per-trial binary fusion flags for diagnostics.
+
+Side effects
+------------
+Functions that load a checkpoint move the network to ``device``, set
+``net.eval()`` and ``net.plasticity_enabled = False``.  GPU memory is
+explicitly freed (``torch.cuda.empty_cache()``) after each model in the
+pooled drivers.
+"""
 from Training import *
 from matplotlib import font_manager
 
@@ -1303,7 +1340,28 @@ def print_fit_diagnostics(fit, data_fusion=None):
 
 # ---------------------------------------------------------------------
 def _find_crossings(xs, ys, y0):
-    """Return the x–coordinates where (xs,ys) crosses the horizontal line y=y0."""
+    """Return x-coordinates where the polyline ``(xs, ys)`` crosses ``y = y0``.
+
+    Linearly interpolates between successive samples to locate every
+    sign-change of ``ys - y0``.  Used to extract the 50%-fusion left/right
+    crossings that define the TBW (right_x - left_x) on the fitted
+    psychometric curve.
+
+    Inputs
+    ------
+    xs, ys : 1D array-likes of equal length, monotonic in ``xs``.
+    y0 : float — the criterion (typically 0.5).
+
+    Returns
+    -------
+    list of float — interpolated crossing x-values, in xs-order.
+    Empty list if no crossing exists.
+
+    Notes
+    -----
+    Pure numpy, deterministic.  Adjacent equal samples are skipped to
+    avoid divide-by-zero.
+    """
     xs, ys = np.asarray(xs), np.asarray(ys)
     out = []
     for i in range(len(xs) - 1):
