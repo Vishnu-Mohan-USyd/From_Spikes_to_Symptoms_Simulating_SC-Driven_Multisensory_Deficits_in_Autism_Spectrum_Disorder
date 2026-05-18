@@ -1,0 +1,200 @@
+PHASE 2 — Exhaustive catalogue of state mutations in update_all_layers_batch
+============================================================================
+
+Per-substep operations (line numbers from Training.py post-task-#16/#27):
+
+DECAY (linear-Euler, applied per substep):
+  L2018  self.I_A.mul_(1 - dt/tau_syn)              (tau_syn = 2.5 ms)
+  L2019  self.I_V.mul_(1 - dt/tau_syn)
+  L2020  self.I_M.mul_(1 - dt/tau_syn)
+  L2021  self.I_M_inh.mul_(1 - dt/tau_syn)
+  L2022  self.I_O.mul_(1 - dt/tau_syn)
+  L2040  self.I_ampa_filtered.mul_(1 - dt/tau_syn)
+  L2054  self.ampa_m.mul_(1 - dt/tau_ampa_lp)        (tau_ampa_lp typical 10-20 ms)
+  L2083  self.nmda_m.mul_(1 - dt/tau_nmda)           (tau_nmda = 40 ms)
+  L2182  self.nmda_m_inh.mul_(1 - dt/tau_nmda)
+
+EXTERNAL INPUT (split across substeps, frame-conservation):
+  L2025  self.I_A.add_(I_A_input * (1/n_substeps))   <- input_step_scale
+  L2026  self.I_V.add_(I_V_input * (1/n_substeps))
+
+TM SHORT-TERM PLASTICITY R (linear, dt-aware):
+  L2042  self.R_a += (1-R_a) * (dt/tau_rec)          (tau_rec = 400 ms)
+  L2047  self.R_v += (1-R_v) * (dt/tau_rec)
+  L2161  self.R_a_inh += (1-R_a_inh) * (dt/tau_rec)
+  L2171  self.R_v_inh += (1-R_v_inh) * (dt/tau_rec)
+  L2044  self.R_a -= use_A * delayed_spikes_a2msi   <- spike-driven depletion
+  L2049  self.R_v -= use_V * delayed_spikes_v2msi
+  L2164  self.R_a_inh -= use_A_inh * spike_sum_a    <- POOLED spike-sum
+  L2174  self.R_v_inh -= use_V_inh * spike_sum_v
+
+DEND VOLTAGE / VOLTAGE-FILTER (dt-aware linear integration):
+  L2089  self.v_dend_A += dt * (alpha * (v_msi - v_dend_A) / tau_m)
+  L2090  self.v_dend_V += dt * ...
+  L2093  self.v_nmda += dt * ((v_msi + off) - v_nmda) / tau_nmdaVolt
+  L2187  self.v_dend_inhA += dt * ...
+  L2188  self.v_dend_inhV += dt * ...
+  L2191  self.v_nmda_inh += dt * ...
+
+LEAKY-INTEGRATOR GATING (mul-by-decay then bare-add of spike-driven source):
+  L2055  self.ampa_m.add_(ampa_alpha * (I_M_a_AMPA + I_M_v_AMPA).clamp(min=0))
+         <- SPIKE-DRIVEN source (sparse), bare-add onto leaky integrator
+  L2066  self.I_ampa_filtered.add_(I_M_a_AMPA + I_M_v_AMPA)
+         <- SPIKE-DRIVEN source, bare-add onto leaky integrator
+  L2084  self.nmda_m.add_(inc_m_exc)
+         <- SPIKE-DRIVEN source (inc_m_exc = nmda_alpha * (nmda_a + nmda_v),
+            nmda_{a,v} = F.linear(pre_*_nmda, W) and pre_*_nmda contains
+            delayed_spikes_* binary mask)
+  L2183  self.nmda_m_inh.add_(nmda_alpha * (raw_inp_a_NMDA + raw_inp_v_NMDA))
+         <- SPIKE-DRIVEN source
+
+MEMBRANE CURRENT INJECTIONS — the "bare add" pattern that needs scrutiny:
+
+  EXCITATION:
+  L2062  self.I_M.add_(I_AMPA_curr + b_msi)
+         I_AMPA_curr = gAMPA * (I_M_a_AMPA + I_M_v_AMPA) * (Erev_ampa - v_msi)
+         I_M_{a,v}_AMPA = use_{A,V} * F.linear(delayed_spikes_{a,v}2msi, W)
+         <- SPIKE-DRIVEN (sparse: only on spike-substeps).  b_msi = 0.
+
+  L2104  self.I_M.add_(I_nmda * nmda_source_scale)  [Form 2 fix]
+         I_nmda = gNMDA * nmda_m * (mg_A + mg_V) * (Erev_nmda - v_msi)
+         nmda_m IS A CONTINUOUS LEAKY INTEGRATOR (not sparse).
+         <- CONTINUOUS source.  scale = (1-exp(-dt/tau_syn)) [Form 2]
+
+  L2181  self.I_M_inh.add_(I_Mi_a_AMPA + I_Mi_v_AMPA + b_msi_inh)
+         I_Mi_{a,v}_AMPA = use_{A,V}_inh * F.linear(delayed_spikes_{a,v}2msi_inh, W)
+         <- SPIKE-DRIVEN.  b_msi_inh = 0.
+
+  L2198  self.I_M_inh.add_(I_nmda_inh * nmda_source_scale)  [Form 2 fix]
+         I_nmda_inh = gNMDA * nmda_m_inh * (mg_iA + mg_iV) * (Erev_nmda - v_msi_inh)
+         <- CONTINUOUS source.  Form 2 scaling applied.
+
+  INHIBITION onto MSI excit (I_M.sub_):
+  L2157  self.I_M.sub_(g_FFinh * (I_inA_inh + I_inV_inh))   [FFInh]
+         I_inA_inh = F.linear(delayed_spikes_inA_inh, W_inA_inh)
+         <- SPIKE-DRIVEN (sparse).  g_FFinh varies via AGC (line 2454).
+
+  L2204  self.I_M.sub_(I_M_inh2exc)                          [Recurrent inh]
+         I_M_inh2exc = F.linear(delayed_spikes_msi_inh2exc, W_msiInh2Exc_GABA)
+         <- SPIKE-DRIVEN.
+
+  L2249  self.I_M.sub_(g_GABA * I_latM)                      [Lateral inh]
+         I_latM = mm(new_sM, W_MSI_inh)         <- new_sM = current substep MSI spikes
+         <- SPIKE-DRIVEN.  Note: uses CURRENT substep spike (not delayed buffer)!
+
+  OUTPUT layer:
+  L2208  self.I_O.add_((I_O_msi + b_out))
+         I_O_msi = F.linear(delayed_spikes_msi2out, W_msi2out)
+         <- SPIKE-DRIVEN.  b_out = 0.
+
+  UNI-MODAL lateral inh:
+  L2211  self.I_A.sub_(g_latA * I_latA)
+         I_latA = mm(self._latest_sA, W_latA)
+         <- SPIKE-DRIVEN.
+
+  L2214  self.I_V.sub_(g_latV * I_latV)
+         <- SPIKE-DRIVEN.
+
+IZHIKEVICH UPDATES (dt-aware Forward Euler):
+  L2220, 2231, 2239, 2303, 2312
+         v += dt * (0.04 v² + 5v + 140 - u + I)
+         u += dt * (a*(b*v - u))
+         spike: v >= 30 → v=cM, u += dM
+
+POSITION-LIKE STATE UPDATES (per substep):
+  L2296  self.post_i_trace.mul_(istdp_decay).add_(new_sM)   <- iSTDP trace
+  L2299  self.post_rate_avg.mul_(1 - dt/tau).add_(rate_alpha * new_sM)
+         rate_alpha = dt / tau
+
+PER-FRAME (outside substep loop, line 2454-2469):
+  AGC update:
+    exc_fast = mean(clamp(I_ampa_filtered, min=0))    <- FINAL I_ampa_filtered
+    inh_mean = mean(clamp(-I_M, min=0))               <- FINAL I_M (negative parts)
+    g_FFinh += 1e-3 * (exc_fast * targ_ratio - inh_mean)  <- NOT scaled by dt!
+    g_FFinh = clamp(0.05, 5.0)
+
+    Every 100th frame:
+      g_FFinh += 2e-4 * (mean(clamp(I_M,min=0)) * pv_nmda - mean(clamp(-I_M,min=0)))
+
+ANALYSIS — which paths can produce dt-dependence?
+================================================
+
+For each I_M / I_M_inh injection, the question is: does the per-substep
+contribution INTEGRATED over many substeps depend on dt?
+
+1) SPIKE-DRIVEN source onto leaky-integrator I_M:
+   Pattern: I_M += spike_kick * S[t] where S[t] is sparse binary.
+   Steady-state mean contribution = spike_kick * (rate * dt) / (dt/tau_syn)
+                                  = spike_kick * rate * tau_syn  <- DT-INVARIANT
+   So spike-driven I_M injections are dt-invariant in mean.
+
+   BUT — peak/burst statistics differ:
+   - Single spike kick on I_M = full spike_kick magnitude in 1 substep.
+   - voltage update: dv = dt * (... + I_M)
+   - So single-spike instantaneous v-jolt = dt * spike_kick  <- DT-DEPENDENT
+   This affects spike-threshold dynamics in finely-stochastic ways but not
+   integrated mean.
+
+2) CONTINUOUS source onto leaky-integrator I_M (Form 2 corrected):
+   Pattern: I_M += I_nmda * (1 - exp(-dt/tau_syn))
+   Steady-state: I_M = I_nmda * (1-exp(-dt/tau)) / (1-(1-dt/tau)) ≈ I_nmda
+   <- DT-INVARIANT for steady-state regime.
+   In brief-transient regime (event < tau_nmda), nmda_m underfills (~12% at dt=0.05
+   vs dt=0.1 per task #10 analysis).  SBW uses 200 ms stim ≫ tau_nmda=40 ms, so
+   steady-state regime, NOT transient.
+
+3) LATERAL INHIBITION (L2249, L2211, L2214) — uses CURRENT-substep spike, not
+   delayed buffer.  At smaller dt, MSI spike rate per substep is smaller, but
+   the integrated effect on the leaky-integrator I_M should still be dt-invariant.
+
+CANDIDATE DT-DEPENDENT ARTIFACTS (potential bugs to test):
+
+A) AGC update with alpha_fast=1e-3 NOT scaled by dt.  Same update once per
+   external frame.  If equilibrium values of exc/inh differ at finer dt
+   (even slightly), AGC drifts to a different g_FFinh.  H_agc.
+
+B) Lateral inh uses I_latM = mm(new_sM, W_MSI_inh) where new_sM is CURRENT-
+   substep spike.  At dt=0.05, fewer spikes per substep on average, so
+   per-substep magnitude of I_latM is smaller (sparser).  Integrated effect
+   should still match, but check.
+
+C) ampa_m (line 2054-2055):
+   ampa_m += ampa_alpha * (I_M_a_AMPA + I_M_v_AMPA).clamp(min=0)
+   - source is spike-driven, dt-invariant mean
+   - but the clamp(min=0) is non-linear; rectifies negative values
+   - I_AMPA_curr = gAMPA * (I_M_a + I_M_v) * (Erev_ampa - v_msi)
+   - Erev_ampa is positive (typically 0 or +), v_msi can be < 0 most of time
+   - So (Erev - v_msi) is usually positive, I_AMPA_curr positive
+   - I_ampa_filtered tracks similar; bare-add of (I_M_a + I_M_v) sparse spike
+
+D) I_ampa_filtered.add_(I_M_a_AMPA + I_M_v_AMPA) (L2066) onto leaky integrator.
+   Steady-state mean dt-invariant.  Reach to steady state may differ.
+
+E) Izhikevich Forward Euler.  Smaller dt = more accurate; can affect threshold
+   crossing timing differently than dt=0.1.  Previously ruled out by izhi-half
+   test (wrong direction for TBW).  Re-test for SBW.
+
+F) Conduction-delay BUFFER FILL phase.  At dt=0.05, more substeps before any
+   spike round-trips (delays larger in substeps).  May affect transient onset
+   before steady-state — relevant in brief 200 ms SBW window.
+
+G) State-init differences.  reset_state() resets to specific values.  No dt-
+   scaling needed in reset.  But the trajectory from init to steady state
+   differs over n_substeps steps.
+
+H) MEASUREMENT-level dt dependence:
+   - enhancement = sum spikes over duration frames
+   - SBW HW depends on sum spikes in ROI
+   - Per-substep spike count is dt-dependent (smaller dt = fewer per substep)
+   - BUT total spikes per ms is dt-invariant if dynamics are.
+
+PRIORITY (highest-dt-dependence-suspect first):
+  1. H_agc       AGC update equation, not dt-scaled, uses raw final I_M.
+  2. H_lat_msi   Lateral inh via NEW_sM not buffered spike (L2249).
+  3. H_ampa_m    AMPA filtered LP variable behavior.
+  4. H_nmda_m    NMDA gating variable in transient regime (already studied; SBW
+                  uses 200 ms stim, mostly steady-state, but verify).
+  5. H_izhi      Izhikevich Euler integration error (already ruled out for TBW).
+  6. H_buffer    Conduction-delay buffer fill transient at finer dt.
+  7. H_inh_FF/recur/lat — spike-driven inh paths.  Mean dt-invariant theoretically;
+                  empirically test.

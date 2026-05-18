@@ -1,0 +1,62 @@
+H_meas REVERSE proof — vary threshold to simulate halving artifact
+  10 ckpts, n_trials=50, gNMDA=1.30
+
+--- A: BUGGY, dt=0.1,  thr=10   (baseline) ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+   HW=23.90°  floor=0.0809  r2=0.9988  el=159s
+--- B: BUGGY, dt=0.05, thr=10   (drift) ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+   HW=20.56°  floor=0.0464  r2=0.9995  el=316s
+--- C: BUGGY, dt=0.1,  thr=20   (rev: doubled threshold) ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+   HW=20.71°  floor=0.0147  r2=0.9978  el=158s
+--- D: BUGGY, dt=0.05, thr=5    (rev: halved threshold) ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+   HW=22.14°  floor=0.1394  r2=0.9987  el=316s
+
+======================================================================
+REVERSE-DIRECTION VERDICT
+======================================================================
+  HW(dt=0.1,  thr=10): 23.90°   — baseline
+  HW(dt=0.05, thr=10): 20.56°   — drift (-3.34° = -14.0%)
+  HW(dt=0.1,  thr=20): 20.71°   — reverse: if ≈ 20.6, threshold/halving confirmed
+  HW(dt=0.05, thr= 5): 22.14°   — reverse: if ≈ 23.9, threshold/halving confirmed
+
+  ΔHW(C → B): 0.16° — should be small (≪ |drift|=4.24°)
+  ΔHW(D → A): 1.76° — should be small (≪ |drift|=4.24°)

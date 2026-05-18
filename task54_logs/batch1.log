@@ -1,0 +1,125 @@
+=== START Mon May 18 02:14:47 AEST 2026 ===
+=== cue_reliability_test.py ===
+[1/10]  msi_model_surr_10_00.pt  …Using device: cuda
+ done
+[2/10]  msi_model_surr_10_01.pt  …Using device: cuda
+ done
+[3/10]  msi_model_surr_10_02.pt  …Using device: cuda
+ done
+[4/10]  msi_model_surr_10_03.pt  …Using device: cuda
+ done
+[5/10]  msi_model_surr_10_04.pt  …Using device: cuda
+ done
+[6/10]  msi_model_surr_10_05.pt  …Using device: cuda
+ done
+[7/10]  msi_model_surr_10_06.pt  …Using device: cuda
+ done
+[8/10]  msi_model_surr_10_07.pt  …Using device: cuda
+ done
+[9/10]  msi_model_surr_10_08.pt  …Using device: cuda
+ done
+[10/10]  msi_model_surr_10_09.pt  …/home/vishnu/coding_proj/From_Spikes_to_Symptoms_Simulating_SC-Driven_Multisensory_Deficits_in_Autism_Spectrum_Disorder/cue_reliability_test.py:186: UserWarning: Tight layout not applied. The left and right margins cannot be made large enough to accommodate all Axes decorations.
+  fig.tight_layout()
+/home/vishnu/coding_proj/From_Spikes_to_Symptoms_Simulating_SC-Driven_Multisensory_Deficits_in_Autism_Spectrum_Disorder/cue_reliability_test.py:219: UserWarning: Tight layout not applied. The left and right margins cannot be made large enough to accommodate all Axes decorations.
+  fig.tight_layout()
+Using device: cuda
+ done
+✓ finished in 32.2s
+
+Average deviation from MLE predictions: 17.7%
+Mean absolute error: 0.063
+RMSE: 0.079
+R² correlation: 0.969
+=== run_ei_balance.py ===
+E/I BALANCE — separated currents, evoked window (125ms)
+Evoked window: 5 frames stim + 7.5 frames tail = 12.5 frames (125ms)
+
+Using device: cuda
+  M00: E=3.9553 I=3.7129 E/I=1.065  AMPA=0.2317 NMDA=3.7236 FF=2.7099 Rec=0.0036 Lat=0.9993
+Using device: cuda
+  M01: E=3.8006 I=3.5881 E/I=1.059  AMPA=0.2076 NMDA=3.5931 FF=2.6061 Rec=0.0036 Lat=0.9784
+Using device: cuda
+  M02: E=3.7275 I=3.5311 E/I=1.056  AMPA=0.1997 NMDA=3.5278 FF=2.5507 Rec=0.0035 Lat=0.9768
+Using device: cuda
+  M03: E=3.8392 I=3.6541 E/I=1.051  AMPA=0.2158 NMDA=3.6234 FF=2.6714 Rec=0.0035 Lat=0.9791
+Using device: cuda
+  M04: E=3.4597 I=3.3924 E/I=1.020  AMPA=0.1625 NMDA=3.2973 FF=2.4420 Rec=0.0035 Lat=0.9469
+Using device: cuda
+  M05: E=3.9965 I=3.7727 E/I=1.059  AMPA=0.2375 NMDA=3.7590 FF=2.7592 Rec=0.0036 Lat=1.0099
+Using device: cuda
+  M06: E=3.8185 I=3.6426 E/I=1.048  AMPA=0.2059 NMDA=3.6127 FF=2.6482 Rec=0.0036 Lat=0.9909
+Using device: cuda
+  M07: E=4.0210 I=3.8005 E/I=1.058  AMPA=0.2403 NMDA=3.7807 FF=2.7903 Rec=0.0036 Lat=1.0065
+Using device: cuda
+  M08: E=3.6834 I=3.5216 E/I=1.046  AMPA=0.2011 NMDA=3.4823 FF=2.5536 Rec=0.0035 Lat=0.9645
+Using device: cuda
+  M09: E=3.8559 I=3.7118 E/I=1.039  AMPA=0.2049 NMDA=3.6510 FF=2.7122 Rec=0.0037 Lat=0.9959
+
+============================================================
+E/I BALANCE RESULTS (evoked window)
+============================================================
+  E/I ratio: 1.050 ± 0.004
+  Exc mean:  3.8158 ± 0.0526
+  Inh mean:  3.6328 ± 0.0399
+
+  Excitatory breakdown:
+    AMPA:     0.2107 (5.5%)
+    NMDA:     3.6051 (94.5%)
+  Inhibitory breakdown:
+    FFInh:    2.6444 (72.8%)
+    RecurInh: 0.0036 (0.1%)
+    LatInh:   0.9848 (27.1%)
+  Saved: Saved_Images/EI_balance.svg and Saved_Images/EI_balance.png
+=== response_latency_test.py ===
+[0] loading msi_model_surr_10_00.pt …
+Using device: cuda
+    done in 3.33s → ΔLatency = 10.0 ms
+[1] loading msi_model_surr_10_01.pt …
+Using device: cuda
+    done in 3.13s → ΔLatency = 10.0 ms
+[2] loading msi_model_surr_10_02.pt …
+Using device: cuda
+    done in 3.13s → ΔLatency = 10.0 ms
+[3] loading msi_model_surr_10_03.pt …
+Using device: cuda
+    done in 3.13s → ΔLatency = 10.0 ms
+[4] loading msi_model_surr_10_04.pt …
+Using device: cuda
+    done in 3.14s → ΔLatency = 10.0 ms
+[5] loading msi_model_surr_10_05.pt …
+Using device: cuda
+    done in 3.14s → ΔLatency = 10.0 ms
+[6] loading msi_model_surr_10_06.pt …
+Using device: cuda
+    done in 3.13s → ΔLatency = 10.0 ms
+[7] loading msi_model_surr_10_07.pt …
+Using device: cuda
+    done in 3.13s → ΔLatency = 10.0 ms
+[8] loading msi_model_surr_10_08.pt …
+Using device: cuda
+    done in 3.12s → ΔLatency = 10.0 ms
+[9] loading msi_model_surr_10_09.pt …
+Using device: cuda
+    done in 3.13s → ΔLatency = 10.0 ms
+
+=== Latency summary across 10 models ===
+                       A_ms   V_ms   B_ms  UniMean_ms  ΔLatency_ms
+Model                                                             
+msi_model_surr_10_00   30.0   50.0   30.0        40.0         10.0
+msi_model_surr_10_01   30.0   50.0   30.0        40.0         10.0
+msi_model_surr_10_02   30.0   50.0   30.0        40.0         10.0
+msi_model_surr_10_03   30.0   50.0   30.0        40.0         10.0
+msi_model_surr_10_04   30.0   50.0   30.0        40.0         10.0
+msi_model_surr_10_05   30.0   50.0   30.0        40.0         10.0
+msi_model_surr_10_06   30.0   50.0   30.0        40.0         10.0
+msi_model_surr_10_07   30.0   50.0   30.0        40.0         10.0
+msi_model_surr_10_08   30.0   50.0   30.0        40.0         10.0
+msi_model_surr_10_09   30.0   50.0   30.0        40.0         10.0
+
+Mean ± SEM (ms):
+  A_ms        :  30.0 ±  0.0
+  V_ms        :  50.0 ±  0.0
+  B_ms        :  30.0 ±  0.0
+  UniMean_ms  :  40.0 ±  0.0
+  ΔLatency_ms :  10.0 ±  0.0
+=== END Mon May 18 02:16:57 AEST 2026 ===

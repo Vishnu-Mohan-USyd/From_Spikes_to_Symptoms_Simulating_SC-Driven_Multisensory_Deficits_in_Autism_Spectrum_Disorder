@@ -106,6 +106,7 @@ def run_fano_factor_test_bio(model_paths,
 
     for ckpt in model_paths:
         net = _load_msi_model(Path(ckpt), device=device)
+        setattr(net, 'gNMDA', 1.30)  # task #42 fix: override legacy gNMDA=0.05 baked into checkpoints
 
         data = simulate_batch_trials(
             net,

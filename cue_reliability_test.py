@@ -75,8 +75,9 @@ def reliability_sweep_batched(net, xA, xV, meta,
     # -------- fast forward pass ----------
     spike_sum = torch.zeros(B, n, device=device)
     for t in range(T):
-        net.update_all_layers_batch(xA[:,t], xV[:,t])
-        spike_sum += net._latest_sMSI            # integrate over event
+        ret = net.update_all_layers_batch(xA[:,t], xV[:,t], return_spike_sum=True)
+        sum_sM = ret[-1]
+        spike_sum += sum_sM            # integrate over event
 
     est_deg = decode_msi_location(spike_sum, space_size=net.space_size,
                                   method=method)  # (B,)
@@ -243,6 +244,7 @@ def main():
     for idx,p in enumerate(model_paths,1):
         print(f"[{idx}/10]  {p.name}  …", end="", flush=True)
         net = load_msi_model(p, device=device)
+        setattr(net, 'gNMDA', 1.30)  # task #42 fix: override legacy gNMDA=0.05 baked into checkpoints
         # speed lever: cut sub‑steps
         if args.substeps is not None:
             net.n_substeps = args.substeps

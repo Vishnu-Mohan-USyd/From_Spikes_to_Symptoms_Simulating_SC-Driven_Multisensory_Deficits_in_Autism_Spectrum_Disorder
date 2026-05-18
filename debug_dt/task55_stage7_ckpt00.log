@@ -1,0 +1,312 @@
+====================================================================================================
+TASK #55 STAGE 7 — sub-threshold A regime (very-very-low intensity)
+   intensity=[0.0005, 0.001, 0.002, 0.003, 0.005, 0.007, 0.01, 0.02]
+   pulse_ms=[5, 10, 20, 30, 100]   delays=['asym_25_40', 'sym_25', 'sym_40']
+   gNMDA=1.3 (forced)   1 ms res, ckpt 00
+   facil = min(eff_A, eff_V) − eff_B  (POSITIVE = facil; nan → 400)
+====================================================================================================
+
+=== delays=asym_25_40 (25.0,40.0) ms ===
+Using device: cuda
+   pulse=  5ms I= 0.0005  A=  nan  V=  nan  B=  nan   facil=   0.0
+Using device: cuda
+   pulse=  5ms I= 0.0010  A= 33.0 V= 50.0 B= 37.0  facil=  -4.0
+Using device: cuda
+   pulse=  5ms I= 0.0020  A= 31.0 V= 47.0 B= 33.0  facil=  -2.0
+Using device: cuda
+   pulse=  5ms I= 0.0030  A= 30.0 V= 46.0 B= 32.0  facil=  -2.0
+Using device: cuda
+   pulse=  5ms I= 0.0050  A= 30.0 V= 45.0 B= 30.0  facil=   0.0
+Using device: cuda
+   pulse=  5ms I= 0.0070  A= 29.0 V= 45.0 B= 30.0  facil=  -1.0
+Using device: cuda
+   pulse=  5ms I= 0.0100  A= 29.0 V= 44.0 B= 29.0  facil=   0.0
+Using device: cuda
+   pulse=  5ms I= 0.0200  A= 28.0 V= 43.0 B= 29.0  facil=  -1.0
+Using device: cuda
+   pulse= 10ms I= 0.0005  A= 38.0 V= 68.0 B=  nan   facil=-362.0
+Using device: cuda
+   pulse= 10ms I= 0.0010  A= 33.0 V= 49.0 B= 36.0  facil=  -3.0
+Using device: cuda
+   pulse= 10ms I= 0.0020  A= 31.0 V= 47.0 B= 33.0  facil=  -2.0
+Using device: cuda
+   pulse= 10ms I= 0.0030  A= 30.0 V= 46.0 B= 32.0  facil=  -2.0
+Using device: cuda
+   pulse= 10ms I= 0.0050  A= 30.0 V= 45.0 B= 30.0  facil=   0.0
+Using device: cuda
+   pulse= 10ms I= 0.0070  A= 29.0 V= 45.0 B= 30.0  facil=  -1.0
+Using device: cuda
+   pulse= 10ms I= 0.0100  A= 29.0 V= 44.0 B= 29.0  facil=   0.0
+Using device: cuda
+   pulse= 10ms I= 0.0200  A= 28.0 V= 43.0 B= 29.0  facil=  -1.0
+Using device: cuda
+   pulse= 20ms I= 0.0005  A= 38.0 V= 58.0 B= 61.0  facil= -23.0
+Using device: cuda
+   pulse= 20ms I= 0.0010  A= 33.0 V= 49.0 B= 36.0  facil=  -3.0
+Using device: cuda
+   pulse= 20ms I= 0.0020  A= 31.0 V= 47.0 B= 33.0  facil=  -2.0
+Using device: cuda
+   pulse= 20ms I= 0.0030  A= 30.0 V= 46.0 B= 32.0  facil=  -2.0
+Using device: cuda
+   pulse= 20ms I= 0.0050  A= 30.0 V= 45.0 B= 30.0  facil=   0.0
+Using device: cuda
+   pulse= 20ms I= 0.0070  A= 29.0 V= 45.0 B= 30.0  facil=  -1.0
+Using device: cuda
+   pulse= 20ms I= 0.0100  A= 29.0 V= 44.0 B= 29.0  facil=   0.0
+Using device: cuda
+   pulse= 20ms I= 0.0200  A= 28.0 V= 43.0 B= 29.0  facil=  -1.0
+Using device: cuda
+   pulse= 30ms I= 0.0005  A= 38.0 V= 58.0 B= 61.0  facil= -23.0
+Using device: cuda
+   pulse= 30ms I= 0.0010  A= 33.0 V= 49.0 B= 36.0  facil=  -3.0
+Using device: cuda
+   pulse= 30ms I= 0.0020  A= 31.0 V= 47.0 B= 33.0  facil=  -2.0
+Using device: cuda
+   pulse= 30ms I= 0.0030  A= 30.0 V= 46.0 B= 32.0  facil=  -2.0
+Using device: cuda
+   pulse= 30ms I= 0.0050  A= 30.0 V= 45.0 B= 30.0  facil=   0.0
+Using device: cuda
+   pulse= 30ms I= 0.0070  A= 29.0 V= 45.0 B= 30.0  facil=  -1.0
+Using device: cuda
+   pulse= 30ms I= 0.0100  A= 29.0 V= 44.0 B= 29.0  facil=   0.0
+Using device: cuda
+   pulse= 30ms I= 0.0200  A= 28.0 V= 43.0 B= 29.0  facil=  -1.0
+Using device: cuda
+   pulse=100ms I= 0.0005  A= 38.0 V= 58.0 B= 61.0  facil= -23.0
+Using device: cuda
+   pulse=100ms I= 0.0010  A= 33.0 V= 49.0 B= 36.0  facil=  -3.0
+Using device: cuda
+   pulse=100ms I= 0.0020  A= 31.0 V= 47.0 B= 33.0  facil=  -2.0
+Using device: cuda
+   pulse=100ms I= 0.0030  A= 30.0 V= 46.0 B= 32.0  facil=  -2.0
+Using device: cuda
+   pulse=100ms I= 0.0050  A= 30.0 V= 45.0 B= 30.0  facil=   0.0
+Using device: cuda
+   pulse=100ms I= 0.0070  A= 29.0 V= 45.0 B= 30.0  facil=  -1.0
+Using device: cuda
+   pulse=100ms I= 0.0100  A= 29.0 V= 44.0 B= 29.0  facil=   0.0
+Using device: cuda
+   pulse=100ms I= 0.0200  A= 28.0 V= 43.0 B= 29.0  facil=  -1.0
+
+=== delays=sym_25 (25.0,25.0) ms ===
+Using device: cuda
+   pulse=  5ms I= 0.0005  A=  nan  V=  nan  B=  nan   facil=   0.0
+Using device: cuda
+   pulse=  5ms I= 0.0010  A= 33.0 V= 34.0 B= 34.0  facil=  -1.0
+Using device: cuda
+   pulse=  5ms I= 0.0020  A= 31.0 V= 32.0 B= 31.0  facil=   0.0
+Using device: cuda
+   pulse=  5ms I= 0.0030  A= 30.0 V= 31.0 B= 30.0  facil=   0.0
+Using device: cuda
+   pulse=  5ms I= 0.0050  A= 30.0 V= 30.0 B= 29.0  facil=   1.0
+Using device: cuda
+   pulse=  5ms I= 0.0070  A= 29.0 V= 29.0 B= 29.0  facil=   0.0
+Using device: cuda
+   pulse=  5ms I= 0.0100  A= 29.0 V= 29.0 B= 29.0  facil=   0.0
+Using device: cuda
+   pulse=  5ms I= 0.0200  A= 28.0 V= 28.0 B= 28.0  facil=   0.0
+Using device: cuda
+   pulse= 10ms I= 0.0005  A= 38.0 V= 47.0 B=  nan   facil=-362.0
+Using device: cuda
+   pulse= 10ms I= 0.0010  A= 33.0 V= 34.0 B= 34.0  facil=  -1.0
+Using device: cuda
+   pulse= 10ms I= 0.0020  A= 31.0 V= 32.0 B= 31.0  facil=   0.0
+Using device: cuda
+   pulse= 10ms I= 0.0030  A= 30.0 V= 31.0 B= 30.0  facil=   0.0
+Using device: cuda
+   pulse= 10ms I= 0.0050  A= 30.0 V= 30.0 B= 29.0  facil=   1.0
+Using device: cuda
+   pulse= 10ms I= 0.0070  A= 29.0 V= 29.0 B= 29.0  facil=   0.0
+Using device: cuda
+   pulse= 10ms I= 0.0100  A= 29.0 V= 29.0 B= 29.0  facil=   0.0
+Using device: cuda
+   pulse= 10ms I= 0.0200  A= 28.0 V= 28.0 B= 28.0  facil=   0.0
+Using device: cuda
+   pulse= 20ms I= 0.0005  A= 38.0 V= 42.0 B= 45.0  facil=  -7.0
+Using device: cuda
+   pulse= 20ms I= 0.0010  A= 33.0 V= 34.0 B= 34.0  facil=  -1.0
+Using device: cuda
+   pulse= 20ms I= 0.0020  A= 31.0 V= 32.0 B= 31.0  facil=   0.0
+Using device: cuda
+   pulse= 20ms I= 0.0030  A= 30.0 V= 31.0 B= 30.0  facil=   0.0
+Using device: cuda
+   pulse= 20ms I= 0.0050  A= 30.0 V= 30.0 B= 29.0  facil=   1.0
+Using device: cuda
+   pulse= 20ms I= 0.0070  A= 29.0 V= 29.0 B= 29.0  facil=   0.0
+Using device: cuda
+   pulse= 20ms I= 0.0100  A= 29.0 V= 29.0 B= 29.0  facil=   0.0
+Using device: cuda
+   pulse= 20ms I= 0.0200  A= 28.0 V= 28.0 B= 28.0  facil=   0.0
+Using device: cuda
+   pulse= 30ms I= 0.0005  A= 38.0 V= 42.0 B= 45.0  facil=  -7.0
+Using device: cuda
+   pulse= 30ms I= 0.0010  A= 33.0 V= 34.0 B= 34.0  facil=  -1.0
+Using device: cuda
+   pulse= 30ms I= 0.0020  A= 31.0 V= 32.0 B= 31.0  facil=   0.0
+Using device: cuda
+   pulse= 30ms I= 0.0030  A= 30.0 V= 31.0 B= 30.0  facil=   0.0
+Using device: cuda
+   pulse= 30ms I= 0.0050  A= 30.0 V= 30.0 B= 29.0  facil=   1.0
+Using device: cuda
+   pulse= 30ms I= 0.0070  A= 29.0 V= 29.0 B= 29.0  facil=   0.0
+Using device: cuda
+   pulse= 30ms I= 0.0100  A= 29.0 V= 29.0 B= 29.0  facil=   0.0
+Using device: cuda
+   pulse= 30ms I= 0.0200  A= 28.0 V= 28.0 B= 28.0  facil=   0.0
+Using device: cuda
+   pulse=100ms I= 0.0005  A= 38.0 V= 42.0 B= 45.0  facil=  -7.0
+Using device: cuda
+   pulse=100ms I= 0.0010  A= 33.0 V= 34.0 B= 34.0  facil=  -1.0
+Using device: cuda
+   pulse=100ms I= 0.0020  A= 31.0 V= 32.0 B= 31.0  facil=   0.0
+Using device: cuda
+   pulse=100ms I= 0.0030  A= 30.0 V= 31.0 B= 30.0  facil=   0.0
+Using device: cuda
+   pulse=100ms I= 0.0050  A= 30.0 V= 30.0 B= 29.0  facil=   1.0
+Using device: cuda
+   pulse=100ms I= 0.0070  A= 29.0 V= 29.0 B= 29.0  facil=   0.0
+Using device: cuda
+   pulse=100ms I= 0.0100  A= 29.0 V= 29.0 B= 29.0  facil=   0.0
+Using device: cuda
+   pulse=100ms I= 0.0200  A= 28.0 V= 28.0 B= 28.0  facil=   0.0
+
+=== delays=sym_40 (40.0,40.0) ms ===
+Using device: cuda
+   pulse=  5ms I= 0.0005  A=  nan  V=  nan  B=  nan   facil=   0.0
+Using device: cuda
+   pulse=  5ms I= 0.0010  A= 48.0 V= 50.0 B= 51.0  facil=  -3.0
+Using device: cuda
+   pulse=  5ms I= 0.0020  A= 46.0 V= 47.0 B= 47.0  facil=  -1.0
+Using device: cuda
+   pulse=  5ms I= 0.0030  A= 45.0 V= 46.0 B= 46.0  facil=  -1.0
+Using device: cuda
+   pulse=  5ms I= 0.0050  A= 45.0 V= 45.0 B= 45.0  facil=   0.0
+Using device: cuda
+   pulse=  5ms I= 0.0070  A= 44.0 V= 45.0 B= 44.0  facil=   0.0
+Using device: cuda
+   pulse=  5ms I= 0.0100  A= 44.0 V= 44.0 B= 44.0  facil=   0.0
+Using device: cuda
+   pulse=  5ms I= 0.0200  A= 43.0 V= 44.0 B= 43.0  facil=   0.0
+Using device: cuda
+   pulse= 10ms I= 0.0005  A= 53.0 V=  nan  B=  nan   facil=-347.0
+Using device: cuda
+   pulse= 10ms I= 0.0010  A= 48.0 V= 50.0 B= 50.0  facil=  -2.0
+Using device: cuda
+   pulse= 10ms I= 0.0020  A= 46.0 V= 47.0 B= 47.0  facil=  -1.0
+Using device: cuda
+   pulse= 10ms I= 0.0030  A= 45.0 V= 46.0 B= 46.0  facil=  -1.0
+Using device: cuda
+   pulse= 10ms I= 0.0050  A= 45.0 V= 45.0 B= 45.0  facil=   0.0
+Using device: cuda
+   pulse= 10ms I= 0.0070  A= 44.0 V= 45.0 B= 44.0  facil=   0.0
+Using device: cuda
+   pulse= 10ms I= 0.0100  A= 44.0 V= 44.0 B= 44.0  facil=   0.0
+Using device: cuda
+   pulse= 10ms I= 0.0200  A= 43.0 V= 44.0 B= 43.0  facil=   0.0
+Using device: cuda
+   pulse= 20ms I= 0.0005  A= 53.0 V= 63.0 B=  nan   facil=-347.0
+Using device: cuda
+   pulse= 20ms I= 0.0010  A= 48.0 V= 50.0 B= 50.0  facil=  -2.0
+Using device: cuda
+   pulse= 20ms I= 0.0020  A= 46.0 V= 47.0 B= 47.0  facil=  -1.0
+Using device: cuda
+   pulse= 20ms I= 0.0030  A= 45.0 V= 46.0 B= 46.0  facil=  -1.0
+Using device: cuda
+   pulse= 20ms I= 0.0050  A= 45.0 V= 45.0 B= 45.0  facil=   0.0
+Using device: cuda
+   pulse= 20ms I= 0.0070  A= 44.0 V= 45.0 B= 44.0  facil=   0.0
+Using device: cuda
+   pulse= 20ms I= 0.0100  A= 44.0 V= 44.0 B= 44.0  facil=   0.0
+Using device: cuda
+   pulse= 20ms I= 0.0200  A= 43.0 V= 44.0 B= 43.0  facil=   0.0
+Using device: cuda
+   pulse= 30ms I= 0.0005  A= 53.0 V= 63.0 B= 75.0  facil= -22.0
+Using device: cuda
+   pulse= 30ms I= 0.0010  A= 48.0 V= 50.0 B= 50.0  facil=  -2.0
+Using device: cuda
+   pulse= 30ms I= 0.0020  A= 46.0 V= 47.0 B= 47.0  facil=  -1.0
+Using device: cuda
+   pulse= 30ms I= 0.0030  A= 45.0 V= 46.0 B= 46.0  facil=  -1.0
+Using device: cuda
+   pulse= 30ms I= 0.0050  A= 45.0 V= 45.0 B= 45.0  facil=   0.0
+Using device: cuda
+   pulse= 30ms I= 0.0070  A= 44.0 V= 45.0 B= 44.0  facil=   0.0
+Using device: cuda
+   pulse= 30ms I= 0.0100  A= 44.0 V= 44.0 B= 44.0  facil=   0.0
+Using device: cuda
+   pulse= 30ms I= 0.0200  A= 43.0 V= 44.0 B= 43.0  facil=   0.0
+Using device: cuda
+   pulse=100ms I= 0.0005  A= 53.0 V= 63.0 B= 75.0  facil= -22.0
+Using device: cuda
+   pulse=100ms I= 0.0010  A= 48.0 V= 50.0 B= 50.0  facil=  -2.0
+Using device: cuda
+   pulse=100ms I= 0.0020  A= 46.0 V= 47.0 B= 47.0  facil=  -1.0
+Using device: cuda
+   pulse=100ms I= 0.0030  A= 45.0 V= 46.0 B= 46.0  facil=  -1.0
+Using device: cuda
+   pulse=100ms I= 0.0050  A= 45.0 V= 45.0 B= 45.0  facil=   0.0
+Using device: cuda
+   pulse=100ms I= 0.0070  A= 44.0 V= 45.0 B= 44.0  facil=   0.0
+Using device: cuda
+   pulse=100ms I= 0.0100  A= 44.0 V= 44.0 B= 44.0  facil=   0.0
+Using device: cuda
+   pulse=100ms I= 0.0200  A= 43.0 V= 44.0 B= 43.0  facil=   0.0
+
+Elapsed: 756.7s
+
+====================================================================================================
+Threshold-crossing summary (lowest intensity at which A still spikes):
+  asym_25_40: A still spikes down to intensity ≥ 0.0005
+  sym_25: A still spikes down to intensity ≥ 0.0005
+  sym_40: A still spikes down to intensity ≥ 0.0005
+
+Per-delay facilitation matrix (rows=pulse_ms, cols=intensity):
+
+=== delays=asym_25_40 ===
+intensity   0.0005   0.0010   0.0020   0.0030   0.0050   0.0070   0.0100   0.0200
+pulse_ms                                                                         
+5              0.0     -4.0     -2.0     -2.0      0.0     -1.0      0.0     -1.0
+10          -362.0     -3.0     -2.0     -2.0      0.0     -1.0      0.0     -1.0
+20           -23.0     -3.0     -2.0     -2.0      0.0     -1.0      0.0     -1.0
+30           -23.0     -3.0     -2.0     -2.0      0.0     -1.0      0.0     -1.0
+100          -23.0     -3.0     -2.0     -2.0      0.0     -1.0      0.0     -1.0
+
+=== delays=sym_25 ===
+intensity   0.0005   0.0010   0.0020   0.0030   0.0050   0.0070   0.0100   0.0200
+pulse_ms                                                                         
+5              0.0     -1.0      0.0      0.0      1.0      0.0      0.0      0.0
+10          -362.0     -1.0      0.0      0.0      1.0      0.0      0.0      0.0
+20            -7.0     -1.0      0.0      0.0      1.0      0.0      0.0      0.0
+30            -7.0     -1.0      0.0      0.0      1.0      0.0      0.0      0.0
+100           -7.0     -1.0      0.0      0.0      1.0      0.0      0.0      0.0
+
+=== delays=sym_40 ===
+intensity   0.0005   0.0010   0.0020   0.0030   0.0050   0.0070   0.0100   0.0200
+pulse_ms                                                                         
+5              0.0     -3.0     -1.0     -1.0      0.0      0.0      0.0      0.0
+10          -347.0     -2.0     -1.0     -1.0      0.0      0.0      0.0      0.0
+20          -347.0     -2.0     -1.0     -1.0      0.0      0.0      0.0      0.0
+30           -22.0     -2.0     -1.0     -1.0      0.0      0.0      0.0      0.0
+100          -22.0     -2.0     -1.0     -1.0      0.0      0.0      0.0      0.0
+
+TOP-15 facilitation cells:
+    delays  pulse_ms  intensity     A_ms     V_ms     B_ms  facil_ms
+    sym_25         5       0.01    30.00    30.00    29.00      1.00
+    sym_25        10       0.01    30.00    30.00    29.00      1.00
+    sym_25        20       0.01    30.00    30.00    29.00      1.00
+    sym_25        30       0.01    30.00    30.00    29.00      1.00
+    sym_25       100       0.01    30.00    30.00    29.00      1.00
+asym_25_40         5       0.00    nan      nan      nan        0.00
+asym_25_40         5       0.01    30.00    45.00    30.00      0.00
+asym_25_40         5       0.01    29.00    44.00    29.00      0.00
+asym_25_40        10       0.01    30.00    45.00    30.00      0.00
+asym_25_40        10       0.01    29.00    44.00    29.00      0.00
+asym_25_40        20       0.01    30.00    45.00    30.00      0.00
+asym_25_40        20       0.01    29.00    44.00    29.00      0.00
+asym_25_40        30       0.01    30.00    45.00    30.00      0.00
+asym_25_40        30       0.01    29.00    44.00    29.00      0.00
+asym_25_40       100       0.01    30.00    45.00    30.00      0.00
+
+No bimodal-rescue cells found (every cell either spikes from A and V independently, or none spike at all).
+
+Raw saved → task55_stage7_subthreshold_A.csv

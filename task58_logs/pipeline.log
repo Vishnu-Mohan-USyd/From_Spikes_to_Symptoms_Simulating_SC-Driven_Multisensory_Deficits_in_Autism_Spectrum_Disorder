@@ -1,0 +1,225 @@
+FRESH GENERATION — all 10 TBW + SBW figures
+
+============================================================
+TBW — FRESH SIMULATIONS (temporal fusion)
+  10 models x 50 trials x 51 offsets
+============================================================
+
+  --- TBW CONTROL ---
+Using device: cuda
+  Model 0/10: P(fus@0ms)=1.000, peak=1.000, 16.5s
+Using device: cuda
+  Model 1/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 2/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 3/10: P(fus@0ms)=1.000, peak=1.000, 15.8s
+Using device: cuda
+  Model 4/10: P(fus@0ms)=1.000, peak=1.000, 15.8s
+Using device: cuda
+  Model 5/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 6/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 7/10: P(fus@0ms)=1.000, peak=1.000, 15.8s
+Using device: cuda
+  Model 8/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 9/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+  Simulation done in 160s, saved to cache/tbw_control.npz
+  TBW control             : HW=71ms
+
+  --- TBW FF_INHIBITION ---
+Using device: cuda
+  Model 0/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 1/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 2/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 3/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 4/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 5/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 6/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 7/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 8/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 9/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+  Simulation done in 160s, saved to cache/tbw_ff_inhibition.npz
+  TBW ff_inhibition       : HW=71ms
+
+  --- TBW ADAPTATION ---
+Using device: cuda
+  Model 0/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 1/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 2/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 3/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 4/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 5/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 6/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 7/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 8/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 9/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+  Simulation done in 160s, saved to cache/tbw_adaptation.npz
+  TBW adaptation          : HW=81ms
+
+  --- TBW NMDA ---
+Using device: cuda
+  Model 0/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 1/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 2/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 3/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 4/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 5/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 6/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 7/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 8/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 9/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+  Simulation done in 159s, saved to cache/tbw_nmda.npz
+  TBW nmda                : HW=78ms
+
+  --- TBW NMDA_INCREASE ---
+Using device: cuda
+  Model 0/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 1/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 2/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 3/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 4/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 5/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 6/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 7/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 8/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 9/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+  Simulation done in 161s, saved to cache/tbw_nmda_increase.npz
+  TBW nmda_increase       : HW=190ms
+
+============================================================
+SBW — FRESH SIMULATIONS (enhancement, threshold=10)
+  10 models x 50 trials x 33 separations
+============================================================
+
+  --- SBW CONTROL ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  Simulation done in 153s, saved to cache/sbw_control_t1110.npz
+
+  --- SBW FF_INHIBITION ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  Simulation done in 153s, saved to cache/sbw_ff_inhibition_t1110.npz
+
+  --- SBW ADAPTATION ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  Simulation done in 153s, saved to cache/sbw_adaptation_t1110.npz
+
+  --- SBW NMDA ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  Simulation done in 152s, saved to cache/sbw_nmda_t1110.npz
+
+  --- SBW NMDA_INCREASE ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  Simulation done in 153s, saved to cache/sbw_nmda_increase_t1110.npz
+
+  Control floor subtracted: 0.0000
+Traceback (most recent call last):
+  File "/home/vishnu/coding_proj/From_Spikes_to_Symptoms_Simulating_SC-Driven_Multisensory_Deficits_in_Autism_Spectrum_Disorder/generate_all_fresh.py", line 255, in <module>
+    sbw_summary, floor = run_sbw_fresh()
+                         ~~~~~~~~~~~~~^^
+  File "/home/vishnu/coding_proj/From_Spikes_to_Symptoms_Simulating_SC-Driven_Multisensory_Deficits_in_Autism_Spectrum_Disorder/generate_all_fresh.py", line 225, in run_sbw_fresh
+    fig, ax, fit_info = plot_sbw(
+                        ~~~~~~~~^
+        pooled, reference_fit=None,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        out_path=str(SAVE / f"SBW_{cname}.svg"))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/vishnu/coding_proj/From_Spikes_to_Symptoms_Simulating_SC-Driven_Multisensory_Deficits_in_Autism_Spectrum_Disorder/replot_all_cosmetic.py", line 219, in plot_sbw
+    xs_fit, ys_fit, popt, r2 = fit_sbw_pedestal(pooled)
+                               ~~~~~~~~~~~~~~~~^^^^^^^^
+  File "/home/vishnu/coding_proj/From_Spikes_to_Symptoms_Simulating_SC-Driven_Multisensory_Deficits_in_Autism_Spectrum_Disorder/replot_all_cosmetic.py", line 183, in fit_sbw_pedestal
+    popt, _ = curve_fit(_symmetric_pedestal, x, y, p0=p0,
+              ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                        bounds=bounds, maxfev=10000)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/vishnu/miniconda3/lib/python3.13/site-packages/scipy/optimize/_minpack_py.py", line 1032, in curve_fit
+    res = least_squares(func, p0, jac=jac, bounds=bounds, method=method,
+                        **kwargs)
+  File "/home/vishnu/miniconda3/lib/python3.13/site-packages/scipy/_lib/_util.py", line 717, in inner
+    return func(*args, **kwargs)
+  File "/home/vishnu/miniconda3/lib/python3.13/site-packages/scipy/optimize/_lsq/least_squares.py", line 901, in least_squares
+    raise ValueError("Initial guess is outside of provided bounds")
+ValueError: Initial guess is outside of provided bounds

@@ -1,0 +1,140 @@
+====================================================================================
+TASK #53 EXP-3 — gNMDA modulation @ sym_40, I=1.0, 1 ms resolution
+   n_models=10  delays=(40.0,40.0)  intensity=1.0
+   gNMDA levels: [0.0, 0.05, 0.5, 1.3, 5.0]
+====================================================================================
+
+[00] msi_model_surr_10_00.pt
+Using device: cuda
+    gNMDA= 0.00  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=6.1s
+Using device: cuda
+    gNMDA= 0.05  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.9s
+Using device: cuda
+    gNMDA= 0.50  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.8s
+Using device: cuda
+    gNMDA= 1.30  A=   41.0  V=   42.0  B=   41.0  min= 41.0  B−min=   0.0  el=5.8s
+Using device: cuda
+    gNMDA= 5.00  A=   41.0  V=   42.0  B=   41.0  min= 41.0  B−min=   0.0  el=5.9s
+
+[01] msi_model_surr_10_01.pt
+Using device: cuda
+    gNMDA= 0.00  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.9s
+Using device: cuda
+    gNMDA= 0.05  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.8s
+Using device: cuda
+    gNMDA= 0.50  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.9s
+Using device: cuda
+    gNMDA= 1.30  A=   41.0  V=   42.0  B=   41.0  min= 41.0  B−min=   0.0  el=5.8s
+Using device: cuda
+    gNMDA= 5.00  A=   41.0  V=   42.0  B=   41.0  min= 41.0  B−min=   0.0  el=5.8s
+
+[02] msi_model_surr_10_02.pt
+Using device: cuda
+    gNMDA= 0.00  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.8s
+Using device: cuda
+    gNMDA= 0.05  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.9s
+Using device: cuda
+    gNMDA= 0.50  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.9s
+Using device: cuda
+    gNMDA= 1.30  A=   41.0  V=   42.0  B=   41.0  min= 41.0  B−min=   0.0  el=5.8s
+Using device: cuda
+    gNMDA= 5.00  A=   41.0  V=   42.0  B=   41.0  min= 41.0  B−min=   0.0  el=5.5s
+
+[03] msi_model_surr_10_03.pt
+Using device: cuda
+    gNMDA= 0.00  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.4s
+Using device: cuda
+    gNMDA= 0.05  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.4s
+Using device: cuda
+    gNMDA= 0.50  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.4s
+Using device: cuda
+    gNMDA= 1.30  A=   41.0  V=   42.0  B=   41.0  min= 41.0  B−min=   0.0  el=5.4s
+Using device: cuda
+    gNMDA= 5.00  A=   41.0  V=   42.0  B=   41.0  min= 41.0  B−min=   0.0  el=5.3s
+
+[04] msi_model_surr_10_04.pt
+Using device: cuda
+    gNMDA= 0.00  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.4s
+Using device: cuda
+    gNMDA= 0.05  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.4s
+Using device: cuda
+    gNMDA= 0.50  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.4s
+Using device: cuda
+    gNMDA= 1.30  A=   41.0  V=   42.0  B=   41.0  min= 41.0  B−min=   0.0  el=5.4s
+Using device: cuda
+    gNMDA= 5.00  A=   41.0  V=   42.0  B=   41.0  min= 41.0  B−min=   0.0  el=5.4s
+
+[05] msi_model_surr_10_05.pt
+Using device: cuda
+    gNMDA= 0.00  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.4s
+Using device: cuda
+    gNMDA= 0.05  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.4s
+Using device: cuda
+    gNMDA= 0.50  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.4s
+Using device: cuda
+    gNMDA= 1.30  A=   41.0  V=   42.0  B=   41.0  min= 41.0  B−min=   0.0  el=5.3s
+Using device: cuda
+    gNMDA= 5.00  A=   41.0  V=   42.0  B=   41.0  min= 41.0  B−min=   0.0  el=5.3s
+
+[06] msi_model_surr_10_06.pt
+Using device: cuda
+    gNMDA= 0.00  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.4s
+Using device: cuda
+    gNMDA= 0.05  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.4s
+Using device: cuda
+    gNMDA= 0.50  A=   41.0  V=   42.0  B=   41.0  min= 41.0  B−min=   0.0  el=5.3s
+Using device: cuda
+    gNMDA= 1.30  A=   41.0  V=   42.0  B=   41.0  min= 41.0  B−min=   0.0  el=5.3s
+Using device: cuda
+    gNMDA= 5.00  A=   41.0  V=   42.0  B=   41.0  min= 41.0  B−min=   0.0  el=5.3s
+
+[07] msi_model_surr_10_07.pt
+Using device: cuda
+    gNMDA= 0.00  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.9s
+Using device: cuda
+    gNMDA= 0.05  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.9s
+Using device: cuda
+    gNMDA= 0.50  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.8s
+Using device: cuda
+    gNMDA= 1.30  A=   41.0  V=   42.0  B=   41.0  min= 41.0  B−min=   0.0  el=5.8s
+Using device: cuda
+    gNMDA= 5.00  A=   41.0  V=   42.0  B=   41.0  min= 41.0  B−min=   0.0  el=5.8s
+
+[08] msi_model_surr_10_08.pt
+Using device: cuda
+    gNMDA= 0.00  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.9s
+Using device: cuda
+    gNMDA= 0.05  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.8s
+Using device: cuda
+    gNMDA= 0.50  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.9s
+Using device: cuda
+    gNMDA= 1.30  A=   41.0  V=   42.0  B=   41.0  min= 41.0  B−min=   0.0  el=5.8s
+Using device: cuda
+    gNMDA= 5.00  A=   41.0  V=   42.0  B=   41.0  min= 41.0  B−min=   0.0  el=5.8s
+
+[09] msi_model_surr_10_09.pt
+Using device: cuda
+    gNMDA= 0.00  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.8s
+Using device: cuda
+    gNMDA= 0.05  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.9s
+Using device: cuda
+    gNMDA= 0.50  A=   42.0  V=   42.0  B=   41.0  min= 42.0  B−min=   1.0  el=5.8s
+Using device: cuda
+    gNMDA= 1.30  A=   41.0  V=   42.0  B=   41.0  min= 41.0  B−min=   0.0  el=5.8s
+Using device: cuda
+    gNMDA= 5.00  A=   41.0  V=   42.0  B=   41.0  min= 41.0  B−min=   0.0  el=5.8s
+
+Elapsed: 283.4s
+
+====================================================================================
+PER-gNMDA SUMMARY (mean ± std across ckpts, at sym_40 + I=1.0)
+====================================================================================
+        n  A_mean  V_mean  B_mean  minAV_mean  B_minAV_mean  B_minAV_std
+gNMDA                                                                   
+0.00   10   42.00   42.00   41.00       42.00          1.00         0.00
+0.05   10   42.00   42.00   41.00       42.00          1.00         0.00
+0.50   10   41.90   42.00   41.00       41.90          0.90         0.32
+1.30   10   41.00   42.00   41.00       41.00          0.00         0.00
+5.00   10   41.00   42.00   41.00       41.00          0.00         0.00
+
+Raw saved → task53_exp3_gNMDA_at_sym40_I1.csv

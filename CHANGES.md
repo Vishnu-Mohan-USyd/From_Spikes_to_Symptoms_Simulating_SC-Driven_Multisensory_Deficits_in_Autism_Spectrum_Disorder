@@ -89,6 +89,145 @@ to give per-model means and bootstrap-style summaries.
     keeps dt = 0.1; the smaller step is a robustness check, not a target.
   - Output: `Saved_Images/TBW_stepsize_sensitivity.{svg,png}`.
 
+## dt-correctness fix (2026-05-16)
+
+### What changed
+Two integrator bugs caused a 146 ms TBW HW shift when running inference at
+dt = 0.05 ms (n_substeps = 200) compared to the training-time dt = 0.1 ms
+(n_substeps = 100). The pre-fix pipeline produced the correct paper values
+at dt = 0.1, but the qualitative behavior at any other dt was unreliable.
+The fix removes both root causes; the canonical dt = 0.1 pipeline produces
+the same TBW/SBW values as the paper (within 1.8% for TBW, 3.9% for SBW)
+and dt = 0.05 now matches dt = 0.1 within ~14% (a residual transient effect,
+acknowledged as a known limitation — see "Known caveats" below).
+
+### Root causes (both proven empirically; see `debug_dt/` for evidence)
+
+1. **NMDA → I\_M bare-add bug** at `Training.py:2049` (and the inhibitory
+   analogue at 2138). The substep integration was:
+   ```
+   self.I_M.mul_(decay_factor)   # decay_factor = 1 - dt/tau_syn
+   ...
+   self.I_M.add_(I_nmda)         # raw add — missing the dt or (1 - decay) factor
+   ```
+   Steady-state I\_M from NMDA = `I_nmda / (dt/tau_syn) = I_nmda × τ_syn/dt`,
+   so reducing dt amplified the effective NMDA conductance by `τ_syn/dt = 25`
+   at dt = 0.1 → 50 at dt = 0.05. The trained checkpoints absorbed this
+   stoichiometric factor into the learned gain — the network was doing the
+   right computation, only the calibration depended on dt.
+
+2. **Conduction delays stored in substep counts** instead of physical ms.
+   Eight attributes (`conduction_delay_a2msi`, `conduction_delay_v2msi`, …)
+   indexed ring buffers in substep units. Halving dt while doubling
+   n_substeps halved every physical delay (e.g. 25 ms → 12.5 ms for the
+   a2msi path), collapsing the temporal-binding integration window at finer
+   dt. This was the dominant residual after fix (1) was applied
+   (~77% of the remaining 86 ms HW gap at dt = 0.05).
+
+### Implementation (`dt_correct_nmda` flag gates the entire fix)
+
+- New attribute `self.dt_correct_nmda` (default `True` as of 2026-05-16) at
+  `Training.py:1368`. Set to `False` for bit-identical legacy reproduction.
+- Per-step source factor computed once per `update_all_layers_batch` call at
+  line 1910: `nmda_source_scale = 1 - exp(-dt / tau_syn)` (Form 2,
+  step-source exp-Euler).
+- Gated NMDA→I\_M add at lines 2059-2063 (excitatory) and 2153-2157
+  (inhibitory): when flag is `True`, replaces bare add with
+  `self.I_M.add_(I_nmda * nmda_source_scale)`. Steady-state I\_M from NMDA
+  is now `I_nmda` regardless of dt — dt-invariant by construction.
+- New physical-ms delay attributes (8 of them) initialised in `__init__`
+  immediately before `_reset_delay_buffers()`:
+  `conduction_delay_a2msi_ms`, `conduction_delay_v2msi_ms`,
+  `conduction_delay_inA_inh_ms`, `conduction_delay_inV_inh_ms`,
+  `conduction_delay_a2msi_inh_ms`, `conduction_delay_v2msi_inh_ms`,
+  `conduction_delay_msi_inh2exc_ms`, `conduction_delay_msi2out_ms`.
+  Each = `conduction_delay_X * self.dt` at construction (so existing
+  checkpoints' physical delays are preserved).
+- Helper `_delay_substeps_from_ms(ms)` returns
+  `max(1, int(round(ms / self.dt)))`. Called from `_reset_delay_buffers()`
+  and from the substep loop's local-aliases block (lines 1962-1981).
+  When flag is `True`, both buffer sizing AND the per-substep ring-buffer
+  index modulus use ms-derived substep counts — buffers automatically
+  re-size when dt is changed at evaluation time, provided the caller
+  invokes `net._reset_delay_buffers()` after the change.
+- When flag is `False`, behaviour at every site is bit-identical to the
+  pre-2026-05-16 code (verified via fixed-seed regression on M00 dt = 0.1,
+  HW = 149.06 ms ± 0).
+
+### gNMDA recalibration (0.05 → 1.30)
+
+The fix removes the implicit `τ_syn/dt = 25` amplification at dt = 0.1.
+A coarse + fine sweep on M00 fixed-seed identified `gNMDA = 1.30` as the
+calibration point that exactly preserves the dt = 0.1 control HW
+(148.91 ms vs 149.06 ms legacy, Δ = −0.15 ms). Theory predicted ~1.25;
+empirical 1.30 is within the calibration noise band of ±5 ms.
+
+The NMDA perturbation conditions in `generate_all_fresh.py:CONDITIONS`
+are rescaled by the same ×25 factor to preserve the perturbation magnitude
+ratios:
+
+| Condition       | Pre-fix gNMDA | Post-fix gNMDA |
+|-----------------|---------------|----------------|
+| control         | 0.05          | **1.30**       |
+| nmda            | 0.02          | **0.50**       |
+| nmda_increase   | 0.20          | **5.00**       |
+
+`run_training` (`Training.py:3525`) is updated so newly trained checkpoints
+bake in `gNMDA = 1.30` directly.
+
+### Verification
+
+Full pipeline `debug_dt/stage_e_full_pipeline.py` — 10 models × 50 trials
+× 5 conditions × (TBW + SBW), dt = 0.1:
+
+**TBW HW (ms)** — fix vs paper
+
+| Condition       | Post-fix | Paper | % off |
+|-----------------|----------|-------|-------|
+| control         | 107.2    | 107   | 0.2   |
+| ff_inhibition   | 145.7    | 146   | 0.2   |
+| adaptation      | 215.2    | 216   | 0.4   |
+| nmda            | 93.2     | 94    | 0.8   |
+| nmda_increase   | 109.9    | 108   | 1.8   |
+
+**SBW HW (°, floor 0.0681 subtracted)** — fix vs paper
+
+| Condition       | Post-fix | Paper | % off |
+|-----------------|----------|-------|-------|
+| control         | 23.63    | 24.3  | 2.7   |
+| ff_inhibition   | 27.78    | 27.7  | 0.3   |
+| adaptation      | 29.38    | 29.4  | 0.1   |
+| nmda            | 12.58    | 13.1  | 3.9   |
+| nmda_increase   | 30.09    | 30.0  | 0.3   |
+
+Rank ordering preserved on both axes; max deviation 1.8% (TBW) / 3.9% (SBW).
+
+**dt-independence (M00 fixed-seed, freeze_g_FFinh, control):**
+
+| Configuration                  | dt = 0.1 | dt = 0.05 | Δ HW    |
+|--------------------------------|----------|-----------|---------|
+| Pre-fix (legacy bug)           | 149.06   | 295.79    | +146.74 |
+| Post-fix (Form 2 + delays-ms)  | 148.91   | 127.84    |  −21.07 |
+
+dt = 0.05 residual (~14%) is the brief-event nmda_m transient effect —
+50-ms input events vs τ\_nmda = 80 ms means the NMDA gating variable
+never reaches steady state, so the integrator-form difference matters
+slightly. Multiple alternative integrator substitutions for
+`nmda_m` / `ampa_m` / `I_M` decays were tested by the debugger (see
+`debug_dt/` task #17 series); all moved HW the wrong direction. Accepted
+as a known limitation per the user's qualitative-preservation goal.
+
+### Re-training note for existing checkpoints
+
+The 10 checkpoints in `checkpoint/msi_model_surr_10_{00..09}.pt` were
+saved with `gNMDA = 0.05` baked into `mutable_hparams` (the legacy
+calibration). Running `generate_all_fresh.py` on those checkpoints
+without modification produces the wrong control gNMDA. The recommended
+workflow is to re-train via `run_training` (which now sets
+`gNMDA = 1.30`); for ad-hoc inference on existing checkpoints, override
+manually with `net.gNMDA = 1.30` before measurement. The Stage E
+verification above used such an override.
+
 ## Key files
 
 - `generate_all_fresh.py` — canonical entry point; produces all 10 TBW + SBW

@@ -1,0 +1,46 @@
+H_spatial_profile — MSI spike spatial profile at dt=0.1 vs dt=0.05
+3 separations × 3 conditions (AV/A/V) × n_trials=50, deterministic seed
+
+Using device: cuda
+Using device: cuda
+   AV  sep=  0°:  FWHM(0.1)= 26.0 pix  FWHM(0.05)= 22.0 pix  Δ=-4.0    ROI_spikes(0.1)=115.7  ROI(0.05)= 58.9  ratio=0.509
+Using device: cuda
+Using device: cuda
+   AV  sep= 25°:  FWHM(0.1)= 46.0 pix  FWHM(0.05)= 43.0 pix  Δ=-3.0    ROI_spikes(0.1)= 77.2  ROI(0.05)= 40.8  ratio=0.528
+Using device: cuda
+Using device: cuda
+   AV  sep= 80°:  FWHM(0.1)= 96.0 pix  FWHM(0.05)= 96.0 pix  Δ=+0.0    ROI_spikes(0.1)= 58.6  ROI(0.05)= 31.3  ratio=0.534
+Using device: cuda
+Using device: cuda
+    A  sep=  0°:  FWHM(0.1)= 25.0 pix  FWHM(0.05)= 23.0 pix  Δ=-2.0    ROI_spikes(0.1)= 67.7  ROI(0.05)= 33.6  ratio=0.497
+Using device: cuda
+Using device: cuda
+    A  sep= 25°:  FWHM(0.1)= 25.0 pix  FWHM(0.05)= 23.0 pix  Δ=-2.0    ROI_spikes(0.1)= 67.7  ROI(0.05)= 33.6  ratio=0.497
+Using device: cuda
+Using device: cuda
+    A  sep= 80°:  FWHM(0.1)= 25.0 pix  FWHM(0.05)= 23.0 pix  Δ=-2.0    ROI_spikes(0.1)= 67.7  ROI(0.05)= 33.6  ratio=0.497
+Using device: cuda
+Using device: cuda
+    V  sep=  0°:  FWHM(0.1)= 26.0 pix  FWHM(0.05)= 25.0 pix  Δ=-1.0    ROI_spikes(0.1)= 46.6  ROI(0.05)= 24.0  ratio=0.515
+Using device: cuda
+Using device: cuda
+    V  sep= 25°:  FWHM(0.1)= 23.0 pix  FWHM(0.05)= 24.0 pix  Δ=+1.0    ROI_spikes(0.1)= 17.3  ROI(0.05)=  7.5  ratio=0.432
+Using device: cuda
+Using device: cuda
+    V  sep= 80°:  FWHM(0.1)=179.0 pix  FWHM(0.05)=180.0 pix  Δ=+1.0    ROI_spikes(0.1)=  0.0  ROI(0.05)=  0.0  ratio=0.000
+
+Enhancement at each sep (AV_ROI - max(A_ROI, V_ROI)):
+  sep=  0°:  enh(0.1)=+47.98  enh(0.05)=+25.26  Δ=-22.72
+  sep= 25°:  enh(0.1)= +9.48  enh(0.05)= +7.14  Δ=-2.34
+  sep= 80°:  enh(0.1)= -9.06  enh(0.05)= -2.34  Δ=+6.72
+
+Profile center spike count (peak):
+   AV  sep=  0°:  peak(0.1)= 4.00  peak(0.05)= 2.78  ratio=0.695
+   AV  sep= 25°:  peak(0.1)= 2.48  peak(0.05)= 1.40  ratio=0.565
+   AV  sep= 80°:  peak(0.1)= 2.96  peak(0.05)= 1.60  ratio=0.541
+    A  sep=  0°:  peak(0.1)= 2.38  peak(0.05)= 1.32  ratio=0.555
+    A  sep= 25°:  peak(0.1)= 2.38  peak(0.05)= 1.32  ratio=0.555
+    A  sep= 80°:  peak(0.1)= 2.38  peak(0.05)= 1.32  ratio=0.555
+    V  sep=  0°:  peak(0.1)= 1.94  peak(0.05)= 0.80  ratio=0.412
+    V  sep= 25°:  peak(0.1)= 0.02  peak(0.05)= 0.06  ratio=3.000
+    V  sep= 80°:  peak(0.1)= 0.00  peak(0.05)= 0.00  ratio=0.000

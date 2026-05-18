@@ -1,0 +1,17 @@
+
+========================================================================================
+Task #57 — FINAL: ensemble validation of fix (AGC frozen + plast off)
+========================================================================================
+  ckpts: 10
+  paper target: MEI = +1.04 (I=0.05) → +0.78 (I=1.6), monotonically DECREASING
+  validation tolerance (docs/validation_protocol.md): Spearman ρ < -0.8
+
+  === CONTROL (current production: AGC drifts, plast on) ===  (freeze_agc=False, disable_plast=False)
+Using device: cuda
+Using device: cuda
+     ckpt 2/10  el=215s
+Using device: cuda
+Using device: cuda
+     ckpt 4/10  el=426s
+Using device: cuda
+Using device: cuda

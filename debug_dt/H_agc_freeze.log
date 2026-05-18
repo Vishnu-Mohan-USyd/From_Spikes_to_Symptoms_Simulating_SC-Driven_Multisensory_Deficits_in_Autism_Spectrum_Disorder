@@ -1,0 +1,60 @@
+H_agc test — does SBW dt-drift persist when AGC frozen?
+  10 ckpts, n_trials=50, intensity=1, dur=20, enh_thresh=10.0, gNMDA=1.30, Form-2 ON, delays-ms ON
+
+--- A: AGC unfrozen, dt=0.1 ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+   HW=23.93°  floor=0.0673  r2=0.9995  ymax(pre-floor-sub)=0.973  el=157s
+--- B: AGC unfrozen, dt=0.05 ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+   HW=20.29°  floor=0.0427  r2=0.9985  ymax(pre-floor-sub)=0.896  el=311s
+--- C: AGC FROZEN,   dt=0.1 ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+       fit failed: Initial guess is outside of provided bounds
+   FIT FAILED   floor=0.0000  el=155s
+--- D: AGC FROZEN,   dt=0.05 ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+       fit failed: Initial guess is outside of provided bounds
+   FIT FAILED   floor=0.0000  el=312s
+
+======================================================================
+VERDICT
+======================================================================
+  AGC unfrozen drift: ΔHW = -3.64° (-15.2%)
+  AGC FROZEN  drift: ΔHW = +nan° (+nan%)
+  Fraction of drift attributable to AGC: +nan%

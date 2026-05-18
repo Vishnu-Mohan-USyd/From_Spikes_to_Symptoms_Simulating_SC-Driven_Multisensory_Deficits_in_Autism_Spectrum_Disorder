@@ -149,8 +149,9 @@ def spatial_binding_diagnostics(
     net.reset_state(batch_size=B)
     msi_sum = torch.zeros(B, N, device=net.device)
     for t in range(duration):
-        net.update_all_layers_batch(xA[:, t], xV[:, t])
-        msi_sum += net._latest_sMSI
+        ret = net.update_all_layers_batch(xA[:, t], xV[:, t], return_spike_sum=True)
+        sum_sM = ret[-1]
+        msi_sum += sum_sM
 
     flags = np.zeros((n_sep, n_trials), dtype=bool)
     profs = msi_sum.cpu().numpy()
@@ -325,8 +326,9 @@ def spatial_binding_curve_fast(
         net.reset_state(batch_size=n_trials)
         total = torch.zeros(n_trials, device=net.device)
         for t in range(duration):
-            net.update_all_layers_batch(gA, gV)
-            total += net._latest_sMSI.sum(dim=1)
+            ret = net.update_all_layers_batch(gA, gV, return_spike_sum=True)
+            sum_sM = ret[-1]
+            total += sum_sM.sum(dim=1)
 
         mean_spikes[k] = total.mean().item()
 
@@ -422,8 +424,9 @@ def compute_spatial_binding_curve(
             msi_sum = torch.zeros(bs, N, device=net.device)
 
             for t in range(duration):
-                net.update_all_layers_batch(xA[:, t], xV[:, t])
-                msi_sum += net._latest_sMSI
+                ret = net.update_all_layers_batch(xA[:, t], xV[:, t], return_spike_sum=True)
+                sum_sM = ret[-1]
+                msi_sum += sum_sM
 
             profs = msi_sum.cpu().numpy()
             for pr in profs:
@@ -540,8 +543,9 @@ def compute_sbw_fused_persep(
             msi_sum = torch.zeros(bs, N, device=net.device)
 
             for t in range(duration):
-                net.update_all_layers_batch(gA, gV)
-                msi_sum += net._latest_sMSI
+                ret = net.update_all_layers_batch(gA, gV, return_spike_sum=True)
+                sum_sM = ret[-1]
+                msi_sum += sum_sM
 
             profs = msi_sum.cpu().numpy()
             for pr in profs:
@@ -659,8 +663,9 @@ def compute_sbw_enhancement_persep(
         net.reset_state(batch_size=total_batch)
         msi_sum = torch.zeros(total_batch, N, device=net.device)
         for _ in range(duration):
-            net.update_all_layers_batch(stim_A, stim_V)
-            msi_sum += net._latest_sMSI
+            ret = net.update_all_layers_batch(stim_A, stim_V, return_spike_sum=True)
+            sum_sM = ret[-1]
+            msi_sum += sum_sM
         return msi_sum
 
     # ── 3 passes total (AV, A-only, V-only) ──
@@ -1141,9 +1146,11 @@ def msi_profile_at_disparity(net,
     hist = torch.zeros(duration, n, device=dev)
 
     for _ in range(duration):
-        net.update_all_layers_batch(gauss_A.unsqueeze(0),
-                                    gauss_V.unsqueeze(0))
-        hist[_] = net._latest_sMSI[0]
+        ret = net.update_all_layers_batch(gauss_A.unsqueeze(0),
+                                          gauss_V.unsqueeze(0),
+                                          return_spike_sum=True)
+        sum_sM = ret[-1]
+        hist[_] = sum_sM[0]
 
     return hist.sum(0).cpu().numpy()
 

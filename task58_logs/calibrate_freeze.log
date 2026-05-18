@@ -1,0 +1,144 @@
+
+=== Running control ===
+Using device: cuda
+  model 0: done in 15.8s cum
+Using device: cuda
+  model 1: done in 31.2s cum
+Using device: cuda
+  model 2: done in 46.5s cum
+Using device: cuda
+  model 3: done in 61.8s cum
+Using device: cuda
+  model 4: done in 77.2s cum
+Using device: cuda
+  model 5: done in 92.5s cum
+Using device: cuda
+  model 6: done in 107.8s cum
+Using device: cuda
+  model 7: done in 123.1s cum
+Using device: cuda
+  model 8: done in 138.5s cum
+Using device: cuda
+  model 9: done in 153.7s cum
+  control total: 153.7s
+
+=== Running ff_inhibition ===
+Using device: cuda
+  model 0: done in 15.4s cum
+Using device: cuda
+  model 1: done in 30.8s cum
+Using device: cuda
+  model 2: done in 46.1s cum
+Using device: cuda
+  model 3: done in 61.5s cum
+Using device: cuda
+  model 4: done in 76.9s cum
+Using device: cuda
+  model 5: done in 92.2s cum
+Using device: cuda
+  model 6: done in 107.4s cum
+Using device: cuda
+  model 7: done in 122.7s cum
+Using device: cuda
+  model 8: done in 138.1s cum
+Using device: cuda
+  model 9: done in 153.3s cum
+  ff_inhibition total: 153.3s
+
+=== Running adaptation ===
+Using device: cuda
+  model 0: done in 15.4s cum
+Using device: cuda
+  model 1: done in 30.7s cum
+Using device: cuda
+  model 2: done in 46.0s cum
+Using device: cuda
+  model 3: done in 61.4s cum
+Using device: cuda
+  model 4: done in 76.7s cum
+Using device: cuda
+  model 5: done in 92.0s cum
+Using device: cuda
+  model 6: done in 107.3s cum
+Using device: cuda
+  model 7: done in 122.6s cum
+Using device: cuda
+  model 8: done in 137.8s cum
+Using device: cuda
+  model 9: done in 153.1s cum
+  adaptation total: 153.1s
+
+=== Running nmda ===
+Using device: cuda
+  model 0: done in 15.2s cum
+Using device: cuda
+  model 1: done in 30.2s cum
+Using device: cuda
+  model 2: done in 45.4s cum
+Using device: cuda
+  model 3: done in 60.5s cum
+Using device: cuda
+  model 4: done in 75.6s cum
+Using device: cuda
+  model 5: done in 90.7s cum
+Using device: cuda
+  model 6: done in 105.8s cum
+Using device: cuda
+  model 7: done in 120.9s cum
+Using device: cuda
+  model 8: done in 136.0s cum
+Using device: cuda
+  model 9: done in 151.0s cum
+  nmda total: 151.0s
+
+=== Running nmda_increase ===
+Using device: cuda
+  model 0: done in 15.3s cum
+Using device: cuda
+  model 1: done in 30.6s cum
+Using device: cuda
+  model 2: done in 45.9s cum
+Using device: cuda
+  model 3: done in 61.2s cum
+Using device: cuda
+  model 4: done in 76.6s cum
+Using device: cuda
+  model 5: done in 92.0s cum
+Using device: cuda
+  model 6: done in 107.3s cum
+Using device: cuda
+  model 7: done in 122.7s cum
+Using device: cuda
+  model 8: done in 138.1s cum
+Using device: cuda
+  model 9: done in 153.4s cum
+  nmda_increase total: 153.4s
+Cached enhancement values to task58_logs/raw_enh_cache_freeze.pkl
+
+======================================================================
+COARSE SWEEP (post-#58 freeze regime — team-lead recommended range)
+======================================================================
+
+======================================================================
+ Threshold   control  ff_inhib  adaptati      nmda  nmda_inc    L1err    L2err
+======================================================================
+      0.00       nan       nan       nan       nan      26.9      nan      nan  (floor=0.0000)
+     10.00       nan       nan       nan       nan      26.9      nan      nan  (floor=0.0000)
+     50.00       nan       nan       nan       nan      26.8      nan      nan  (floor=0.0000)
+    100.00       nan       nan       nan       nan      26.7      nan      nan  (floor=0.0000)
+    150.00       nan       nan       nan       nan      26.6      nan      nan  (floor=0.0000)
+    200.00       nan       nan       nan       nan      26.6      nan      nan  (floor=0.0000)
+    300.00       nan       nan       nan       nan      26.5      nan      nan  (floor=0.0000)
+    500.00       nan       nan       nan       nan      26.3      nan      nan  (floor=0.0000)
+    800.00       nan       nan       nan       nan      25.7      nan      nan  (floor=0.0000)
+   1500.00       nan       nan       nan       nan      23.8      nan      nan  (floor=0.0000)
+======================================================================
+Paper:          24.3      27.7      29.4      13.1      30.0
+Traceback (most recent call last):
+  File "/home/vishnu/coding_proj/From_Spikes_to_Symptoms_Simulating_SC-Driven_Multisensory_Deficits_in_Autism_Spectrum_Disorder/task56_logs/calibrate_sbw_threshold.py", line 244, in <module>
+    best_T_coarse, _ = sweep(all_raw, coarse)
+                       ~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/vishnu/coding_proj/From_Spikes_to_Symptoms_Simulating_SC-Driven_Multisensory_Deficits_in_Autism_Spectrum_Disorder/task56_logs/calibrate_sbw_threshold.py", line 233, in sweep
+    print(f"\nBest threshold (L2 across all 5 conditions): T = {best_T:.2f}")
+                                                               ^^^^^^^^^^^^
+TypeError: unsupported format string passed to NoneType.__format__

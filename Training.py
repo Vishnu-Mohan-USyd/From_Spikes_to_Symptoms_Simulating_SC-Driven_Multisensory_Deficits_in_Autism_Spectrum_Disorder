@@ -1354,6 +1354,19 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self.conduction_delay_msi_inh2exc = max(self.conduction_delay_a2msi,
                                                 self.conduction_delay_v2msi) + 50
 
+        # task #27: physical-time conduction delays (ms). Captured at construction
+        # so the physical duration is dt-invariant. Used when self.dt_correct_nmda
+        # is True; buffer sizing and access then compute substep counts as
+        # int(round(*_ms / self.dt)).
+        self.conduction_delay_a2msi_ms       = self.conduction_delay_a2msi       * self.dt
+        self.conduction_delay_v2msi_ms       = self.conduction_delay_v2msi       * self.dt
+        self.conduction_delay_inA_inh_ms     = self.conduction_delay_inA_inh     * self.dt
+        self.conduction_delay_inV_inh_ms     = self.conduction_delay_inV_inh     * self.dt
+        self.conduction_delay_a2msi_inh_ms   = self.conduction_delay_a2msi_inh   * self.dt
+        self.conduction_delay_v2msi_inh_ms   = self.conduction_delay_v2msi_inh   * self.dt
+        self.conduction_delay_msi_inh2exc_ms = self.conduction_delay_msi_inh2exc * self.dt
+        self.conduction_delay_msi2out_ms     = self.conduction_delay_msi2out     * self.dt
+
         # --- GPU ring buffers (replace Python deques) ---
         self._delay_positions = {}
         self._reset_delay_buffers()
@@ -1362,6 +1375,15 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         # NMDA parameters and state variables
         ################################################################
         self.gNMDA = 0.6
+        # dt-correctness flag for NMDA->I_M integration AND delays-in-ms (tasks #16/#27).
+        # True (default, Stage F locked in 2026-05-16):
+        #   - NMDA injection uses step-source exp-Euler at lines 2049/2138
+        #     (scale source by (1 - exp(-dt/tau_syn))).
+        #   - Conduction delays are derived from *_ms physical-time attributes,
+        #     so substep counts scale correctly with dt at evaluation time.
+        # False (legacy): preserves the original bare-add and substep-unit
+        # delays for backwards bit-identity / regression testing only.
+        self.dt_correct_nmda = True
         self.tau_nmda = 40.0
         self.nmda_alpha = 0.1
         self.mg_k = 0.062
@@ -1526,34 +1548,47 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             buf.zero_()
         self._delay_positions[attr] = 0
 
+    def _delay_substeps_from_ms(self, ms: float) -> int:
+        """task #27: convert a physical-ms delay to substep count at current dt."""
+        return max(1, int(round(float(ms) / float(self.dt))))
+
     def _reset_delay_buffers(self) -> None:
-        """Allocate/zero all 8 conduction-delay ring buffers."""
+        """Allocate/zero all 8 conduction-delay ring buffers.
+
+        When self.dt_correct_nmda is True (task #27), buffer sizes are derived
+        from `*_ms` physical-time attributes via the current dt, so buffers
+        scale correctly when dt is changed at evaluation time.
+        """
         if not hasattr(self, '_delay_positions'):
             self._delay_positions = {}
-        self._ensure_delay_buffer("buffer_a2msi",
-                                  delay=self.conduction_delay_a2msi,
-                                  width=self.n)
-        self._ensure_delay_buffer("buffer_v2msi",
-                                  delay=self.conduction_delay_v2msi,
-                                  width=self.n)
-        self._ensure_delay_buffer("buffer_inA_inh",
-                                  delay=self.conduction_delay_inA_inh,
-                                  width=self.n)
-        self._ensure_delay_buffer("buffer_inV_inh",
-                                  delay=self.conduction_delay_inV_inh,
-                                  width=self.n)
-        self._ensure_delay_buffer("buffer_a2msi_inh",
-                                  delay=self.conduction_delay_a2msi_inh,
-                                  width=self.n)
-        self._ensure_delay_buffer("buffer_v2msi_inh",
-                                  delay=self.conduction_delay_v2msi_inh,
-                                  width=self.n)
-        self._ensure_delay_buffer("buffer_msi_inh2exc",
-                                  delay=self.conduction_delay_msi_inh2exc,
-                                  width=self.n_inh)
-        self._ensure_delay_buffer("buffer_msi2out",
-                                  delay=self.conduction_delay_msi2out,
-                                  width=self.n)
+        use_ms = getattr(self, 'dt_correct_nmda', False) and \
+                 hasattr(self, 'conduction_delay_a2msi_ms')
+        if use_ms:
+            d_a2msi       = self._delay_substeps_from_ms(self.conduction_delay_a2msi_ms)
+            d_v2msi       = self._delay_substeps_from_ms(self.conduction_delay_v2msi_ms)
+            d_inA_inh     = self._delay_substeps_from_ms(self.conduction_delay_inA_inh_ms)
+            d_inV_inh     = self._delay_substeps_from_ms(self.conduction_delay_inV_inh_ms)
+            d_a2msi_inh   = self._delay_substeps_from_ms(self.conduction_delay_a2msi_inh_ms)
+            d_v2msi_inh   = self._delay_substeps_from_ms(self.conduction_delay_v2msi_inh_ms)
+            d_msi_inh2exc = self._delay_substeps_from_ms(self.conduction_delay_msi_inh2exc_ms)
+            d_msi2out     = self._delay_substeps_from_ms(self.conduction_delay_msi2out_ms)
+        else:
+            d_a2msi       = self.conduction_delay_a2msi
+            d_v2msi       = self.conduction_delay_v2msi
+            d_inA_inh     = self.conduction_delay_inA_inh
+            d_inV_inh     = self.conduction_delay_inV_inh
+            d_a2msi_inh   = self.conduction_delay_a2msi_inh
+            d_v2msi_inh   = self.conduction_delay_v2msi_inh
+            d_msi_inh2exc = self.conduction_delay_msi_inh2exc
+            d_msi2out     = self.conduction_delay_msi2out
+        self._ensure_delay_buffer("buffer_a2msi",       delay=d_a2msi,       width=self.n)
+        self._ensure_delay_buffer("buffer_v2msi",       delay=d_v2msi,       width=self.n)
+        self._ensure_delay_buffer("buffer_inA_inh",     delay=d_inA_inh,     width=self.n)
+        self._ensure_delay_buffer("buffer_inV_inh",     delay=d_inV_inh,     width=self.n)
+        self._ensure_delay_buffer("buffer_a2msi_inh",   delay=d_a2msi_inh,   width=self.n)
+        self._ensure_delay_buffer("buffer_v2msi_inh",   delay=d_v2msi_inh,   width=self.n)
+        self._ensure_delay_buffer("buffer_msi_inh2exc", delay=d_msi_inh2exc, width=self.n_inh)
+        self._ensure_delay_buffer("buffer_msi2out",     delay=d_msi2out,     width=self.n)
 
     def _p_add(self, attr: str, dW: torch.Tensor,
                eps: float = 1e-9,
@@ -1901,6 +1936,9 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         decay_factor = 1.0 - self.dt / self.tau_syn
         ampa_decay = 1.0 - self.dt / self.tau_ampa_lp
         nmda_decay = 1.0 - self.dt / self.tau_nmda
+        # Per-step NMDA->I_M source scale for the exp-Euler step-source form (task #16).
+        # Only used when self.dt_correct_nmda is True.
+        nmda_source_scale = 1.0 - math.exp(-self.dt / self.tau_syn)
         input_step_scale = 1.0 / float(self.n_substeps)
         istdp_decay = torch.exp(torch.tensor(-self.dt / self.tau_post_i,
                                              device=self.device, dtype=torch.float32))
@@ -1945,14 +1983,27 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         pos_msi_inh2exc = self._delay_positions["buffer_msi_inh2exc"]
         pos_msi2out = self._delay_positions["buffer_msi2out"]
 
-        delay_a2msi = self.conduction_delay_a2msi
-        delay_v2msi = self.conduction_delay_v2msi
-        delay_inA_inh = self.conduction_delay_inA_inh
-        delay_inV_inh = self.conduction_delay_inV_inh
-        delay_a2msi_inh = self.conduction_delay_a2msi_inh
-        delay_v2msi_inh = self.conduction_delay_v2msi_inh
-        delay_msi_inh2exc = self.conduction_delay_msi_inh2exc
-        delay_msi2out = self.conduction_delay_msi2out
+        # task #27: when dt_correct_nmda is True, derive substep delays from
+        # physical-ms attributes so the physical delay duration is dt-invariant.
+        # Otherwise use the legacy substep-stored integer attributes.
+        if self.dt_correct_nmda and hasattr(self, 'conduction_delay_a2msi_ms'):
+            delay_a2msi       = self._delay_substeps_from_ms(self.conduction_delay_a2msi_ms)
+            delay_v2msi       = self._delay_substeps_from_ms(self.conduction_delay_v2msi_ms)
+            delay_inA_inh     = self._delay_substeps_from_ms(self.conduction_delay_inA_inh_ms)
+            delay_inV_inh     = self._delay_substeps_from_ms(self.conduction_delay_inV_inh_ms)
+            delay_a2msi_inh   = self._delay_substeps_from_ms(self.conduction_delay_a2msi_inh_ms)
+            delay_v2msi_inh   = self._delay_substeps_from_ms(self.conduction_delay_v2msi_inh_ms)
+            delay_msi_inh2exc = self._delay_substeps_from_ms(self.conduction_delay_msi_inh2exc_ms)
+            delay_msi2out     = self._delay_substeps_from_ms(self.conduction_delay_msi2out_ms)
+        else:
+            delay_a2msi = self.conduction_delay_a2msi
+            delay_v2msi = self.conduction_delay_v2msi
+            delay_inA_inh = self.conduction_delay_inA_inh
+            delay_inV_inh = self.conduction_delay_inV_inh
+            delay_a2msi_inh = self.conduction_delay_a2msi_inh
+            delay_v2msi_inh = self.conduction_delay_v2msi_inh
+            delay_msi_inh2exc = self.conduction_delay_msi_inh2exc
+            delay_msi2out = self.conduction_delay_msi2out
 
         zero_exc = torch.zeros((batch_size, self.n), device=self.device)
         zero_inh = torch.zeros((batch_size, self.n_inh), device=self.device)
@@ -2046,7 +2097,13 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             I_nmda_step = self.gNMDA * inc_m_exc * (mg_A + mg_V) * (self.Erev_nmda - self.v_msi)
             I_nmda_lp = self.gNMDA * self.nmda_m * (mg_A + mg_V) * (self.Erev_nmda - self.v_msi)
 
-            self.I_M.add_(I_nmda)
+            # task #16: dt-correct NMDA->I_M coupling (exp-Euler step-source form).
+            # Flag OFF preserves legacy bare-add (dt-dependent); flag ON scales source
+            # by (1 - exp(-dt/tau_syn)). See debug_dt/final_proof.py Fix B for proof.
+            if self.dt_correct_nmda:
+                self.I_M.add_(I_nmda * nmda_source_scale)
+            else:
+                self.I_M.add_(I_nmda)
 
             release = (I_M_a_AMPA + I_M_v_AMPA)  # what you already had
             I_AMPA_tp = self.gAMPA * release * (self.Erev_ampa - self.v_msi)  # current
@@ -2135,7 +2192,12 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             mg_iA = 1.0 / (1.0 + torch.exp(-self.mg_k * (self.v_dend_inhA - self.mg_vhalf)))
             mg_iV = 1.0 / (1.0 + torch.exp(-self.mg_k * (self.v_dend_inhV - self.mg_vhalf)))
             I_nmda_inh = self.gNMDA * self.nmda_m_inh * (mg_iA + mg_iV) * (self.Erev_nmda - self.v_msi_inh)
-            self.I_M_inh.add_(I_nmda_inh)
+            # task #16: dt-correct NMDA->I_M_inh coupling (exp-Euler step-source form).
+            # Same tau_syn as excitatory path (no separate tau_syn_inh in this model).
+            if self.dt_correct_nmda:
+                self.I_M_inh.add_(I_nmda_inh * nmda_source_scale)
+            else:
+                self.I_M_inh.add_(I_nmda_inh)
 
             # MSI_inh->MSI_ex
             I_M_inh2exc = F.linear(delayed_spikes_msi_inh2exc, W_msiInh2Exc_GABA)
@@ -2190,7 +2252,14 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             if self._ei_record is not None:
                 # Excitatory onto MSI excitatory
                 _I_E_ampa = torch.clamp(I_AMPA_curr, min=0.0)
-                _I_E_nmda = torch.clamp(I_nmda, min=0.0)
+                # Task #42 fix: mirror the actual NMDA->I_M injection (line 2103-2106).
+                # When dt_correct_nmda is True, NMDA is injected as
+                # I_nmda * nmda_source_scale (exp-Euler step-source form),
+                # so the probe must record the same scaled current to stay symmetric.
+                if self.dt_correct_nmda:
+                    _I_E_nmda = torch.clamp(I_nmda * nmda_source_scale, min=0.0)
+                else:
+                    _I_E_nmda = torch.clamp(I_nmda, min=0.0)
                 _I_E = _I_E_ampa + _I_E_nmda
                 # Inhibitory onto MSI excitatory
                 _I_I_ff = torch.clamp(self.g_FFinh * (I_inA_inh + I_inV_inh), min=0.0)
@@ -3465,7 +3534,11 @@ def run_training(
 
     with torch.no_grad():
 
-        net.gNMDA = 0.05
+        # Task #16/#27: gNMDA recalibrated from legacy 0.05 to 1.30 to compensate
+        # for the (1 - exp(-dt/tau_syn)) ≈ dt/tau_syn factor introduced by the
+        # dt-correct NMDA injection (Form 2). Empirically calibrated at dt=0.1
+        # on M00 fixed-seed; preserves paper TBW HW = 107 ms control.
+        net.gNMDA = 1.30
         net.tau_nmda = 80.0
         net.nmda_alpha = 0.1
         net.Erev_nmda = 20.0

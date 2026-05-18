@@ -562,8 +562,9 @@ def _run_unimodal_reference(net, *, loc=90, T=60, D=5, extra=5, stim_in=1):
     net.reset_state(2)
     rast = torch.zeros((T, 2), device=net.device)
     for t in range(T):
-        net.update_all_layers_batch(xA[:, t], xV[:, t], mask[:, t])
-        rast[t] = net._latest_sMSI.sum(dim=1)
+        ret = net.update_all_layers_batch(xA[:, t], xV[:, t], mask[:, t], return_spike_sum=True)
+        sum_sM = ret[-1]
+        rast[t] = sum_sM.sum(dim=1)
 
     # Integrate over the same window as bimodal trials (onset → onset+D+extra)
     win_start = 0
@@ -912,8 +913,9 @@ def compute_tbw_temporal_fusion_persep(
     rast = torch.zeros((T, total_batch), device=net.device)
     with torch.inference_mode():
         for t in range(T):
-            net.update_all_layers_batch(xA[:, t], xV[:, t], mask[:, t])
-            rast[t] = net._latest_sMSI.sum(dim=1)
+            ret = net.update_all_layers_batch(xA[:, t], xV[:, t], mask[:, t], return_spike_sum=True)
+            sum_sM = ret[-1]
+            rast[t] = sum_sM.sum(dim=1)
 
     # ── Reshape to (T, n_offsets, n_trials) and classify ──
     rast_np = rast.cpu().numpy().reshape(T, n_offsets, n_trials)
@@ -1053,8 +1055,9 @@ def compute_tbw_enhancement_persep(
         rast = torch.zeros((T, 3 * bs), device=net.device)
         with torch.inference_mode():
             for t in range(T):
-                net.update_all_layers_batch(xA[:, t], xV[:, t], mask[:, t])
-                rast[t] = net._latest_sMSI.sum(dim=1)
+                ret = net.update_all_layers_batch(xA[:, t], xV[:, t], mask[:, t], return_spike_sum=True)
+                sum_sM = ret[-1]
+                rast[t] = sum_sM.sum(dim=1)
 
         # Integration window
         later_onset = abs(off)
@@ -1565,8 +1568,9 @@ def msi_timecourse_at_offset(net,
     spike_sum = torch.zeros(T, device=dev)
 
     for t in range(T):
-        net.update_all_layers_batch(xA[t][None, :], xV[t][None, :])
-        spike_sum[t] = net._latest_sMSI[0].sum()
+        ret = net.update_all_layers_batch(xA[t][None, :], xV[t][None, :], return_spike_sum=True)
+        sum_sM = ret[-1]
+        spike_sum[t] = sum_sM[0].sum()
 
     return spike_sum.cpu().numpy()
 

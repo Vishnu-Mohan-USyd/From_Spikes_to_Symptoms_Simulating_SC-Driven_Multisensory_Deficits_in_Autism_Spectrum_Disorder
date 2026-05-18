@@ -1,4 +1,5 @@
 from Training import *
+from typing import Sequence  # not exported by `from Training import *` (Training imports only Literal).
 from matplotlib import font_manager
 
 
@@ -77,8 +78,9 @@ def spatial_binding_diagnostics(
     net.reset_state(batch_size=B)
     msi_sum = torch.zeros(B, N, device=net.device)
     for t in range(duration):
-        net.update_all_layers_batch(xA[:, t], xV[:, t])
-        msi_sum += net._latest_sMSI
+        ret = net.update_all_layers_batch(xA[:, t], xV[:, t], return_spike_sum=True)
+        sum_sM = ret[-1]
+        msi_sum += sum_sM
 
     flags = np.zeros((n_sep, n_trials), dtype=bool)
     profs = msi_sum.cpu().numpy()
@@ -132,8 +134,9 @@ def spatial_binding_diagnostics(
             xA_ex, xV_ex = g1.unsqueeze(0), g2.unsqueeze(0)
             hist = []
             for _ in range(duration):
-                net.update_all_layers_batch(xA_ex, xV_ex)
-                hist.append(net._latest_sMSI[0].cpu().numpy())
+                ret = net.update_all_layers_batch(xA_ex, xV_ex, return_spike_sum=True)
+                sum_sM = ret[-1]
+                hist.append(sum_sM[0].cpu().numpy())
             hist = np.stack(hist)
             prof = hist.sum(0)
             fused = is_fused(prof)
@@ -248,8 +251,9 @@ def spatial_binding_curve_fast(
     msi_sum = torch.zeros(B, N, device=net.device)
 
     for t in range(duration):  # only 20 calls now
-        net.update_all_layers_batch(xA[:, t], xV[:, t])
-        msi_sum += net._latest_sMSI
+        ret = net.update_all_layers_batch(xA[:, t], xV[:, t], return_spike_sum=True)
+        sum_sM = ret[-1]
+        msi_sum += sum_sM
 
     # ----- decide “fused vs separated” ------------------------------
     profs = msi_sum.cpu().numpy()
@@ -343,8 +347,9 @@ def compute_spatial_binding_curve(
             msi_sum = torch.zeros(bs, N, device=net.device)
 
             for t in range(duration):
-                net.update_all_layers_batch(xA[:, t], xV[:, t])
-                msi_sum += net._latest_sMSI
+                ret = net.update_all_layers_batch(xA[:, t], xV[:, t], return_spike_sum=True)
+                sum_sM = ret[-1]
+                msi_sum += sum_sM
 
             profs = msi_sum.cpu().numpy()
             for pr in profs:
@@ -385,8 +390,9 @@ def run_spatial_binding_across_models(
     curves = []
     for p in model_paths:
         net = load_msi_model(Path(p), device=device)
+        setattr(net, 'gNMDA', 1.30)  # task #42 fix: override legacy gNMDA=0.05 baked into checkpoints
 
-        if callable(modify_net):  
+        if callable(modify_net):
             modify_net(net)  # tweak parameters *in‑place*
 
         curves.append(
@@ -650,13 +656,17 @@ def main():
     resp_AV = np.zeros_like(resp_A)
 
     for m_i, path in enumerate(models):
-        net = load_msi_model(path, device=DEVICE)
         for j, I in enumerate(INTENSITIES):
+            # Task #60 principled fix: reload checkpoint per intensity so each
+            # intensity starts from the same trained-network state. Prevents the
+            # AGC g_FFinh + plastic-weight drift documented in debugger #57.
+            net = load_msi_model(path, device=DEVICE)
+            setattr(net, 'gNMDA', 1.30)  # task #42: override legacy gNMDA=0.05
             resp_A[m_i, j] = integrated_spikes(net, "A", I)
             resp_V[m_i, j] = integrated_spikes(net, "V", I)
             resp_AV[m_i, j] = integrated_spikes(net, "B", I)
-        del net
-        torch.cuda.empty_cache()
+            del net
+            torch.cuda.empty_cache()
 
     # ---------- multisensory enhancement -------------
     max_uni = np.maximum(resp_A, resp_V)

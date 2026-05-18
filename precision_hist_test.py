@@ -34,7 +34,7 @@ def _signed_errors_hybrid_fast(net, xA, xV, valid, loc_seqs,
                 xA[start:end, t],
                 xV[start:end, t],
                 valid[start:end, t],
-                return_spike_sum=integrate)
+                return_spike_sum=True)
 
             if store_frame:
                 if integrate:
@@ -46,7 +46,7 @@ def _signed_errors_hybrid_fast(net, xA, xV, valid, loc_seqs,
                 else:
                     for i, (_, end_t) in event_frames.items():
                         if t == end_t:
-                            msi_accum[i] = net._latest_sMSI[i].clone()
+                            msi_accum[i] = sSum[i].clone()
 
         # Decode
         for i, (beg_t, end_t) in event_frames.items():
@@ -270,6 +270,7 @@ def pool_hybrid_sensitivity_fast(model_paths, *, modify_net=None, **sens_kw):
 
     for p in model_paths:
         net = load_msi_model(Path(p))
+        setattr(net, 'gNMDA', 1.30)  # task #42 fix: override legacy gNMDA=0.05 baked into checkpoints
         if callable(modify_net):
             modify_net(net)
 
@@ -548,6 +549,7 @@ def main():
 
     for path in paths:
         rep_net = load_msi_model(path)
+        setattr(rep_net, 'gNMDA', 1.30)  # task #42 fix: override legacy gNMDA=0.05 baked into checkpoints
         rep_out = compute_hybrid_sensitivity_fast(rep_net)
         all_err_A.extend(rep_out["err_A"])
         all_err_V.extend(rep_out["err_V"])
@@ -581,6 +583,7 @@ def main():
 
     for path in paths:
         rep_net2 = load_msi_model(path)
+        setattr(rep_net2, 'gNMDA', 1.30)  # task #42 fix: override legacy gNMDA=0.05 before manipulation tweak
         tweak_fn(rep_net2)
         rep_out2 = compute_hybrid_sensitivity_fast(rep_net2)
         all_err_A_mod.extend(rep_out2["err_A"])

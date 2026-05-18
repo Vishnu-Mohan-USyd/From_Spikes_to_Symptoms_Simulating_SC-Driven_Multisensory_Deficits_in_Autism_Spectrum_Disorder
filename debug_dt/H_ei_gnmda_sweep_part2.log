@@ -1,0 +1,117 @@
+ISSUE A — gNMDA sweep at Form 2 ON (PART 2: 1.30, 2.00, 5.00)
+==============================================================================
+  source_scale: 0.03921
+
+Prior (part 1):
+  gNMDA= 0.50:  E/I = 13.842   HW = 94.1 ms
+  gNMDA= 1.00:  E/I = 22.121   HW = 96.2 ms
+  PAPER ref:    E/I = 1.042    HW ≈ 97.0 ms (cheap settings)
+
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  Model 0/10: P(fus@0ms)=1.000, peak=1.000, 16.3s
+Using device: cuda
+  Model 1/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 2/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 3/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 4/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 5/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 6/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 7/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 8/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 9/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+  gNMDA= 1.30:  E/I =  25.363 ± 0.076  TBW HW =   96.9 ms   (NMDA=91.942 AMPA=0.211 I=3.633)  [ei 58s, tbw 161s]
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  Model 0/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 1/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 2/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 3/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 4/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 5/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 6/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 7/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 8/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 9/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+  gNMDA= 2.00:  E/I =  30.018 ± 0.056  TBW HW =   98.8 ms   (NMDA=141.563 AMPA=0.204 I=4.723)  [ei 58s, tbw 160s]
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  Model 0/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+Using device: cuda
+  Model 1/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 2/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 3/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 4/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+Using device: cuda
+  Model 5/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 6/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 7/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 8/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 9/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+  gNMDA= 5.00:  E/I =  37.024 ± 0.141  TBW HW =   98.7 ms   (NMDA=366.773 AMPA=0.206 I=9.916)  [ei 58s, tbw 161s]
+
+==============================================================================
+FULL TABLE
+==============================================================================
+  PAPER (gNMDA=0.05, Form2 OFF):  E/I = 1.042   HW ≈ 97 ms
+
+  gNMDA   E/I       TBW HW      NMDA_rec      I         
+  0.05    1.042     ~97         3.53          3.59        (paper baseline, Form2=OFF)
+  0.50    13.842    94.1        35.345        2.57      
+  1.00    22.121    96.2        70.625        3.20      
+  1.30    25.363    96.9        91.942        3.633     
+  2.00    30.018    98.8        141.563       4.723     
+  5.00    37.024    98.7        366.773       9.916     
+
+VERDICT: no gNMDA value at Form2=ON gives BOTH E/I ≈ 1.04 AND HW ≈ paper.

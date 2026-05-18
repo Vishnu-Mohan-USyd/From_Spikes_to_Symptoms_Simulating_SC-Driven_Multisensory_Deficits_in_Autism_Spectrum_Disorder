@@ -1,4 +1,5 @@
 from Training import *
+from typing import Sequence  # not exported by `from Training import *` (Training imports only Literal).
 from matplotlib import font_manager
 
 
@@ -77,8 +78,9 @@ def spatial_binding_diagnostics(
     net.reset_state(batch_size=B)
     msi_sum = torch.zeros(B, N, device=net.device)
     for t in range(duration):
-        net.update_all_layers_batch(xA[:, t], xV[:, t])
-        msi_sum += net._latest_sMSI
+        ret = net.update_all_layers_batch(xA[:, t], xV[:, t], return_spike_sum=True)
+        sum_sM = ret[-1]
+        msi_sum += sum_sM
 
     flags = np.zeros((n_sep, n_trials), dtype=bool)
     profs = msi_sum.cpu().numpy()
@@ -132,8 +134,9 @@ def spatial_binding_diagnostics(
             xA_ex, xV_ex = g1.unsqueeze(0), g2.unsqueeze(0)
             hist = []
             for _ in range(duration):
-                net.update_all_layers_batch(xA_ex, xV_ex)
-                hist.append(net._latest_sMSI[0].cpu().numpy())
+                ret = net.update_all_layers_batch(xA_ex, xV_ex, return_spike_sum=True)
+                sum_sM = ret[-1]
+                hist.append(sum_sM[0].cpu().numpy())
             hist = np.stack(hist)
             prof = hist.sum(0)
             fused = is_fused(prof)
@@ -247,8 +250,9 @@ def spatial_binding_curve_fast(
     msi_sum = torch.zeros(B, N, device=net.device)
 
     for t in range(duration):  # only 20 calls now
-        net.update_all_layers_batch(xA[:, t], xV[:, t])
-        msi_sum += net._latest_sMSI
+        ret = net.update_all_layers_batch(xA[:, t], xV[:, t], return_spike_sum=True)
+        sum_sM = ret[-1]
+        msi_sum += sum_sM
 
     # ----- decide “fused vs separated” ------------------------------
     profs = msi_sum.cpu().numpy()
@@ -342,8 +346,9 @@ def compute_spatial_binding_curve(
             msi_sum = torch.zeros(bs, N, device=net.device)
 
             for t in range(duration):
-                net.update_all_layers_batch(xA[:, t], xV[:, t])
-                msi_sum += net._latest_sMSI
+                ret = net.update_all_layers_batch(xA[:, t], xV[:, t], return_spike_sum=True)
+                sum_sM = ret[-1]
+                msi_sum += sum_sM
 
             profs = msi_sum.cpu().numpy()
             for pr in profs:
@@ -384,8 +389,9 @@ def run_spatial_binding_across_models(
     curves = []
     for p in model_paths:
         net = load_msi_model(Path(p), device=device)
+        setattr(net, 'gNMDA', 1.30)  # task #42 fix: override legacy gNMDA=0.05 baked into checkpoints
 
-        if callable(modify_net):  
+        if callable(modify_net):
             modify_net(net)  # tweak parameters *in‑place*
 
         curves.append(
@@ -644,8 +650,10 @@ def measure_latency(
         xV[:pulse_frames] = gauss_vec
 
     for t in range(n_frames):
-        net.update_all_layers_batch(xA[t].unsqueeze(0), xV[t].unsqueeze(0))
-        if net._latest_sMSI.sum().item() > 0:
+        ret = net.update_all_layers_batch(xA[t].unsqueeze(0), xV[t].unsqueeze(0),
+                                          return_spike_sum=True)
+        sum_sM = ret[-1]
+        if sum_sM.sum().item() > 0:
             return (t + 1) * frame_ms  # latency in ms (1‑based frame index)
 
     return np.nan  # silent network → undefined latency
@@ -679,18 +687,30 @@ def run_latency_test(
         if not ckpt_path.exists():
             raise FileNotFoundError(f"Checkpoint not found: {ckpt_path}")
         print(f"[{i}] loading {ckpt_path.name} …")
-        net = load_msi_model(ckpt_path, device=device)
-        # net.pv_nmda = 0.2
-        # net.targ_ratio = 0.4
-        net.aM, net.bM, net.cM, net.dM = 0.001, 0.2, -60.0, 0.1
         tic = time.time()
-        row = latency_profile_for_model(net)
-        row["Model"] = ckpt_path.stem
+        # Task #60 principled fix: each modality A/V/B is an independent
+        # test condition and must start from the same trained-network state.
+        # Reload the checkpoint fresh for each modality measurement.
+        latencies = {}
+        for modality in ("A", "V", "B"):
+            net = load_msi_model(ckpt_path, device=device)
+            setattr(net, 'gNMDA', 1.30)  # task #42 fix: override legacy gNMDA=0.05
+            net.aM, net.bM, net.cM, net.dM = 0.001, 0.2, -60.0, 0.1
+            latencies[f"{modality}_ms"] = measure_latency(net, modality=modality)
+            del net
+            if device.startswith("cuda"):
+                torch.cuda.empty_cache()
+        uni_mean = float(np.nanmean([latencies["A_ms"], latencies["V_ms"]]))
+        row = {
+            "A_ms": latencies["A_ms"],
+            "V_ms": latencies["V_ms"],
+            "B_ms": latencies["B_ms"],
+            "UniMean_ms": uni_mean,
+            "ΔLatency_ms": uni_mean - latencies["B_ms"],
+            "Model": ckpt_path.stem,
+        }
         rows.append(row)
         print(f"    done in {time.time() - tic:.2f}s → ΔLatency = {row['ΔLatency_ms']:.1f} ms")
-        del net
-        if device.startswith("cuda"):
-            torch.cuda.empty_cache()
 
     df = pd.DataFrame(rows).set_index("Model")
     return df

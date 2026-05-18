@@ -1,0 +1,501 @@
+start = 2026-05-17T04:56:01
+============================================================
+SECTION A — TBW for 4 remaining conditions × 2 dt values
+============================================================
+
+  TBW ff_inhibition @ dt=0.1, n_sub=100
+Using device: cuda
+  Model 0/10: P(fus@0ms)=1.000, peak=1.000, 16.7s
+Using device: cuda
+  Model 1/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+Using device: cuda
+  Model 2/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 3/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 4/10: P(fus@0ms)=1.000, peak=1.000, 15.8s
+Using device: cuda
+  Model 5/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 6/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 7/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 8/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 9/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+    done in 160s -> HW = 147.3 ms
+
+  TBW ff_inhibition @ dt=0.05, n_sub=200
+Using device: cuda
+  Model 0/10: P(fus@0ms)=0.980, peak=1.000, 31.7s
+Using device: cuda
+  Model 1/10: P(fus@0ms)=0.980, peak=1.000, 31.7s
+Using device: cuda
+  Model 2/10: P(fus@0ms)=1.000, peak=1.000, 31.6s
+Using device: cuda
+  Model 3/10: P(fus@0ms)=1.000, peak=1.000, 31.5s
+Using device: cuda
+  Model 4/10: P(fus@0ms)=1.000, peak=1.000, 31.6s
+Using device: cuda
+  Model 5/10: P(fus@0ms)=0.980, peak=1.000, 31.7s
+Using device: cuda
+  Model 6/10: P(fus@0ms)=0.960, peak=1.000, 31.6s
+Using device: cuda
+  Model 7/10: P(fus@0ms)=0.980, peak=1.000, 31.6s
+Using device: cuda
+  Model 8/10: P(fus@0ms)=1.000, peak=1.000, 31.7s
+Using device: cuda
+  Model 9/10: P(fus@0ms)=1.000, peak=1.000, 31.7s
+    done in 317s -> HW = 143.8 ms
+
+  TBW adaptation @ dt=0.1, n_sub=100
+Using device: cuda
+  Model 0/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 1/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 2/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 3/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 4/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 5/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 6/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 7/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 8/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 9/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+    done in 161s -> HW = 215.4 ms
+
+  TBW adaptation @ dt=0.05, n_sub=200
+Using device: cuda
+  Model 0/10: P(fus@0ms)=0.940, peak=1.000, 31.7s
+Using device: cuda
+  Model 1/10: P(fus@0ms)=1.000, peak=1.000, 31.6s
+Using device: cuda
+  Model 2/10: P(fus@0ms)=1.000, peak=1.000, 31.7s
+Using device: cuda
+  Model 3/10: P(fus@0ms)=1.000, peak=1.000, 31.7s
+Using device: cuda
+  Model 4/10: P(fus@0ms)=1.000, peak=1.000, 31.6s
+Using device: cuda
+  Model 5/10: P(fus@0ms)=1.000, peak=1.000, 31.6s
+Using device: cuda
+  Model 6/10: P(fus@0ms)=1.000, peak=1.000, 31.6s
+Using device: cuda
+  Model 7/10: P(fus@0ms)=1.000, peak=1.000, 31.7s
+Using device: cuda
+  Model 8/10: P(fus@0ms)=1.000, peak=1.000, 31.6s
+Using device: cuda
+  Model 9/10: P(fus@0ms)=1.000, peak=1.000, 31.7s
+    done in 317s -> HW = 213.8 ms
+
+  TBW nmda @ dt=0.1, n_sub=100
+Using device: cuda
+  Model 0/10: P(fus@0ms)=0.940, peak=1.000, 16.0s
+Using device: cuda
+  Model 1/10: P(fus@0ms)=0.960, peak=1.000, 16.0s
+Using device: cuda
+  Model 2/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 3/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 4/10: P(fus@0ms)=0.980, peak=1.000, 16.0s
+Using device: cuda
+  Model 5/10: P(fus@0ms)=0.960, peak=1.000, 15.9s
+Using device: cuda
+  Model 6/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 7/10: P(fus@0ms)=0.960, peak=1.000, 16.1s
+Using device: cuda
+  Model 8/10: P(fus@0ms)=0.980, peak=1.000, 16.0s
+Using device: cuda
+  Model 9/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+    done in 160s -> HW = 93.5 ms
+
+  TBW nmda @ dt=0.05, n_sub=200
+Using device: cuda
+  Model 0/10: P(fus@0ms)=0.760, peak=0.940, 31.5s
+Using device: cuda
+  Model 1/10: P(fus@0ms)=0.660, peak=0.940, 31.6s
+Using device: cuda
+  Model 2/10: P(fus@0ms)=0.780, peak=0.960, 31.8s
+Using device: cuda
+  Model 3/10: P(fus@0ms)=0.660, peak=0.960, 31.7s
+Using device: cuda
+  Model 4/10: P(fus@0ms)=0.880, peak=0.920, 31.9s
+Using device: cuda
+  Model 5/10: P(fus@0ms)=0.840, peak=0.960, 31.7s
+Using device: cuda
+  Model 6/10: P(fus@0ms)=0.880, peak=0.940, 31.8s
+Using device: cuda
+  Model 7/10: P(fus@0ms)=0.920, peak=0.980, 31.9s
+Using device: cuda
+  Model 8/10: P(fus@0ms)=0.860, peak=0.960, 31.8s
+Using device: cuda
+  Model 9/10: P(fus@0ms)=0.900, peak=1.000, 31.7s
+    done in 318s -> HW = 89.5 ms
+
+  TBW nmda_increase @ dt=0.1, n_sub=100
+Using device: cuda
+  Model 0/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 1/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 2/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+Using device: cuda
+  Model 3/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 4/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 5/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 6/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 7/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 8/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 9/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+    done in 161s -> HW = 108.9 ms
+
+  TBW nmda_increase @ dt=0.05, n_sub=200
+Using device: cuda
+  Model 0/10: P(fus@0ms)=1.000, peak=1.000, 31.5s
+Using device: cuda
+  Model 1/10: P(fus@0ms)=1.000, peak=1.000, 31.7s
+Using device: cuda
+  Model 2/10: P(fus@0ms)=1.000, peak=1.000, 31.6s
+Using device: cuda
+  Model 3/10: P(fus@0ms)=1.000, peak=1.000, 31.6s
+Using device: cuda
+  Model 4/10: P(fus@0ms)=1.000, peak=1.000, 31.5s
+Using device: cuda
+  Model 5/10: P(fus@0ms)=1.000, peak=1.000, 31.4s
+Using device: cuda
+  Model 6/10: P(fus@0ms)=1.000, peak=1.000, 31.6s
+Using device: cuda
+  Model 7/10: P(fus@0ms)=1.000, peak=1.000, 31.8s
+Using device: cuda
+  Model 8/10: P(fus@0ms)=1.000, peak=1.000, 31.8s
+Using device: cuda
+  Model 9/10: P(fus@0ms)=1.000, peak=1.000, 31.7s
+    done in 317s -> HW = 123.1 ms
+
+============================================================
+SECTION B — SBW for 5 conditions × 2 dt values (with floor-subtraction per dt)
+============================================================
+
+  SBW control @ dt=0.1, n_sub=100
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+    done in 154s -> sbw_control_dt010.npz
+
+  SBW control @ dt=0.05, n_sub=200
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+    done in 308s -> sbw_control_dt005.npz
+
+  SBW ff_inhibition @ dt=0.1, n_sub=100
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+    done in 153s -> sbw_ff_inhibition_dt010.npz
+
+  SBW ff_inhibition @ dt=0.05, n_sub=200
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+    done in 308s -> sbw_ff_inhibition_dt005.npz
+
+  SBW adaptation @ dt=0.1, n_sub=100
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+    done in 154s -> sbw_adaptation_dt010.npz
+
+  SBW adaptation @ dt=0.05, n_sub=200
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+    done in 308s -> sbw_adaptation_dt005.npz
+
+  SBW nmda @ dt=0.1, n_sub=100
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+    done in 154s -> sbw_nmda_dt010.npz
+
+  SBW nmda @ dt=0.05, n_sub=200
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+    done in 305s -> sbw_nmda_dt005.npz
+
+  SBW nmda_increase @ dt=0.1, n_sub=100
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+    done in 153s -> sbw_nmda_increase_dt010.npz
+
+  SBW nmda_increase @ dt=0.05, n_sub=200
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+    done in 307s -> sbw_nmda_increase_dt005.npz
+
+  Subtracting per-dt control floor...
+    floor @ dt=0.10: 0.0764
+    floor @ dt=0.05: 0.0517
+    SBW control               dt=0.1: 23.48°  dt=0.05: 19.79°  Δ=-3.68°
+    SBW ff_inhibition         dt=0.1: 27.07°  dt=0.05: 22.97°  Δ=-4.11°
+    SBW adaptation            dt=0.1: 29.17°  dt=0.05: 26.99°  Δ=-2.18°
+    SBW nmda                  dt=0.1: 11.31°  dt=0.05: nan°  Δ=+nan°
+    SBW nmda_increase         dt=0.1: 29.76°  dt=0.05: 28.93°  Δ=-0.83°
+
+============================================================
+SECTION C1 — E/I balance (evoked window, control)
+============================================================
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  done in 171s
+  E/I @ dt=0.1:  25.363 ± 0.076
+  E/I @ dt=0.05: 51.188 ± 0.170
+
+============================================================
+SECTION C2 — Fano factor (baseline vs stim, main_fano_fast_with_bio path)
+============================================================
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  done in 147s
+  Fano baseline  dt=0.1: 0.711  dt=0.05: 0.793
+  Fano stim      dt=0.1: 0.371  dt=0.05: 0.642
+
+============================================================
+SECTION C3 — Cue reliability (R², MAE)
+============================================================
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  done in 95s
+  R²   dt=0.1: 0.777   dt=0.05: 0.177
+  MAE  dt=0.1: 0.110   dt=0.05: 0.308
+
+============================================================
+SECTION C4 — Precision σ_A, σ_V, σ_B (CONTROL block, gNMDA=1.30)
+============================================================
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  done in 848s
+  σA  dt=0.1: 9.027  dt=0.05: 9.311
+  σV  dt=0.1: 10.341  dt=0.05: 10.696
+  σB  dt=0.1: 8.225  dt=0.05: 8.487
+
+============================================================
+SECTION C5 — Inverse effectiveness (MEI sweep)
+============================================================
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  done in 2812s
+  MEI@I=0.05  dt=0.1: 1.040  dt=0.05: 1.031
+  MEI@I=1.6   dt=0.1: 0.808  dt=0.05: 0.808
+  MEI grand mean dt=0.1: 0.968  dt=0.05: 0.966
+
+============================================================
+SECTION C6 — Response latency (A, V, B)
+============================================================
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  done in 118s
+  Lat A  dt=0.1: 47.0  dt=0.05: 52.0
+  Lat V  dt=0.1: 53.0  dt=0.05: 57.0
+  Lat B  dt=0.1: 34.0  dt=0.05: 36.0
+
+============================================================
+TOTAL ELAPSED: 8404 s (140.1 min)
+============================================================
+Saved summary -> /home/vishnu/coding_proj/From_Spikes_to_Symptoms_Simulating_SC-Driven_Multisensory_Deficits_in_Autism_Spectrum_Disorder/debug_dt/dt_sweep_cache/summary.json

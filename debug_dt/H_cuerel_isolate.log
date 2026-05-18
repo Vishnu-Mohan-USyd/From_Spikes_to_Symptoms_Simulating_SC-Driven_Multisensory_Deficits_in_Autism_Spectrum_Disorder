@@ -1,0 +1,112 @@
+ISSUE B isolation — one variable at a time
+===========================================================================
+
+Baselines:
+---------------------------------------------------------------------------
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+PROD baseline (gNMDA=ckpt, plast=T, reset=F)             R²=0.2866  MAE=0.2668  el=36s
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+WRAP baseline (gNMDA=1.30, plast=F, reset=T)             R²=0.9707  MAE=0.0646  el=51s
+
+FORWARD: production baseline + ONE wrapper knob:
+---------------------------------------------------------------------------
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+PROD + gNMDA=1.30   (only this)                          R²=0.9688  MAE=0.0626  el=50s
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+PROD + plast=False  (only this)                          R²=0.3227  MAE=0.2541  el=54s
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+PROD + reset_delays (only this)                          R²=0.2866  MAE=0.2668  el=54s
+
+REVERSE: wrapper baseline - ONE wrapper knob:
+---------------------------------------------------------------------------
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+WRAP - gNMDA  (gNMDA=ckpt, plast=F, reset=T)             R²=0.3227  MAE=0.2541  el=55s
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+WRAP - plast  (gNMDA=1.30, plast=T, reset=T)             R²=0.9688  MAE=0.0626  el=55s
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+WRAP - reset  (gNMDA=1.30, plast=F, reset=F)             R²=0.9707  MAE=0.0646  el=55s
+
+===========================================================================
+VERDICT
+===========================================================================
+  Baseline gap:                  ΔR² = +0.6842
+
+  PROD + gNMDA=1.30:             ΔR² = +0.6823
+  PROD + plast=False:            ΔR² = +0.0361
+  PROD + reset_delays:           ΔR² = +0.0000
+
+  WRAP - gNMDA (use ckpt):       ΔR² = -0.6480
+  WRAP - plast (re-enable):      ΔR² = -0.0019
+  WRAP - reset (skip reset):     ΔR² = +0.0000

@@ -1,0 +1,77 @@
+ISSUE A H1 — probe-fix causal proof
+==============================================================================
+
+Phase 1: BASELINE (orig probe, unmodified Training.py)
+------------------------------------------------------------------------------
+  source_scale at dt=0.1, tau_syn=2.5 = 0.03921
+
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+A_orig: gNMDA=0.05, Form2=OFF (paper)                         E/I=1.042±0.005  E=3.746  I=3.592  el=59s
+   AMPA=0.2112  NMDA_rec=3.5343  FF=2.6222  Rec=0.0035  Lat=0.9667
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+D_orig: gNMDA=1.30, Form2=ON  (post-recalib)                  E/I=25.363±0.076  E=92.152  I=3.633  el=88s
+   AMPA=0.2107  NMDA_rec=91.9415  FF=2.6444  Rec=0.0036  Lat=0.9848
+
+Phase 2: PATCHED probe (NMDA records I_nmda*source_scale when Form2=ON)
+------------------------------------------------------------------------------
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+A_patch: gNMDA=0.05, Form2=OFF (no-op, no scale)              E/I=1.042±0.005  E=3.746  I=3.592  el=110s
+   AMPA=0.2112  NMDA_rec=3.5343  FF=2.6222  Rec=0.0035  Lat=0.9667
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+D_patch: gNMDA=1.30, Form2=ON  (scaled)                       E/I=1.050±0.004  E=3.816  I=3.633  el=67s
+   AMPA=0.2107  NMDA_rec=3.6051  FF=2.6444  Rec=0.0036  Lat=0.9848
+
+==============================================================================
+CAUSAL VERDICT — probe asymmetry is the mechanism
+==============================================================================
+  Paper baseline (cell A):                 E/I = 1.042
+  Post-recalib raw (cell D, orig probe):   E/I = 25.363
+  Paper with patched probe (cell A_patch): E/I = 1.042  (should equal A_orig)
+  Post-recalib with patched probe (D_patch): E/I = 1.050  (should equal A_orig ≈1.04)
+
+  Δ from paper to post-fix (orig probe):   +24.321
+  Δ from paper to post-fix (patched probe): +0.008
+
+  If D_patch ≈ A_orig (≈1.04), the entire E/I jump is a probe asymmetry,
+  proven by changing ONLY the probe (not the network).
+
+  NMDA component check:
+    A_orig NMDA = 3.5343  (recorded ≈ effective in paper)
+    D_orig NMDA = 91.9415  (recorded = SOURCE, 26× too big)
+    D_patch NMDA = 3.6051  (recorded = effective injection ≈ A_orig)

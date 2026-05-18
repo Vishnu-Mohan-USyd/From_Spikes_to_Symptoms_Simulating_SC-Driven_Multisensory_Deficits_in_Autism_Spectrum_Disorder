@@ -1,0 +1,59 @@
+H_meas propagation — cue reliability with BUGGY vs FIXED measurement
+  10 ckpts, n_trials=20, gNMDA=1.30
+
+--- A: BUGGY, dt=0.1  ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+   R² = 0.629   MAE = 0.130   RMSE = 0.216   el=55s
+--- B: BUGGY, dt=0.05 ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+   R² = 0.302   MAE = 0.247   RMSE = 0.412   el=108s
+--- C: FIXED, dt=0.1  ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+   R² = 0.971   MAE = 0.065   RMSE = 0.079   el=55s
+--- D: FIXED, dt=0.05 ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+   R² = 0.966   MAE = 0.069   RMSE = 0.084   el=105s
+
+======================================================================
+VERDICT
+======================================================================
+  BUGGY R² drop: 0.629 → 0.302  Δ = -0.328
+  FIXED R² drop: 0.971 → 0.966  Δ = -0.005
+  BUGGY MAE rise: 0.130 → 0.247  Δ = +0.117
+  FIXED MAE rise: 0.065 → 0.069  Δ = +0.004

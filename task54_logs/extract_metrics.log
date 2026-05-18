@@ -1,0 +1,59 @@
+============================================================
+FANO FACTOR EXTRACTION
+============================================================
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Fano baseline (pre-stim, mean of first 30 frames): 0.735 ± 0.011
+Fano stim     (post-stim, mean of next  30 frames): 0.360 ± 0.007
+Mean rate baseline: 0.3001 spikes/frame/neuron
+Mean rate stim:     0.4487 spikes/frame/neuron
+
+============================================================
+INVERSE EFFECTIVENESS MEI EXTRACTION
+============================================================
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+INTENSITIES  = [np.float64(0.05), np.float64(0.1), np.float64(0.2), np.float64(0.4), np.float64(0.8), np.float64(1.6)]
+MEI mean     = ['0.248', '0.342', '0.483', '0.504', '0.557', '0.618']
+MEI sem      = ['0.003', '0.004', '0.006', '0.010', '0.010', '0.013']
+resp_A mean  = ['361.30', '311.20', '294.90', '315.30', '358.20', '456.90']
+resp_V mean  = ['234.90', '210.50', '217.30', '242.20', '284.70', '374.60']
+resp_AV mean = ['450.80', '417.50', '437.40', '474.20', '557.60', '738.60']
+
+============================================================
+PRECISION HISTOGRAM σ EXTRACTION (control gNMDA=1.30)
+============================================================
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+σ_A  = 9.15°  (paper target: 8.47)
+σ_V  = 10.60°  (paper target: 9.59)
+σ_AV = 8.50° (paper target: 7.08)
+σ_AV(MLE prediction from σ_A,σ_V) = 6.93°
+
+============================================================
+DONE
+============================================================

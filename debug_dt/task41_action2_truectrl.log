@@ -1,0 +1,59 @@
+========================================================================
+TASK #41 ACTION #2 — latency at dt=0.1, post-meas-fix,
+                     TRUE-CONTROL Izh (RS defaults).
+                     aM=0.02  bM=0.2  cM=-65  dM=8
+                     gNMDA=1.30  n_substeps=100  frame_ms=10
+========================================================================
+[0] loading msi_model_surr_10_00.pt ...
+Using device: cuda
+    done in 3.07s  ->  A=  30.0  V=  50.0  B=  30.0  dLat=  10.0
+[1] loading msi_model_surr_10_01.pt ...
+Using device: cuda
+    done in 2.92s  ->  A=  30.0  V=  50.0  B=  30.0  dLat=  10.0
+[2] loading msi_model_surr_10_02.pt ...
+Using device: cuda
+    done in 2.92s  ->  A=  30.0  V=  50.0  B=  30.0  dLat=  10.0
+[3] loading msi_model_surr_10_03.pt ...
+Using device: cuda
+    done in 2.92s  ->  A=  30.0  V=  50.0  B=  30.0  dLat=  10.0
+[4] loading msi_model_surr_10_04.pt ...
+Using device: cuda
+    done in 2.92s  ->  A=  30.0  V=  50.0  B=  30.0  dLat=  10.0
+[5] loading msi_model_surr_10_05.pt ...
+Using device: cuda
+    done in 2.95s  ->  A=  30.0  V=  50.0  B=  30.0  dLat=  10.0
+[6] loading msi_model_surr_10_06.pt ...
+Using device: cuda
+    done in 2.95s  ->  A=  30.0  V=  50.0  B=  30.0  dLat=  10.0
+[7] loading msi_model_surr_10_07.pt ...
+Using device: cuda
+    done in 2.94s  ->  A=  30.0  V=  50.0  B=  30.0  dLat=  10.0
+[8] loading msi_model_surr_10_08.pt ...
+Using device: cuda
+    done in 2.93s  ->  A=  30.0  V=  50.0  B=  30.0  dLat=  10.0
+[9] loading msi_model_surr_10_09.pt ...
+Using device: cuda
+    done in 2.93s  ->  A=  30.0  V=  50.0  B=  30.0  dLat=  10.0
+
+=== TRUE-CONTROL Izh latency summary across 10 models ===
+                       A_ms   V_ms   B_ms  UniMean_ms  ΔLatency_ms
+Model                                                             
+msi_model_surr_10_00   30.0   50.0   30.0        40.0         10.0
+msi_model_surr_10_01   30.0   50.0   30.0        40.0         10.0
+msi_model_surr_10_02   30.0   50.0   30.0        40.0         10.0
+msi_model_surr_10_03   30.0   50.0   30.0        40.0         10.0
+msi_model_surr_10_04   30.0   50.0   30.0        40.0         10.0
+msi_model_surr_10_05   30.0   50.0   30.0        40.0         10.0
+msi_model_surr_10_06   30.0   50.0   30.0        40.0         10.0
+msi_model_surr_10_07   30.0   50.0   30.0        40.0         10.0
+msi_model_surr_10_08   30.0   50.0   30.0        40.0         10.0
+msi_model_surr_10_09   30.0   50.0   30.0        40.0         10.0
+
+Mean ± SEM (ms):
+  A_ms          :  30.00 ±  0.00
+  V_ms          :  50.00 ±  0.00
+  B_ms          :  30.00 ±  0.00
+  UniMean_ms    :  40.00 ±  0.00
+  ΔLatency_ms   :  10.00 ±  0.00
+
+Total elapsed: 30s

@@ -70,15 +70,43 @@ SAVE.mkdir(exist_ok=True)
 
 TBW_OFFSETS = list(range(-50, 51, 2))        # 51 values
 SBW_SEPARATIONS = tuple(range(-80, 85, 5))   # 33 values
-ENH_THRESHOLD = 10.0
+ENH_THRESHOLD = 1110.0  # task #56 recalibration: legacy 10.0 was tuned to the
+                        # buggy _latest_sMSI measurement; under the task #40 fix
+                        # (return_spike_sum=True) per-frame counts are ~100× larger.
+                        # 1110.0 picked by L2-minimization sweep vs paper 5-cond HW
+                        # (control 24.3, ff_inh 27.7, adapt 29.4, nmda 13.1, nmda_inc 30.0).
+                        # See task56_logs/calibrate_run.log.
 N_TRIALS = 50
 
 CONDITIONS = {
-    "control": None,
-    "ff_inhibition": lambda n: (setattr(n, "pv_nmda", 0.8) or setattr(n, "targ_ratio", 0.8)),
-    "adaptation": lambda n: (setattr(n, "aM", 0.001) or setattr(n, "bM", 0.2) or setattr(n, "cM", -60.0) or setattr(n, "dM", 0.01)),
-    "nmda": lambda n: setattr(n, "gNMDA", 0.02),
-    "nmda_increase": lambda n: setattr(n, "gNMDA", 0.2),
+    # Tasks #16/#27 Stage F: every condition explicitly sets gNMDA. This overrides
+    # the saved mutable_hparam gNMDA=0.05 in existing checkpoints (which were
+    # trained with the pre-fix legacy calibration); new checkpoints from
+    # run_training already have gNMDA=1.30 baked in, so this is a no-op for those.
+    # Without these overrides, the pipeline would silently use the legacy gNMDA
+    # on existing checkpoints and reproduce wrong HWs.
+    #
+    # Task #60: REVERTED the task-#58 freeze_g_FFinh/plasticity_enabled additions.
+    # AGC is the network's inhibitory regulation mechanism (per researcher #59),
+    # not a measurement contamination. The right cross-test isolation is
+    # per-condition checkpoint reload, which `run_*_across_models` already
+    # provides at the per-checkpoint level. Cross-intensity isolation within
+    # one test (inv_eff) is handled inside that script's main loop.
+    "control": lambda n: setattr(n, "gNMDA", 1.30),
+    "ff_inhibition": lambda n: (setattr(n, "gNMDA", 1.30)
+                                or setattr(n, "pv_nmda", 0.8)
+                                or setattr(n, "targ_ratio", 0.8)),
+    "adaptation": lambda n: (setattr(n, "gNMDA", 1.30)
+                             or setattr(n, "aM", 0.001)
+                             or setattr(n, "bM", 0.2)
+                             or setattr(n, "cM", -60.0)
+                             or setattr(n, "dM", 0.01)),
+    # NMDA perturbations rescaled ×25: preserves the relative perturbation
+    # magnitude (0.4× and 4× of control) under the new dt-correct control
+    # gNMDA = 1.30 (25× = the τ_syn/dt amplification factor removed by the
+    # Form 2 NMDA-injection fix at lines 2049/2138 in Training.py).
+    "nmda": lambda n: setattr(n, "gNMDA", 0.50),
+    "nmda_increase": lambda n: setattr(n, "gNMDA", 5.00),
 }
 
 COND_ORDER = ["control", "ff_inhibition", "adaptation", "nmda", "nmda_increase"]

@@ -100,6 +100,7 @@ def run_ei_evoked(model_paths, device="cuda"):
 
     for i, p in enumerate(model_paths):
         net = load_msi_model(p, device=device)
+        setattr(net, 'gNMDA', 1.30)  # task #42 fix: override legacy gNMDA=0.05 baked into checkpoints
         res = run_ei_probe_separated(
             net, centre_deg=90.0, pulse_frames=PULSE_FRAMES,
             n_frames=N_FRAMES, intensity=1.0,

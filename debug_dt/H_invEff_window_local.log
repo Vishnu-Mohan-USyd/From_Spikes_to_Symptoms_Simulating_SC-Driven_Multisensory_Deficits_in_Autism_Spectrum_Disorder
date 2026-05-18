@@ -1,0 +1,63 @@
+Using device: cuda
+
+========================================================================================
+Phase 3 — methodology sweep on M00 (centre neuron idx = 90)
+========================================================================================
+  goal: identify R-count methodology that RECOVERS monotonic-decreasing MEI
+
+  cached cond=A I=0.05: total=368
+  cached cond=A I=0.10: total=454
+  cached cond=A I=0.20: total=608
+  cached cond=A I=0.40: total=932
+  cached cond=A I=0.80: total=1376
+  cached cond=A I=1.60: total=1969
+  cached cond=V I=0.05: total=95
+  cached cond=V I=0.10: total=123
+  cached cond=V I=0.20: total=166
+  cached cond=V I=0.40: total=267
+  cached cond=V I=0.80: total=434
+  cached cond=V I=1.60: total=685
+  cached cond=B I=0.05: total=105
+  cached cond=B I=0.10: total=150
+  cached cond=B I=0.20: total=218
+  cached cond=B I=0.40: total=311
+  cached cond=B I=0.80: total=459
+  cached cond=B I=1.60: total=739
+
+========================================================================================
+MEI per method × intensity (last col = direction)
+========================================================================================
+  method                     | I=0.05  I=0.10  I=0.20  I=0.40  I=0.80  I=1.60  | direction
+  ----------------------------------------------------------------------------------------
+  full_pop_all_frames        |  -0.71  -0.67  -0.64  -0.67  -0.67  -0.62 | FLAT/MIXED  (MEI[0]/MEI[-1]=1.14)
+  during_stim_full_pop       |  -0.70  -0.62  -0.60  -0.63  -0.67  -0.71 | FLAT/MIXED  (MEI[0]/MEI[-1]=0.99)
+  evoked_window_full_pop     |  -0.71  -0.66  -0.64  -0.67  -0.69  -0.70 | FLAT/MIXED  (MEI[0]/MEI[-1]=1.02)
+  first_5frames_full_pop     |  -0.64  -0.58  -0.51  -0.51  -0.68  -0.72 | FLAT/MIXED  (MEI[0]/MEI[-1]=0.89)
+  local_0                    |  -0.67  -0.64  -0.62  -0.62  -0.61  -0.61 | FLAT/MIXED  (MEI[0]/MEI[-1]=1.10)
+  local_3                    |  -0.67  -0.64  -0.63  -0.62  -0.61  -0.59 | RISING (bad)  (MEI[0]/MEI[-1]=1.13)
+  local_5                    |  -0.67  -0.64  -0.62  -0.62  -0.62  -0.59 | FLAT/MIXED  (MEI[0]/MEI[-1]=1.13)
+  local_10                   |  -0.68  -0.64  -0.62  -0.62  -0.62  -0.61 | FLAT/MIXED  (MEI[0]/MEI[-1]=1.11)
+  local_20                   |  -0.71  -0.66  -0.63  -0.64  -0.64  -0.63 | FLAT/MIXED  (MEI[0]/MEI[-1]=1.12)
+  local_5_during             |  -0.67  -0.60  -0.60  -0.60  -0.62  -0.64 | FLAT/MIXED  (MEI[0]/MEI[-1]=1.05)
+  local_10_during            |  -0.69  -0.61  -0.59  -0.61  -0.63  -0.67 | FLAT/MIXED  (MEI[0]/MEI[-1]=1.03)
+  peak_per_frame_full        |  -0.70  -0.63  -0.58  -0.71  -0.75  -0.58 | FLAT/MIXED  (MEI[0]/MEI[-1]=1.22)
+  peak_per_frame_local10     |  -0.69  -0.62  -0.52  -0.59  -0.58  -0.58 | FLAT/MIXED  (MEI[0]/MEI[-1]=1.18)
+
+========================================================================================
+DIAGNOSTIC: per-method R_A vs intensity (does R_A monotonically increase?)
+========================================================================================
+  method                     | I=0.05  I=0.10  I=0.20  I=0.40  I=0.80  I=1.60 
+  ------------------------------------------------------------------------------------------
+  full_pop_all_frames        |    368    454    608    932   1376   1969  ✓
+  during_stim_full_pop       |    203    233    298    418    567    730  ✓
+  evoked_window_full_pop     |    322    393    512    769   1103   1531  ✓
+  first_5frames_full_pop     |     56     59     65     88    119    130  ✓
+  local_0                    |     21     25     34     48     70    102  ✓
+  local_3                    |    139    170    227    321    472    686  ✓
+  local_5                    |    207    253    336    477    697   1014  ✓
+  local_10                   |    319    389    513    726   1045   1525  ✓
+  local_20                   |    361    439    585    853   1221   1767  ✓
+  local_5_during             |    125    143    178    236    315    419  ✓
+  local_10_during            |    190    220    273    365    484    639  ✓
+  peak_per_frame_full        |     37     51     57     93    173    267  ✓
+  peak_per_frame_local10     |     35     47     50     63     79    115  ✓

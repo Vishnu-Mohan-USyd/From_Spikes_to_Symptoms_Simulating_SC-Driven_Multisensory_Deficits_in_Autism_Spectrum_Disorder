@@ -1,0 +1,223 @@
+FRESH GENERATION — all 10 TBW + SBW figures
+
+============================================================
+TBW — FRESH SIMULATIONS (temporal fusion)
+  10 models x 50 trials x 51 offsets
+============================================================
+
+  --- TBW CONTROL ---
+Using device: cuda
+  Model 0/10: P(fus@0ms)=1.000, peak=1.000, 16.8s
+Using device: cuda
+  Model 1/10: P(fus@0ms)=1.000, peak=1.000, 16.3s
+Using device: cuda
+  Model 2/10: P(fus@0ms)=1.000, peak=1.000, 16.3s
+Using device: cuda
+  Model 3/10: P(fus@0ms)=1.000, peak=1.000, 16.4s
+Using device: cuda
+  Model 4/10: P(fus@0ms)=1.000, peak=1.000, 16.4s
+Using device: cuda
+  Model 5/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+Using device: cuda
+  Model 6/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+Using device: cuda
+  Model 7/10: P(fus@0ms)=1.000, peak=1.000, 16.3s
+Using device: cuda
+  Model 8/10: P(fus@0ms)=1.000, peak=1.000, 16.3s
+Using device: cuda
+  Model 9/10: P(fus@0ms)=1.000, peak=1.000, 16.4s
+  Simulation done in 164s, saved to cache/tbw_control.npz
+  TBW control             : HW=110ms
+
+  --- TBW FF_INHIBITION ---
+Using device: cuda
+  Model 0/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+Using device: cuda
+  Model 1/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+Using device: cuda
+  Model 2/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+Using device: cuda
+  Model 3/10: P(fus@0ms)=1.000, peak=1.000, 16.3s
+Using device: cuda
+  Model 4/10: P(fus@0ms)=1.000, peak=1.000, 16.3s
+Using device: cuda
+  Model 5/10: P(fus@0ms)=1.000, peak=1.000, 16.4s
+Using device: cuda
+  Model 6/10: P(fus@0ms)=1.000, peak=1.000, 16.3s
+Using device: cuda
+  Model 7/10: P(fus@0ms)=1.000, peak=1.000, 16.3s
+Using device: cuda
+  Model 8/10: P(fus@0ms)=1.000, peak=1.000, 16.3s
+Using device: cuda
+  Model 9/10: P(fus@0ms)=1.000, peak=1.000, 16.4s
+  Simulation done in 163s, saved to cache/tbw_ff_inhibition.npz
+  TBW ff_inhibition       : HW=158ms
+
+  --- TBW ADAPTATION ---
+Using device: cuda
+  Model 0/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+Using device: cuda
+  Model 1/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+Using device: cuda
+  Model 2/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+Using device: cuda
+  Model 3/10: P(fus@0ms)=1.000, peak=1.000, 16.3s
+Using device: cuda
+  Model 4/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+Using device: cuda
+  Model 5/10: P(fus@0ms)=1.000, peak=1.000, 16.3s
+Using device: cuda
+  Model 6/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+Using device: cuda
+  Model 7/10: P(fus@0ms)=1.000, peak=1.000, 16.3s
+Using device: cuda
+  Model 8/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+Using device: cuda
+  Model 9/10: P(fus@0ms)=1.000, peak=1.000, 16.3s
+  Simulation done in 163s, saved to cache/tbw_adaptation.npz
+  TBW adaptation          : HW=229ms
+
+  --- TBW NMDA ---
+Using device: cuda
+  Model 0/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+Using device: cuda
+  Model 1/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+Using device: cuda
+  Model 2/10: P(fus@0ms)=1.000, peak=1.000, 16.3s
+Using device: cuda
+  Model 3/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+Using device: cuda
+  Model 4/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+Using device: cuda
+  Model 5/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+Using device: cuda
+  Model 6/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+Using device: cuda
+  Model 7/10: P(fus@0ms)=1.000, peak=1.000, 16.2s
+Using device: cuda
+  Model 8/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 9/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+  Simulation done in 162s, saved to cache/tbw_nmda.npz
+  TBW nmda                : HW=95ms
+
+  --- TBW NMDA_INCREASE ---
+Using device: cuda
+  Model 0/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 1/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 2/10: P(fus@0ms)=1.000, peak=1.000, 16.3s
+Using device: cuda
+  Model 3/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 4/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 5/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 6/10: P(fus@0ms)=1.000, peak=1.000, 16.1s
+Using device: cuda
+  Model 7/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 8/10: P(fus@0ms)=1.000, peak=1.000, 16.0s
+Using device: cuda
+  Model 9/10: P(fus@0ms)=1.000, peak=1.000, 15.9s
+  Simulation done in 161s, saved to cache/tbw_nmda_increase.npz
+  TBW nmda_increase       : HW=112ms
+
+============================================================
+SBW — FRESH SIMULATIONS (enhancement, threshold=10)
+  10 models x 50 trials x 33 separations
+============================================================
+
+  --- SBW CONTROL ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  Simulation done in 155s, saved to cache/sbw_control_t1110.npz
+
+  --- SBW FF_INHIBITION ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  Simulation done in 156s, saved to cache/sbw_ff_inhibition_t1110.npz
+
+  --- SBW ADAPTATION ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  Simulation done in 156s, saved to cache/sbw_adaptation_t1110.npz
+
+  --- SBW NMDA ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  Simulation done in 156s, saved to cache/sbw_nmda_t1110.npz
+
+  --- SBW NMDA_INCREASE ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  Simulation done in 156s, saved to cache/sbw_nmda_increase_t1110.npz
+
+  Control floor subtracted: 0.0000
+  SBW control             : HW=26.6°
+  SBW ff_inhibition       : HW=29.2°
+  SBW adaptation          : HW=30.1°
+  SBW nmda                : HW=13.2°
+  SBW nmda_increase       : HW=30.7°
+
+============================================================
+ALL DONE — 10 figures in 1594s (26.6min)
+============================================================
+
+TBW results:
+  control             : HW=110ms
+  ff_inhibition       : HW=158ms (d=+48ms)
+  adaptation          : HW=229ms (d=+119ms)
+  nmda                : HW=95ms (d=-15ms)
+  nmda_increase       : HW=112ms (d=+2ms)
+
+SBW results (floor=0.0000 subtracted):
+  control             : HW=26.6°
+  ff_inhibition       : HW=29.2° (d=+2.6°)
+  adaptation          : HW=30.1° (d=+3.5°)
+  nmda                : HW=13.2° (d=-13.4°)
+  nmda_increase       : HW=30.7° (d=+4.1°)
+
+All figures saved to Saved_Images/

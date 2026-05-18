@@ -1,0 +1,30 @@
+[1/10]  msi_model_surr_10_00.pt  …Using device: cuda
+ done
+[2/10]  msi_model_surr_10_01.pt  …Using device: cuda
+ done
+[3/10]  msi_model_surr_10_02.pt  …Using device: cuda
+ done
+[4/10]  msi_model_surr_10_03.pt  …Using device: cuda
+ done
+[5/10]  msi_model_surr_10_04.pt  …Using device: cuda
+ done
+[6/10]  msi_model_surr_10_05.pt  …Using device: cuda
+ done
+[7/10]  msi_model_surr_10_06.pt  …Using device: cuda
+ done
+[8/10]  msi_model_surr_10_07.pt  …Using device: cuda
+ done
+[9/10]  msi_model_surr_10_08.pt  …Using device: cuda
+ done
+[10/10]  msi_model_surr_10_09.pt  …/home/vishnu/coding_proj/From_Spikes_to_Symptoms_Simulating_SC-Driven_Multisensory_Deficits_in_Autism_Spectrum_Disorder/cue_reliability_test.py:186: UserWarning: Tight layout not applied. The left and right margins cannot be made large enough to accommodate all Axes decorations.
+  fig.tight_layout()
+/home/vishnu/coding_proj/From_Spikes_to_Symptoms_Simulating_SC-Driven_Multisensory_Deficits_in_Autism_Spectrum_Disorder/cue_reliability_test.py:219: UserWarning: Tight layout not applied. The left and right margins cannot be made large enough to accommodate all Axes decorations.
+  fig.tight_layout()
+Using device: cuda
+ done
+✓ finished in 54.5s
+
+Average deviation from MLE predictions: 59.5%
+Mean absolute error: 0.267
+RMSE: 0.344
+R² correlation: 0.287

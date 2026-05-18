@@ -1,0 +1,92 @@
+
+========================================================================================
+Task #57 H_PLAST+gNMDA — broader recovery sweep on M00
+========================================================================================
+
+───── group 1: vary gNMDA, both drifts disabled (frozen AGC + no plast) ─────
+Using device: cuda
+  frozen+noplast g=0.05
+    R_A:      14     24    197    202    210    380
+    R_V:      13     24    195    201    207    379
+    R_AV:     22    187    199    205    377    387
+    MEI:   +0.57  +6.79  +0.01  +0.01  +0.80  +0.02
+    direction: NON-MONOTONIC    R_A_mono?: True
+Using device: cuda
+  frozen+noplast g=0.3
+    R_A:      49     70    227    251    276    430
+    R_V:      45     66    220    240    256    410
+    R_AV:     95    238    251    262    414    417
+    MEI:   +0.94  +2.40  +0.11  +0.04  +0.50  -0.03
+    direction: NON-MONOTONIC    R_A_mono?: True
+Using device: cuda
+  frozen+noplast g=0.6
+    R_A:     130    183    332    372    434    555
+    R_V:     116    156    303    319    403    490
+    R_AV:    250    407    433    409    506    475
+    MEI:   +0.92  +1.22  +0.30  +0.10  +0.17  -0.14
+    direction: NON-MONOTONIC    R_A_mono?: True
+Using device: cuda
+  frozen+noplast g=1.0
+    R_A:     249    363    575    721    947   1017
+    R_V:     218    323    507    624    796    783
+    R_AV:    473    721    877   1012   1002    725
+    MEI:   +0.90  +0.99  +0.53  +0.40  +0.06  -0.29
+    direction: FALLING ✓ matches paper    R_A_mono?: True
+Using device: cuda
+  frozen+noplast g=1.3
+    R_A:     340    502    782   1050   1453   1765
+    R_V:     297    454    693    910   1206   1349
+    R_AV:    644    971   1280   1598   1817   1658
+    MEI:   +0.89  +0.93  +0.64  +0.52  +0.25  -0.06
+    direction: FALLING ✓ matches paper    R_A_mono?: True
+
+───── group 2: gNMDA=1.30 (production), peel back one drift at a time ─────
+Using device: cuda
+  agc=drift  plast=on   g=1.30  (=production default)
+    R_A:     368    307    298    315    356    464
+    R_V:     237    211    216    240    285    383
+    R_AV:    454    419    438    473    556    740
+    MEI:   +0.23  +0.36  +0.47  +0.50  +0.56  +0.59
+    direction: RISING (inverted vs paper)    R_A_mono?: False
+Using device: cuda
+  agc=frozen plast=on   g=1.30
+    R_A:     356    254    249    249    243    247
+    R_V:     226    163    170    227    227    233
+    R_AV:    406    328    289    247    241    383
+    MEI:   +0.14  +0.29  +0.16  -0.01  -0.01  +0.55
+    direction: NON-MONOTONIC    R_A_mono?: False
+Using device: cuda
+  agc=frozen plast=off  g=1.30
+    R_A:     340    502    782   1050   1453   1765
+    R_V:     297    454    693    910   1206   1349
+    R_AV:    644    971   1280   1598   1817   1658
+    MEI:   +0.89  +0.93  +0.64  +0.52  +0.25  -0.06
+    direction: FALLING ✓ matches paper    R_A_mono?: True
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  agc=frozen plast=off  g=1.30  load_fresh_per_intensity (no carryover)
+    R_A:     340    502    782   1050   1453   1765
+    R_V:     297    454    693    910   1206   1349
+    R_AV:    644    971   1280   1598   1817   1658
+    MEI:   +0.89  +0.93  +0.64  +0.52  +0.25  -0.06
+    direction: FALLING ✓ matches paper    R_A_mono?: True
+
+========================================================================================
+SUMMARY — which cells produce monotonically-decreasing MEI?
+========================================================================================
+  ✓ MEI FALLING (paper-like) in: ['frozen+noplast g=1.0', 'frozen+noplast g=1.3', 'agc=frozen plast=off  g=1.30', 'agc=frozen plast=off  g=1.30  fresh-per-I']
+
+  frozen+noplast g=0.05                             NON-MONOTONIC
+  frozen+noplast g=0.3                              NON-MONOTONIC
+  frozen+noplast g=0.6                              NON-MONOTONIC
+  frozen+noplast g=1.0                              FALLING ✓ matches paper
+  frozen+noplast g=1.3                              FALLING ✓ matches paper
+  agc=drift  plast=on   g=1.30                      RISING (inverted vs paper)
+  agc=frozen plast=on   g=1.30                      NON-MONOTONIC
+  agc=frozen plast=off  g=1.30                      FALLING ✓ matches paper
+  agc=frozen plast=off  g=1.30  fresh-per-I         FALLING ✓ matches paper
+
