@@ -517,6 +517,110 @@ cp task112_logs/response_latency_test.py.pre_phase4 response_latency_test.py
   override and the override's `dM=0.1` overwrites the condition's
   `dM=0.01`.
 
+## Task #147 — Perturbation panel ground-truth audit (2026-05-23)
+
+### Status correction
+
+Earlier reports of "4/5 perturbations direction-correct" overstated reality.
+A ground-truth re-audit on 2026-05-23 (10 ckpts pooled, half-max crossings on
+`mean_fusion`) puts the TBW story on solid footing **under HEAD's paper-fair
+config** but exposes the SBW panel as a real weak link, and clarifies that the
+cached perturbation-grid results in `task136_logs/perturbation_grid_surr10_v2.json`
+were generated with an EARLIER drifted local config that did NOT match HEAD's
+committed paper-fair lambdas.
+
+### What HEAD (8006f0c) actually has
+
+`generate_all_fresh.py` at HEAD defines:
+
+```python
+"ff_inhibition": lambda n: (setattr(n, "gNMDA", 1.30)
+                            or setattr(n, "pv_nmda", 0.8)
+                            or setattr(n, "targ_ratio", 0.8)),
+```
+
+This IS the paper-faithful mechanism — `pv_nmda=0.8, targ_ratio=0.8` reduces
+the AGC sensitivity setpoint to 80% of baseline, matching the paper text at
+`manuscript_rev_2.pdf` lines 895-896 (*"scaled feedforward GABAergic inhibition
+from unisensory to multisensory layers to 80% of baseline"*). Re-measured
+in this audit, this default produces TBW HW = **157.8 ms (+44% vs control)**,
+in line with paper +37% / paper sensitivity-setpoint=0.8 HW = 145.5 ms.
+
+### Where the rosy claims came from
+
+Locally, the working tree had drifted into an earlier configuration
+that used `lambda n: setattr(n, "g_GABA", 300.0)` for `ff_inhibition` — a
+30× lateral-surround GABA increase, NOT the paper's FF-inhibition reduction.
+Under that drifted lambda the TBW HW measured **224.9 ms (+105% vs control)** —
+about 3× over paper's +37%. The cached results in
+`task136_logs/perturbation_grid_surr10_v2.json` came from that drifted state,
+not from HEAD's committed lambdas. The inline comment at the drifted
+`g_GABA=300` line claimed "+38.3% TBW expansion (paper +37% exact match)";
+that magnitude was STALE — actual measured value is +105%.
+
+**This commit reverts the working-tree drift in `generate_all_fresh.py` so
+the on-disk file matches HEAD's committed paper-fair lambdas. No code change
+is required.** The cached perturbation-grid JSON should be regenerated against
+HEAD's lambdas to give a clean paper-vs-code TBW number.
+
+### TBW table (10 ckpts pooled, half-max crossings on mean_fusion)
+
+| Condition | Knob | Pooled HW (ms) | Δ vs control | Paper Δ | Verdict |
+|---|---|---|---|---|---|
+| control | — | 109.9 | — | paper HW=107 | match |
+| ff_inh (drifted local cache) | g_GABA=300 (30× lateral surround GABA, NOT paper's mechanism) | 224.9 | +105% | +37% | wrong knob → overshoots ~3× |
+| ff_inh PAPER-FAIR = HEAD default | pv_nmda=0.8, targ_ratio=0.8 (matches paper text) | 157.8 | +44% | +37% (paper sensitivity setpoint=0.8 gives HW=145.5) | match (within 8-12 ms) |
+| adaptation | aM=0.001 (paper says 0.0001 — 10× discrepancy), bM=0.2, cM=-60, dM=0.01 | 229.2 | +109% | +101% | match |
+| nmda | gNMDA *= 0.4 → 0.05→0.02 | 93.0 | -15% | -14% | match |
+| nmda_increase | gNMDA *= 4.0 → 0.05→0.20 | 111.0 | +1% | paper PREDICTS null (line 1024: "215→214 ms, little difference") | match |
+
+### SBW table (10 ckpts pooled, paper-fair ff_inh used)
+
+| Condition | Pooled HW (deg) | Δ vs control | Paper Δ | Verdict |
+|---|---|---|---|---|
+| control | 32.7 | — | paper HW=24° | absolute +36% OVER paper |
+| ff_inh (paper-fair) | 43.0 | +32% | +15% | direction-only, 2× over |
+| adaptation | 35.2 | +8% | +21% | direction-only, 3× under |
+| nmda | 27.5 | -16% | -50% | direction-only, 3× under |
+| nmda_increase | 32.5 | -0.6% | +25% | NULL where paper says +25% |
+
+### Key facts (audit findings)
+
+- **TBW story is sound under HEAD's paper-fair config** (4/4 clean matches,
+  including `nmda_increase` TBW null which IS paper-correct — see
+  `manuscript_rev_2.pdf` line 1024: *"215→214 ms, little difference"*).
+- **The drifted local cache used the wrong `ff_inhibition` mechanism**:
+  `g_GABA=300` increases lateral surround GABA 30×, which is NOT the paper's
+  manipulation. HEAD does NOT use this lambda; it was a local working-tree
+  drift only. Any TBW conclusions read from the drifted cache (e.g. the
+  "+38.3% exact match" claim) are stale and should be discarded in favour
+  of the paper-fair measurement (HW=157.8 ms, +44%).
+- **SBW panel is the real weak link**: all 4 perturbation magnitudes 2-3× off,
+  control absolute baseline is +36% over paper, `nmda_increase` SBW is null
+  where paper predicts +25%. The SBW panel is direction-only, NOT
+  magnitude-faithful.
+- **The 157.8 ms paper-fair `ff_inh` value is REAL** (not fabricated).
+  Simulation completed in 318 s, cache `cache/tbw_ff_inh_pristine.npz` fully
+  written. The crash on that run was a downstream wrapper-script dict-key
+  typo at `paper_fair_ff_inh.py:99-107` (script reads `mean_prob` /
+  `p_fusion`, real keys are `mean_fusion` / `all_fusion`); the cache was
+  intact and `recover_sbw_hw.py` extracts the HW with the standard half-max
+  convention. The dict-key bug in `paper_fair_ff_inh.py:99-107` is
+  documented here but NOT fixed in this commit (separate change, separate
+  risks).
+- **`aM = 0.001` in code vs `a = 0.0001` in paper** for adaptation: 10×
+  discrepancy, already known/documented.
+
+### Scope of this commit
+
+Status document only. Two file-level changes:
+1. `CHANGES.md`: append this Task #147 section (above Task #136).
+2. `generate_all_fresh.py`: REVERTED working-tree drift so the file matches
+   HEAD's committed paper-fair lambdas; no net code change relative to HEAD.
+
+No fixes are proposed here. Cache regeneration against HEAD's lambdas and
+the `paper_fair_ff_inh.py` dict-key bug are both deferred to separate tasks.
+
 ## Task #136 — Paper-fair perturbation grid, AGC time-gate persistence fix, dt-invariance restored (2026-05-22)
 
 ### Motivation
