@@ -1,0 +1,37 @@
+==========================================================================================
+E6: 1-frame trace — CURRENT vs PRISTINE on surr_10_00, A-only stim
+==========================================================================================
+
+========== CURRENT ==========
+Using device: cuda
+  loaded: g_FFinh=0.564756, dt=0.1, n_substeps=100
+  tau_syn=2.5, tau_nmda=80.0, tau_nmdaVolt=100.0
+  BEFORE: I_M.mean=0.000000e+00, v_msi.mean=-65.0000, nmda_m.mean=0.000000e+00
+  AFTER FRAME 1 (A-only):
+    new_sM.sum     = 0.0000
+    sum_sM.sum     = 0.0000
+    sum_sM/n_trials = 0.0000
+    I_M.mean       = 0.000000e+00
+    v_msi.mean     = -71.2741
+    v_msi.max      = -71.2741
+    nmda_m.mean    = 0.000000e+00
+    nmda_m.max     = 0.000000e+00
+    g_FFinh        = 0.564756
+  TOTAL after 6 frames: sum_sM = 6464.0000, g_FFinh=0.100152
+
+========== PRISTINE ==========
+Using device: cuda
+  loaded: g_FFinh=0.564756, dt=0.1, n_substeps=100
+  tau_syn=2.5, tau_nmda=80.0, tau_nmdaVolt=100.0
+  BEFORE: I_M.mean=0.000000e+00, v_msi.mean=-65.0000, nmda_m.mean=0.000000e+00
+  AFTER FRAME 1 (A-only):
+    new_sM.sum     = 0.0000
+    sum_sM.sum     = 0.0000
+    sum_sM/n_trials = 0.0000
+    I_M.mean       = 0.000000e+00
+    v_msi.mean     = -71.2741
+    v_msi.max      = -71.2741
+    nmda_m.mean    = 0.000000e+00
+    nmda_m.max     = 0.000000e+00
+    g_FFinh        = 0.564756
+  TOTAL after 6 frames: sum_sM = 6464.0000, g_FFinh=0.100152

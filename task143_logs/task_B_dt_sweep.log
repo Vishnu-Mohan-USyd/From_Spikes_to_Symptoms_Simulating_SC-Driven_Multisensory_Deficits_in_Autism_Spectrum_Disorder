@@ -1,0 +1,99 @@
+================================================================================
+TASK #143-B  V2 dt-sensitivity sweep — TBW HW @ dt ∈ {0.1, 0.05}
+================================================================================
+  Paper Supp Fig 1: dt=0.1 → 215.8 ms, dt=0.05 → 256.5 ms (drift +40.7 ms)
+  Post-fix Training.py target: drift ≈ +1 ms (NMDA unification + AGC fix)
+
+--- ckpt 00: msi_model_surr_10_00.pt ---
+Using device: cuda
+Using device: cuda
+  dt=0.1   HW= 222.13 ms   ( 50.0s)
+  dt=0.05  HW= 223.13 ms   ( 99.7s)
+  drift =    +1.01 ms
+  (interim json saved to task_B_dt_sweep.json)
+--- ckpt 01: msi_model_surr_10_01.pt ---
+Using device: cuda
+Using device: cuda
+  dt=0.1   HW= 222.41 ms   ( 49.9s)
+  dt=0.05  HW= 223.57 ms   ( 99.5s)
+  drift =    +1.16 ms
+  (interim json saved to task_B_dt_sweep.json)
+--- ckpt 02: msi_model_surr_10_02.pt ---
+Using device: cuda
+Using device: cuda
+  dt=0.1   HW= 219.68 ms   ( 50.2s)
+  dt=0.05  HW= 222.33 ms   ( 99.5s)
+  drift =    +2.65 ms
+  (interim json saved to task_B_dt_sweep.json)
+--- ckpt 03: msi_model_surr_10_03.pt ---
+Using device: cuda
+Using device: cuda
+  dt=0.1   HW= 222.41 ms   ( 49.8s)
+  dt=0.05  HW= 223.26 ms   ( 99.2s)
+  drift =    +0.85 ms
+  (interim json saved to task_B_dt_sweep.json)
+--- ckpt 04: msi_model_surr_10_04.pt ---
+Using device: cuda
+Using device: cuda
+  dt=0.1   HW= 215.94 ms   ( 50.0s)
+  dt=0.05  HW= 220.83 ms   ( 99.3s)
+  drift =    +4.88 ms
+  (interim json saved to task_B_dt_sweep.json)
+--- ckpt 05: msi_model_surr_10_05.pt ---
+Using device: cuda
+Using device: cuda
+  dt=0.1   HW= 222.41 ms   ( 50.0s)
+  dt=0.05  HW= 223.57 ms   ( 76.2s)
+  drift =    +1.16 ms
+  (interim json saved to task_B_dt_sweep.json)
+--- ckpt 06: msi_model_surr_10_06.pt ---
+Using device: cuda
+Using device: cuda
+  dt=0.1   HW= 216.72 ms   ( 34.3s)
+  dt=0.05  HW= 219.78 ms   ( 78.1s)
+  drift =    +3.06 ms
+  (interim json saved to task_B_dt_sweep.json)
+--- ckpt 07: msi_model_surr_10_07.pt ---
+Using device: cuda
+Using device: cuda
+  dt=0.1   HW= 211.19 ms   ( 39.4s)
+  dt=0.05  HW= 216.29 ms   ( 78.1s)
+  drift =    +5.11 ms
+  (interim json saved to task_B_dt_sweep.json)
+--- ckpt 08: msi_model_surr_10_08.pt ---
+Using device: cuda
+Using device: cuda
+  dt=0.1   HW= 217.18 ms   ( 39.2s)
+  dt=0.05  HW= 221.18 ms   ( 78.0s)
+  drift =    +4.00 ms
+  (interim json saved to task_B_dt_sweep.json)
+--- ckpt 09: msi_model_surr_10_09.pt ---
+Using device: cuda
+Using device: cuda
+  dt=0.1   HW= 215.94 ms   ( 39.5s)
+  dt=0.05  HW= 218.29 ms   ( 76.8s)
+  drift =    +2.34 ms
+  (interim json saved to task_B_dt_sweep.json)
+
+================================================================================
+SUMMARY (n=10 ckpts)
+================================================================================
+                  ckpt    HW @ 0.1    HW @ 0.05      drift
+  --------------------------------------------------------
+msi_model_surr_10_00.pt      222.13       223.13      +1.01
+msi_model_surr_10_01.pt      222.41       223.57      +1.16
+msi_model_surr_10_02.pt      219.68       222.33      +2.65
+msi_model_surr_10_03.pt      222.41       223.26      +0.85
+msi_model_surr_10_04.pt      215.94       220.83      +4.88
+msi_model_surr_10_05.pt      222.41       223.57      +1.16
+msi_model_surr_10_06.pt      216.72       219.78      +3.06
+msi_model_surr_10_07.pt      211.19       216.29      +5.11
+msi_model_surr_10_08.pt      217.18       221.18      +4.00
+msi_model_surr_10_09.pt      215.94       218.29      +2.34
+  --------------------------------------------------------
+            mean ± SEM   218.60 ± 1.21    221.22 ± 0.78   +2.62 ± 0.51
+
+Paper Supp Fig 1   : 215.80      256.50      +40.70
+
+Total time: 22.3 min
+Wrote: /home/vishnu/coding_proj/From_Spikes_to_Symptoms_Simulating_SC-Driven_Multisensory_Deficits_in_Autism_Spectrum_Disorder/task143_logs/task_B_dt_sweep.json

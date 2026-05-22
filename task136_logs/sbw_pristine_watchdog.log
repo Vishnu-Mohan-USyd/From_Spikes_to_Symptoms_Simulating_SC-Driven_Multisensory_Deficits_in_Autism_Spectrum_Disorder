@@ -1,0 +1,28 @@
+[sbw-watchdog 2026-05-22T06:09:29+10:00] PID 60062 exited
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+[sbw] done in 257s
+[sbw] cached -> cache/sbw_ff_inh_pristine_t10.npz
+[sbw] pooled: min=0.128 max=1.000 p(0)=1.000 p(+-80)=0.128/0.128
+[sbw] HW (paper-fair ff_inh, thr=10) = 43.1 deg
+[sbw] plot -> task136_logs/paper_fair_ff_inh_sbw_overlay.png
+[sbw] grid updated -> task136_logs/paper_fair_ff_inh_grid.json
+---grid sbw_pristine---
+{
+  "hw_deg": 43.11623246492986,
+  "pooled_min": 0.128,
+  "pooled_max": 1.0,
+  "p_at_0deg": 1.0,
+  "p_at_pm80": [
+    0.128,
+    0.128
+  ]
+}
+tbw_pristine: {'hw_ms': 157.8, 'pooled_min': 0.0, 'pooled_max': 1.0, 'note': 'from cache/tbw_ff_inh_pristine.npz'}

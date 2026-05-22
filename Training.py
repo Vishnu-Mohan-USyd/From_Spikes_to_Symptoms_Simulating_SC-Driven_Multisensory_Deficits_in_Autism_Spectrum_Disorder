@@ -538,6 +538,14 @@ def slow_synaptic_scaling(W: torch.Tensor,
         W.mul_(1.0 + alpha * (scale - 1.0))
 
 
+# task #131: REMOVED `get_target_mean(epoch_idx, ...)` — the Phase B ramp from
+# task #107 drove the W_a2msi_* weights 10-26× below legacy, causing the MSI
+# collapse to 0 Hz around epochs 49-53 observed in the task #128 retrain
+# (debugger #130 root cause). slow_synaptic_scaling now uses the constant
+# default target_mean=0.006 for all 4 MSI-input weight matrices (see the
+# step_counter-gated block at ~L2520).
+
+
 def generate_av_batch_tensor(
         loc_seqs,
         mod_seqs,
@@ -1165,7 +1173,7 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self.loc_jitter_std = loc_jitter_std
 
         self.pv_nmda = 5.0
-        self.targ_ratio = 5.0
+        self.targ_ratio = 5.0   # task #128: REVERTED task #94 INT-7 (was 1.0); pristine fb6d3f6 value
 
         self.W_latA = torch.zeros((self.n, self.n), device=self.device)
         self.W_latV = torch.zeros((self.n, self.n), device=self.device)
@@ -1217,10 +1225,10 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self.W_v2msi_NMDA = pos_init((self.n, self.n), 0.005 * 0.8)
 
         self.W_inA_inh = nn.Parameter(0.002 * torch.rand(self.n, self.n, device=self.device),
-                                      requires_grad=False)  # U[0,0.002)
+                                      requires_grad=False)  # U[0,0.002)  task #128: REVERTED task #80 INT-3
 
         self.W_inV_inh = nn.Parameter(0.002 * torch.rand(self.n, self.n, device=self.device),
-                                      requires_grad=False)  # U[0,0.002)
+                                      requires_grad=False)  # U[0,0.002)  task #128: REVERTED task #80 INT-3
 
         init_a2msi_inh = torch.tensor(0.005 * np.random.randn(self.n_inh, self.n),
                                       dtype=torch.float32, device=self.device)
@@ -1258,6 +1266,22 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
 
         self.step_counter = 0
         self.inhib_scaling_T = 2000
+
+        # task #123: physical-time cadences for AGC fast/slow loops. These are
+        # tied to physical (ms) time rather than substep count so AGC behavior
+        # is dt-invariant. Reference cadences chosen to preserve dt=0.1 behavior:
+        #   - fast: 0.1 ms == 1 substep at dt=0.1 (original "every substep")
+        #   - slow: 10.0 ms == 100 substeps at dt=0.1 (original `% 100`)
+        # task #142: reset_state() now also zeros the _last_agc_*_t fields
+        # (see reset_state below). Previously these persisted across resets,
+        # which froze AGC during the 2nd/3rd pass of SBW_test's AV->A->V
+        # triplet (g_FFinh stuck high -> MSI suppressed -> P(fusion)=1
+        # saturation). Resetting here is the within-pass correctness fix;
+        # T_AGC_*_MS cadences remain unchanged.
+        self.T_AGC_FAST_MS = 0.1
+        self.T_AGC_SLOW_MS = 10.0
+        self._last_agc_fast_t = 0.0
+        self._last_agc_slow_t = 0.0
 
         # One trace per *excitatory* postsynaptic neuron
         self.post_i_trace = torch.zeros((self.batch_size, self.n),
@@ -1665,14 +1689,18 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         translated = self._translate_legacy_state_dict(state_dict)
         return super().load_state_dict(translated, strict=strict, assign=assign)
 
-    def _probe_spike_sum(self, *, stim_peak: float = 1.0) -> float:
+    def _probe_spike_sum(self, *, stim_peak: float = 1.0, probe_frames: int = 15) -> float:
         """
-        Deliver a 3‑frame audio pulse (no visual input) centred on the map and
+        Deliver an audio pulse (no visual input) centred on the map and
         return the *integrated* MSI‑excit spike count produced with the *current*
         value of `self.input_scaling`.
 
+        `probe_frames` controls the number of outer-loop frames in the probe
+        (task #101: was hardcoded to 15; now configurable so callers can match
+        physiologically meaningful integration windows, e.g. 100 frames).
+
         A healthy untrained network typically fires 200‑800 spikes here when
-        `input_scaling` is in the right ball‑park.
+        `input_scaling` is in the right ball‑park (at probe_frames=15).
         """
         self.reset_state(batch_size=1)
 
@@ -1680,7 +1708,7 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         pulse[0, self.n // 2] = stim_peak  # centre neuron only
 
         tot = 0.0
-        for _ in range(15):  # three external frames
+        for _ in range(probe_frames):  # task #101: parameterised (was 15)
             *_, sSum = self.update_all_layers_batch(
                 pulse, torch.zeros_like(pulse),  # AUDIO‑only
                 return_spike_sum=True  # <<< counts ALL sub‑steps
@@ -1692,47 +1720,72 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
                                   target_MSI_spikes: int = 300,
                                   tol: int = 30,
                                   max_iter: int = 12,
-                                  high_bound: float = 4000.0):
+                                  high_bound: float = 4000.0,
+                                  probe_frames: int = 15):
         """
         Binary‑search `self.input_scaling` so that a *single‑modality* pulse
         elicits `target_MSI_spikes` ± `tol`.  Then choose the smallest
         `g_FFinh` (in 0.05 increments) that halves that response.
         """
-        print("[CAL] calibrating input_scaling (+ g_FFinh)")
+        print(f"[CAL] calibrating input_scaling (+ g_FFinh)  "
+              f"target_MSI_spikes={target_MSI_spikes}  tol={tol}  "
+              f"max_iter={max_iter}  high_bound={high_bound}  "
+              f"probe_frames={probe_frames}")
 
-        lo, hi = 0.0, high_bound
-        best_gain, best_err = self.input_scaling, float("inf")
+        # task #103: bracket the binary search with freeze_g_FFinh=True so the
+        # AGC fast/slow loops (Training.py:2475-2491) do NOT drift g_FFinh during
+        # the probe. Without this freeze, _probe_spike_sum mutates g_FFinh
+        # between iterations, producing a non-stationary response curve and
+        # poisoning the binary search. Restore the prior freeze state in finally.
+        saved_freeze = getattr(self, 'freeze_g_FFinh', False)
+        self.freeze_g_FFinh = True
+        print(f"[CAL] AGC freeze applied (saved_freeze={saved_freeze}); search begins")
 
-        # ------------------------------------------------------------------
-        # ------------------------------------------------------------------
-        for _ in range(max_iter):
-            self.input_scaling = 0.5 * (lo + hi)
-            excit = self._probe_spike_sum()
-            err = abs(excit - target_MSI_spikes)
+        try:
+            lo, hi = 0.0, high_bound
+            best_gain, best_err = self.input_scaling, float("inf")
 
-            # print(f"    gain={self.input_scaling:6.1f}  spikes={excit:6.1f}")
+            # ------------------------------------------------------------------
+            # ------------------------------------------------------------------
+            for _it in range(max_iter):
+                self.input_scaling = 0.5 * (lo + hi)
+                excit = self._probe_spike_sum(probe_frames=probe_frames)
+                err = abs(excit - target_MSI_spikes)
 
-            if err < best_err:
-                best_gain, best_err = self.input_scaling, err
-            if err <= tol:
-                break
-            if excit > target_MSI_spikes:
-                hi = self.input_scaling
-            else:
-                lo = self.input_scaling
+                print(f"    [CAL it={_it:02d}] lo={lo:8.2f} hi={hi:8.2f} "
+                      f"gain={self.input_scaling:8.2f}  spikes={excit:8.2f}  err={err:8.2f}")
 
-        self.input_scaling = best_gain
+                if err < best_err:
+                    best_gain, best_err = self.input_scaling, err
+                if err <= tol:
+                    break
+                if excit > target_MSI_spikes:
+                    hi = self.input_scaling
+                else:
+                    lo = self.input_scaling
 
-        # ------------------------------------------------------------------
-        # ------------------------------------------------------------------
-        for g in (0.05, 0.10, 0.15, 0.20, 0.30, 0.50, 0.80, 1.00, 1.50, 2.00):
-            self.g_FFinh = g
-            inhibited = self._probe_spike_sum()
-            if inhibited < 0.6 * target_MSI_spikes:
-                break  # first g that halves response
+            self.input_scaling = best_gain
+            converged = best_err <= tol
+            print(f"[CAL] gain search done: input_scaling={self.input_scaling:.2f}  "
+                  f"best_err={best_err:.2f}  converged={converged}")
 
-        print(f"    input_scaling={self.input_scaling:.1f}, "
-              f"g_FFinh={self.g_FFinh:.2f}")
+            # ------------------------------------------------------------------
+            # ------------------------------------------------------------------
+            for g in (0.05, 0.10, 0.15, 0.20, 0.30, 0.50, 0.80, 1.00, 1.50, 2.00):
+                self.g_FFinh = g
+                inhibited = self._probe_spike_sum(probe_frames=probe_frames)
+                print(f"    [CAL gFF] g_FFinh={g:.2f}  inhibited={inhibited:8.2f}  "
+                      f"(threshold={0.6*target_MSI_spikes:.2f})")
+                if inhibited < 0.6 * target_MSI_spikes:
+                    break  # first g that halves response
+
+            print(f"    input_scaling={self.input_scaling:.1f}, "
+                  f"g_FFinh={self.g_FFinh:.2f}")
+        finally:
+            # Restore the prior freeze flag so STDP / training behaves normally
+            # afterwards. Calibrator KEEPS the chosen g_FFinh.
+            self.freeze_g_FFinh = saved_freeze
+            print(f"[CAL] AGC freeze restored to {saved_freeze}")
 
     def iSTDP_homeo(self, W_attr, pre_spk, post_spk, lr=1e-4, rho=0.05):
         """
@@ -1867,6 +1920,16 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self._dbg_spk_MSI = 0.0  # accumulated spikes in MSI excit
         self._dbg_steps = 0  # how many external frames have been seen
 
+        # task #142: zero the AGC physical-time gates so the first frame
+        # after reset_state always crosses the fast/slow cadences. Without
+        # this, _last_agc_*_t carried over from a previous pass (e.g. the
+        # AV leg of SBW_test's AV->A->V triplet) suppresses AGC updates in
+        # the next pass -> g_FFinh stuck high -> MSI silenced -> P(fusion)
+        # saturates at 1.0. Debugger-4 (task #138 E8) proved this is the
+        # root cause of the SBW saturation.
+        self._last_agc_fast_t = 0.0
+        self._last_agc_slow_t = 0.0
+
         # reset RF tracking
         self.msi_rf_centers = torch.zeros((self.batch_size, self.n), device=self.device)
         self.msi_rf_certainty = torch.zeros((self.batch_size, self.n), device=self.device)
@@ -1936,9 +1999,16 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         decay_factor = 1.0 - self.dt / self.tau_syn
         ampa_decay = 1.0 - self.dt / self.tau_ampa_lp
         nmda_decay = 1.0 - self.dt / self.tau_nmda
-        # Per-step NMDA->I_M source scale for the exp-Euler step-source form (task #16).
-        # Only used when self.dt_correct_nmda is True.
-        nmda_source_scale = 1.0 - math.exp(-self.dt / self.tau_syn)
+        # Per-step source-onto-decaying-state scale (task #16/#121/#123/#135).
+        #   dt_linear_scale: linear `dt / 0.1` applied uniformly to AMPA and NMDA
+        #     injection sites (and the AGC/FF-inh AMPA path). At canonical dt=0.1
+        #     this is 1.0 (byte-identical to bare add → legacy ckpts produce
+        #     paper biology unchanged). At other dt it scales per-substep
+        #     injection so total per-ms injection is preserved → dt-invariant.
+        #     Task #135 unified NMDA onto this same scaling (previously used
+        #     exp-Euler Form 2 `1 - exp(-dt/tau_syn)` ≈ 0.0392 at dt=0.1, which
+        #     broke paper output on legacy ckpts).
+        dt_linear_scale = self.dt / 0.1
         input_step_scale = 1.0 / float(self.n_substeps)
         istdp_decay = torch.exp(torch.tensor(-self.dt / self.tau_post_i,
                                              device=self.device, dtype=torch.float32))
@@ -2059,7 +2129,15 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             I_AMPA_curr = (self.gAMPA
                            * (I_M_a_AMPA + I_M_v_AMPA)
                            * (self.Erev_ampa - self.v_msi))
-            self.I_M.add_(I_AMPA_curr + self.b_msi)
+            # task #123 FIX 4: dt-invariant AMPA injection.
+            # I_AMPA_curr is a spike-event-driven source added to the decaying
+            # I_M state. Bare-add per substep is dt-dependent — at dt=0.05
+            # I_AMPA_curr is added 2× more often, doubling the per-ms drive.
+            # `dt_linear_scale = dt/0.1` (defined L1995) preserves total injection
+            # per ms invariant. b_msi is the (zero-initialised) bias term and
+            # has 0 measured contribution per debugger #122 audit (P02); left
+            # bare-added for legibility.
+            self.I_M.add_(I_AMPA_curr * dt_linear_scale + self.b_msi)
 
             I_ampa_lp = self.gAMPA_LP * self.ampa_m * (self.Erev_ampa - self.v_msi)
 
@@ -2097,13 +2175,14 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             I_nmda_step = self.gNMDA * inc_m_exc * (mg_A + mg_V) * (self.Erev_nmda - self.v_msi)
             I_nmda_lp = self.gNMDA * self.nmda_m * (mg_A + mg_V) * (self.Erev_nmda - self.v_msi)
 
-            # task #16: dt-correct NMDA->I_M coupling (exp-Euler step-source form).
-            # Flag OFF preserves legacy bare-add (dt-dependent); flag ON scales source
-            # by (1 - exp(-dt/tau_syn)). See debug_dt/final_proof.py Fix B for proof.
-            if self.dt_correct_nmda:
-                self.I_M.add_(I_nmda * nmda_source_scale)
-            else:
-                self.I_M.add_(I_nmda)
+            # task #135: unified linear dt-scaling (matches AMPA's existing fix).
+            # `dt_linear_scale = dt / 0.1` precomputed at L1997. At canonical
+            # dt=0.1 this is 1.0 → byte-identical to bare `add_(I_nmda)` → legacy
+            # ckpts produce paper biology unchanged. At other dt, per-substep
+            # injection scales linearly so total per-ms injection is preserved.
+            # Replaces task #121's exp-Euler Form 2 (`1 - exp(-dt/tau_syn)`),
+            # which was ≈0.0392 at dt=0.1 and broke paper output on legacy ckpts.
+            self.I_M.add_(I_nmda * dt_linear_scale)
 
             release = (I_M_a_AMPA + I_M_v_AMPA)  # what you already had
             I_AMPA_tp = self.gAMPA * release * (self.Erev_ampa - self.v_msi)  # current
@@ -2154,6 +2233,13 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
 
             I_inA_inh = F.linear(delayed_spikes_inA_inh, W_inA_inh)
             I_inV_inh = F.linear(delayed_spikes_inV_inh, W_inV_inh)
+            # task #125: REVERTED task #123 FIX 2 (`* dt_linear_scale`). Debugger
+            # #124 found the FF inh source-scaling breaks natural homeostatic
+            # compensation — at dt=0.05, halving the FF inh per-substep drive
+            # removes the very mechanism that compensates for the dt-invariant
+            # excitatory side. Bare-add restored as the physically meaningful
+            # interaction. AGC physical-time gating (FIX 1) and AMPA scaling
+            # (FIX 4) are kept; NMDA Form 2 (FIX 5) is kept.
             self.I_M.sub_(self.g_FFinh
                           * (I_inA_inh + I_inV_inh))
 
@@ -2192,15 +2278,16 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             mg_iA = 1.0 / (1.0 + torch.exp(-self.mg_k * (self.v_dend_inhA - self.mg_vhalf)))
             mg_iV = 1.0 / (1.0 + torch.exp(-self.mg_k * (self.v_dend_inhV - self.mg_vhalf)))
             I_nmda_inh = self.gNMDA * self.nmda_m_inh * (mg_iA + mg_iV) * (self.Erev_nmda - self.v_msi_inh)
-            # task #16: dt-correct NMDA->I_M_inh coupling (exp-Euler step-source form).
-            # Same tau_syn as excitatory path (no separate tau_syn_inh in this model).
-            if self.dt_correct_nmda:
-                self.I_M_inh.add_(I_nmda_inh * nmda_source_scale)
-            else:
-                self.I_M_inh.add_(I_nmda_inh)
+            # task #135: unified linear dt-scaling for inhibitory NMDA (same as
+            # the I_M site above; `dt_linear_scale = dt / 0.1` precomputed at
+            # L1997). Identity at dt=0.1, preserves per-ms injection elsewhere.
+            self.I_M_inh.add_(I_nmda_inh * dt_linear_scale)
 
             # MSI_inh->MSI_ex
             I_M_inh2exc = F.linear(delayed_spikes_msi_inh2exc, W_msiInh2Exc_GABA)
+            # task #125: REVERTED task #123 FIX 3 (`* dt_linear_scale`). Same
+            # rationale as FIX 2 revert above — debugger #124 found GABA recurrent
+            # source-scaling also breaks the natural homeostatic balance.
             self.I_M.sub_(I_M_inh2exc)
 
             # MSI->Out
@@ -2252,14 +2339,10 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             if self._ei_record is not None:
                 # Excitatory onto MSI excitatory
                 _I_E_ampa = torch.clamp(I_AMPA_curr, min=0.0)
-                # Task #42 fix: mirror the actual NMDA->I_M injection (line 2103-2106).
-                # When dt_correct_nmda is True, NMDA is injected as
-                # I_nmda * nmda_source_scale (exp-Euler step-source form),
-                # so the probe must record the same scaled current to stay symmetric.
-                if self.dt_correct_nmda:
-                    _I_E_nmda = torch.clamp(I_nmda * nmda_source_scale, min=0.0)
-                else:
-                    _I_E_nmda = torch.clamp(I_nmda, min=0.0)
+                # task #135: mirror the unified linear dt-scaling applied at
+                # the NMDA->I_M injection site so the probe records the same
+                # scaled current that is actually injected (E/I symmetry).
+                _I_E_nmda = torch.clamp(I_nmda * dt_linear_scale, min=0.0)
                 _I_E = _I_E_ampa + _I_E_nmda
                 # Inhibitory onto MSI excitatory
                 _I_I_ff = torch.clamp(self.g_FFinh * (I_inA_inh + I_inV_inh), min=0.0)
@@ -2450,30 +2533,48 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             soft_row_scaling(self)  # keeps norms near unity but *does not* freeze patterns
 
             # very slow scaling
+            # task #131: REVERTED task #107 Phase B ramp. All 4 MSI-input weight
+            # matrices now use the default target_mean=0.006 — the same value
+            # the W_inA / W_inV (Oja-coregulated) matrices use. The Phase B
+            # log-linear ramp to 0.00012 caused the W_a2msi_* weights to shrink
+            # 10-26× below legacy and silenced the MSI population by ep ~50
+            # (debugger #130 root cause for the task #128 retrain collapse).
             if (self.step_counter % 10) == 0:
-                slow_synaptic_scaling(self.W_inA)
-                slow_synaptic_scaling(self.W_inV)
-                slow_synaptic_scaling(self.W_a2msi_AMPA)
-                slow_synaptic_scaling(self.W_v2msi_AMPA)
-                slow_synaptic_scaling(self.W_a2msi_NMDA)
-                slow_synaptic_scaling(self.W_v2msi_NMDA)
+                slow_synaptic_scaling(self.W_inA)         # default 0.006
+                slow_synaptic_scaling(self.W_inV)         # default 0.006
+                slow_synaptic_scaling(self.W_a2msi_AMPA, target_mean=0.006)
+                slow_synaptic_scaling(self.W_v2msi_AMPA, target_mean=0.006)
+                slow_synaptic_scaling(self.W_a2msi_NMDA, target_mean=0.006)
+                slow_synaptic_scaling(self.W_v2msi_NMDA, target_mean=0.006)
 
         if not getattr(self, 'freeze_g_FFinh', False):
-            # --- Fast AGC (PV‑like) ---------------------------------------------
-            exc_fast = self.I_ampa_filtered.clamp(min=0).mean().item()  # AMPA only
-            inh_mean = (-self.I_M).clamp(min=0).mean().item()
+            # task #123 FIX 1: physical-time-gated AGC cadence (was
+            # `step_counter %% N`). AGC homeostatic loops should fire at
+            # physical (ms) cadence, not substep-count cadence. Preserves
+            # dt=0.1 firing pattern exactly: fast every 0.1 ms = every substep;
+            # slow every 10 ms = every 100 substeps. Debugger #122 ranked AGC
+            # cadence as the single largest dt-sensitivity contributor
+            # (+40.6 ms drift; AGC-frozen vs AGC-on isolation probe).
+            current_t_ms = self.step_counter * self.dt
 
-            target_ratio = self.targ_ratio # retain original set‑point
-            alpha_fast = 1e-3  # keep existing step size
-            self.g_FFinh += alpha_fast * (exc_fast * target_ratio - inh_mean)
-            self.g_FFinh = max(0.05, min(self.g_FFinh, 5.0))
+            # --- Fast AGC (PV-like) -------------------------------------------
+            if (current_t_ms - self._last_agc_fast_t) >= self.T_AGC_FAST_MS:
+                self._last_agc_fast_t = current_t_ms
+                exc_fast = self.I_ampa_filtered.clamp(min=0).mean().item()  # AMPA only
+                inh_mean = (-self.I_M).clamp(min=0).mean().item()
+                target_ratio = self.targ_ratio
+                alpha_fast = 1e-3
+                self.g_FFinh += alpha_fast * (exc_fast * target_ratio - inh_mean)
+                self.g_FFinh = max(0.05, min(self.g_FFinh, 5.0))  # task #128: REVERTED task #80 INT-4
 
-            if (self.step_counter % 100) == 0:  # ≈ 1 s interval
+            # --- Slow AGC (homeostatic; physical 10 ms cadence) ---------------
+            if (current_t_ms - self._last_agc_slow_t) >= self.T_AGC_SLOW_MS:
+                self._last_agc_slow_t = current_t_ms
                 exc_mean_long = self.I_M.clamp(min=0).mean().item()
                 inh_mean_long = (-self.I_M).clamp(min=0).mean().item()
-                alpha_slow = 2e-4  # 5× slower
+                alpha_slow = 2e-4
                 self.g_FFinh += alpha_slow * (exc_mean_long * self.pv_nmda - inh_mean_long)
-                self.g_FFinh = max(0.05, min(self.g_FFinh, 5.0))
+                self.g_FFinh = max(0.05, min(self.g_FFinh, 5.0))  # task #128: REVERTED task #80 INT-4
 
         if return_delayed and return_spike_sum:
             return (sA, sV, sM, sO,
@@ -2683,25 +2784,21 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
                     debug=debug)
 
                 # --- OPTIONAL: re-normalise AMPA/NMDA split -------------------
+                # Task #66 fix: migrated from set_param_weight()/parametrizations
+                # to direct .copy_() ops with _p_add-style clamp bounds
+                # (eps=1e-9, abs_cap=5.0). The parametrize wrappers were removed
+                # in commit 1644af6 (de-parametrize refactor); this site was
+                # missed during that migration. See debug_dt/DIAGNOSTIC_REPORT_task65.md.
                 with torch.no_grad():
-                    def set_param_weight(attr, W_new):
-                        """Helper to update a parametrized weight using right_inverse."""
-                        parametrization = self.parametrizations[attr]
-                        theta = parametrization.original
-                        module = parametrization[0]
-                        theta.copy_(module.right_inverse(W_new))
-
-                    # A -> MSI connections
+                    # A -> MSI connections — redistribute 25/75 AMPA/NMDA
                     W_tot_a = self.W_a2msi_AMPA + self.W_a2msi_NMDA
-                    # Redistribute the total synaptic strength
-                    set_param_weight('W_a2msi_AMPA', 0.25 * W_tot_a)
-                    set_param_weight('W_a2msi_NMDA', 0.75 * W_tot_a)
+                    self.W_a2msi_AMPA.copy_((0.25 * W_tot_a).clamp_(min=1e-9, max=5.0))
+                    self.W_a2msi_NMDA.copy_((0.75 * W_tot_a).clamp_(min=1e-9, max=5.0))
 
-                    # V -> MSI connections
+                    # V -> MSI connections — redistribute 25/75 AMPA/NMDA
                     W_tot_v = self.W_v2msi_AMPA + self.W_v2msi_NMDA
-                    # Redistribute the total synaptic strength
-                    set_param_weight('W_v2msi_AMPA', 0.25 * W_tot_v)
-                    set_param_weight('W_v2msi_NMDA', 0.75 * W_tot_v)
+                    self.W_v2msi_AMPA.copy_((0.25 * W_tot_v).clamp_(min=1e-9, max=5.0))
+                    self.W_v2msi_NMDA.copy_((0.75 * W_tot_v).clamp_(min=1e-9, max=5.0))
 
             # end-for t
             seq_counter += B
@@ -3036,7 +3133,11 @@ from collections import defaultdict
 from typing import Literal
 
 
-@torch.inference_mode()
+# Task #68: removed @torch.inference_mode() decorator. inference_mode marks
+# tensors created inside as "inference tensors" that cannot be modified
+# in-place outside InferenceMode (e.g., later .zero_() in reset_state),
+# which crashed train_and_save() at run_training():3627. no_grad behaviour
+# is restored at call sites that need it.
 def run_sc_diagnostics(
         net,
         *,
@@ -3293,7 +3394,8 @@ def generate_flash_sound_batch(
     return loc_seqs, mod_seqs, offset_applied, seq_lengths
 
 
-@torch.inference_mode()
+# Task #68: removed @torch.inference_mode() decorator. See note above
+# run_sc_diagnostics for the same reasoning.
 def run_temporal_integration(net, offsets, *, loc=90,
                              T=60, D=5, extra=5, stim_in=1,
                              log_charges=False):
@@ -3503,6 +3605,9 @@ def run_training(
         n_substeps=100,
         loc_jitter_std=0,
         space_size=180,
+        # task #128: REVERTED task #94 INT-1 (100 / 260). Pristine fb6d3f6
+        # run_training set these to 250 / 400 substeps == 25 / 40 ms at dt=0.1
+        # (biologically plausible A/V SC conduction delays).
         conduction_delay_a2msi=250,
         conduction_delay_v2msi=400
     )
@@ -3554,8 +3659,11 @@ def run_training(
 
     print("[tune_for_biology] coarse biological calibration applied")
 
-    # net.auto_calibrate_input_gain(target_MSI_spikes=10)
-    net.input_scaling = 2000
+    # task #106 (researcher #105): remove the broken calibrator (#101/#103) and
+    # use a manual input_scaling=400 — paired with the tighter target_mean=0.00006
+    # on the MSI-input AMPA/NMDA weights (Training.py:2483-2488). g_FFinh starts
+    # at 0.6 and AGC takes over from there during STDP.
+    net.input_scaling = 400
     net.g_FFinh = 0.6
     net.g_GABA = 10
 

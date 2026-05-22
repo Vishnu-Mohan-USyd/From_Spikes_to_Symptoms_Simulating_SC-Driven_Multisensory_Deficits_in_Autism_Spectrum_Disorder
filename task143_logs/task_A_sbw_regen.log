@@ -1,0 +1,96 @@
+[task_A] CONDITIONS['ff_inhibition'] originally: <function <lambda> at 0x763608db3880>
+[task_A] CONDITIONS['ff_inhibition'] now:       <function <lambda> at 0x763608e827a0>
+[task_A] Paper-fair ff_inh:  pv_nmda=0.8, targ_ratio=0.8
+
+
+============================================================
+SBW — FRESH SIMULATIONS (enhancement, threshold=10)
+  10 models x 50 trials x 33 separations
+============================================================
+
+  --- SBW CONTROL ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  Simulation done in 491s, saved to cache/sbw_control_t10.npz
+
+  --- SBW FF_INHIBITION ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  Simulation done in 454s, saved to cache/sbw_ff_inhibition_t10.npz
+
+  --- SBW ADAPTATION ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  Simulation done in 385s, saved to cache/sbw_adaptation_t10.npz
+
+  --- SBW NMDA ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  Simulation done in 365s, saved to cache/sbw_nmda_t10.npz
+
+  --- SBW NMDA_INCREASE ---
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+Using device: cuda
+  Simulation done in 283s, saved to cache/sbw_nmda_increase_t10.npz
+
+  Control floor subtracted: 0.0001
+  SBW control             : HW=32.9°
+  SBW ff_inhibition       : HW=42.9°
+  SBW adaptation          : HW=35.0°
+  SBW nmda                : HW=27.6°
+  SBW nmda_increase       : HW=32.6°
+
+======================================================================
+Task #143-A SBW regen — total time 1980s = 33.0 min
+Control-floor subtracted: 0.0001
+
+           condition    HW (deg)
+  ------------------------------------
+             control       32.90
+       ff_inhibition       42.94
+          adaptation       35.03
+                nmda       27.59
+       nmda_increase       32.58
+
+Cache files written to: cache/sbw_{cond}_t10.npz
+Next: python task136_logs/recover_sbw_hw.py

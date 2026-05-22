@@ -1,0 +1,65 @@
+/home/vishnu/miniconda3/lib/python3.13/site-packages/numpy/_core/_methods.py:222: RuntimeWarning: Degrees of freedom <= 0 for slice
+  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
+/home/vishnu/miniconda3/lib/python3.13/site-packages/numpy/_core/_methods.py:211: RuntimeWarning: invalid value encountered in divide
+  ret = um.true_divide(
+========================================================================================
+E2 / H2 — PRISTINE fb6d3f6 SBW probe on surr_10_00
+  Training.py: /tmp/fsts_pristine/Training.py (pristine fb6d3f6)
+  SBW_test.py: /tmp/fsts_pristine/SBW_test.py (pristine fb6d3f6)
+========================================================================================
+Using device: cuda
+  ckpt loaded: dt=0.1, n_substeps=100, g_FFinh=0.5648, gNMDA=0.05
+
+  sep   mean_enh   min_enh   max_enh   p(enh>10)   p(enh>50)   p(enh>100)
+----------------------------------------------------------------------------------------
+  -80      -7.68     -33.0      15.0        0.04        0.00         0.00
+  -60      -8.96     -36.0      13.0        0.06        0.00         0.00
+  -40      -4.50     -27.0      30.0        0.12        0.00         0.00
+  -20      24.08      -8.0      75.0        0.84        0.04         0.00
+    0      40.60      13.0      68.0        1.00        0.28         0.00
+   20      25.14     -25.0      72.0        0.74        0.16         0.00
+   40      -9.00     -31.0      13.0        0.02        0.00         0.00
+   60      -8.46     -29.0      21.0        0.08        0.00         0.00
+   80      -8.00     -37.0      20.0        0.10        0.00         0.00
+
+========================================================================================
+Full SBW curve (pristine) — same call as generate_all_fresh
+========================================================================================
+Using device: cuda
+  sep  p_fusion
+  -80     0.050
+  -75     0.070
+  -70     0.060
+  -65     0.080
+  -60     0.060
+  -55     0.140
+  -50     0.150
+  -45     0.080
+  -40     0.140
+  -35     0.170
+  -30     0.310
+  -25     0.520
+  -20     0.770
+  -15     0.880
+  -10     0.970
+   -5     1.000
+   -0     0.980
+    5     1.000
+   10     0.970
+   15     0.880
+   20     0.770
+   25     0.520
+   30     0.310
+   35     0.170
+   40     0.140
+   45     0.080
+   50     0.150
+   55     0.140
+   60     0.060
+   65     0.080
+   70     0.060
+   75     0.070
+   80     0.050
+
+min/max p: 0.050/1.000
+→ PRISTINE does NOT saturate (curve crosses 0.5)

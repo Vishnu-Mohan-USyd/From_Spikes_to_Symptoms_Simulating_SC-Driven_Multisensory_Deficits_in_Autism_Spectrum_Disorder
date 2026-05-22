@@ -1,0 +1,30 @@
+====================================================================================================
+E8: AGC-persistence causal-proof — triplet AV->A->V on surr_10_00 sep=80
+====================================================================================================
+
+========== CURRENT (default, _last_agc_*_t persists)  reset_agc_t=False ==========
+Using device: cuda
+  pre-init: _last_agc_fast_t=0.000, _last_agc_slow_t=0.000
+  AV  pass: A_roi(latest)/trial=57.840  g_FFinh: 0.564756 -> 0.188710  post _last_agc_t=(65400.0, 65400.0)
+  A   pass: A_roi(latest)/trial=0.660  g_FFinh: 0.564756 -> 0.564756  post _last_agc_t=(65400.0, 65400.0)
+  V   pass: A_roi(latest)/trial=0.000  g_FFinh: 0.564756 -> 0.564756  post _last_agc_t=(65400.0, 65400.0)
+  --> enh = AV_roi - max(A_roi, V_roi) = 57.840 - 0.660 = +57.180
+  --> enh > threshold(10)?  True
+
+========== CURRENT (with _last_agc_*_t reset between passes)  reset_agc_t=True ==========
+Using device: cuda
+  pre-init: _last_agc_fast_t=0.000, _last_agc_slow_t=0.000
+  AV  pass: A_roi(latest)/trial=57.840  g_FFinh: 0.564756 -> 0.188710  post _last_agc_t=(65400.0, 65400.0)
+  A   pass: A_roi(latest)/trial=64.600  g_FFinh: 0.564756 -> 0.195625  post _last_agc_t=(65400.0, 65400.0)
+  V   pass: A_roi(latest)/trial=0.000  g_FFinh: 0.564756 -> 0.147901  post _last_agc_t=(65400.0, 65400.0)
+  --> enh = AV_roi - max(A_roi, V_roi) = 57.840 - 64.600 = -6.760
+  --> enh > threshold(10)?  False
+
+========== PRISTINE (control)  reset_agc_t=False ==========
+Using device: cuda
+  (no _last_agc_*_t attribute — pristine has none)
+  AV  pass: A_roi(latest)/trial=57.840  g_FFinh: 0.564756 -> 0.188710  post _last_agc_t=(None, None)
+  A   pass: A_roi(latest)/trial=64.600  g_FFinh: 0.564756 -> 0.195625  post _last_agc_t=(None, None)
+  V   pass: A_roi(latest)/trial=0.000  g_FFinh: 0.564756 -> 0.147901  post _last_agc_t=(None, None)
+  --> enh = AV_roi - max(A_roi, V_roi) = 57.840 - 64.600 = -6.760
+  --> enh > threshold(10)?  False

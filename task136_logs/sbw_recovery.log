@@ -1,0 +1,15 @@
+==============================================================================
+Task #136-V1  SBW HW recovery from cache (10 ckpts/cond × v2 Training.py)
+==============================================================================
+cond                  min    max  p(sep=0)    p(±80)    HW (deg)  method
+------------------------------------------------------------------------------
+control             1.000  1.000     1.000 1.000/1.000   >80 (sat)  saturated_above
+ff_inhibition       1.000  1.000     1.000 1.000/1.000   >80 (sat)  saturated_above
+adaptation          1.000  1.000     1.000 1.000/1.000   >80 (sat)  saturated_above
+nmda                1.000  1.000     1.000 1.000/1.000   >80 (sat)  saturated_above
+nmda_increase       0.200  1.000     1.000 0.255/0.255        43.3  fit
+
+Plot: /home/vishnu/coding_proj/From_Spikes_to_Symptoms_Simulating_SC-Driven_Multisensory_Deficits_in_Autism_Spectrum_Disorder/task136_logs/sbw_recovery_overlay.png
+
+Verdict: 1/5 conds yield finite HW.
+WARNING: ≥1 cond's pooled P(fusion) never crosses 0.5 → SBW HW undefined (curve saturated above 0.5 across full ±80° range).
