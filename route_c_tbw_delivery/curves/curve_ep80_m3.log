@@ -1,0 +1,27 @@
+[tbw] prefix=asymrc epoch=80 ntrials=50 n_offsets=41 SOA -400..400ms step 20ms
+Using device: cuda
+  Model 0/1: P(fus@0ms)=1.000, peak=1.000, 77.4s
+/scratch/calibenv/lib/python3.12/site-packages/numpy/_core/_methods.py:219: RuntimeWarning: Degrees of freedom <= 0 for slice
+  ret = _var(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
+/scratch/calibenv/lib/python3.12/site-packages/numpy/_core/_methods.py:208: RuntimeWarning: invalid value encountered in divide
+  ret = um.true_divide(
+
+== POOLED P(fusion) ==
+  SOA    +0ms (offset +0): P(fus)=1.000 +/- nan
+  SOA  -200ms (offset -200): P(fus)=1.000 +/- nan
+  SOA  +200ms (offset +200): P(fus)=0.500 +/- nan
+  peak P(fus)=1.000 at SOA -220ms
+
+== ROBUST GAUSSIAN FIT (pooled) ==
+  robust-FWHM=471.0ms  SDrob(sigma)=200.0ms  mu=-22.6ms  tbw(crit)=468.8ms  R2=0.427
+  (human target FWHM~414 / SDrob~176 ; #50-degenerate=flat-1.0 -> sigma~200 bound)
+
+== PER-MODEL robust fit ==
+  m3: FWHM=471.0 SDrob=200.0 mu=-22.6 R2=0.427 P(fus@0)=1.000 peak=1.000 n_graded=3/41
+  -> FWHM 471-471 (mean 471) ; SDrob 200-200 (mean 200)
+
+== FULL CURVE (SOA_ms:P) ==
+  -400:0.00  -380:0.00  -360:0.00  -340:0.00  -320:0.00  -300:0.00  -280:0.00  -260:0.00  -240:0.08  -220:1.00  -200:1.00  -180:1.00  -160:1.00  -140:1.00  -120:1.00  -100:1.00  -80:1.00  -60:1.00  -40:1.00  -20:1.00  +0:1.00  +20:1.00  +40:1.00  +60:1.00  +80:1.00  +100:1.00  +120:1.00  +140:1.00  +160:1.00  +180:1.00  +200:0.50  +220:0.04  +240:0.00  +260:0.00  +280:0.00  +300:0.00  +320:0.00  +340:0.00  +360:0.00  +380:0.00  +400:0.00
+
+SAVED /scratch/fsts_retrain_asym_20260530/tbw/asymrc_tbw_ep80_m3.npz + asymrc_tbw_ep80_m3.png
+TBW_PROBE_DONE

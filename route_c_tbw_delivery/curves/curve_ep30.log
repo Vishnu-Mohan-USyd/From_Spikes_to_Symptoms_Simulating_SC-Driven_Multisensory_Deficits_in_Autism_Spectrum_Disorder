@@ -1,0 +1,35 @@
+[tbw] prefix=asymrc epoch=30 ntrials=40 n_offsets=13 SOA -300..300ms step 50ms
+Using device: cuda
+  Model 0/5: P(fus@0ms)=1.000, peak=1.000, 90.9s
+Using device: cuda
+  Model 1/5: P(fus@0ms)=1.000, peak=1.000, 89.5s
+Using device: cuda
+  Model 2/5: P(fus@0ms)=1.000, peak=1.000, 89.2s
+Using device: cuda
+  Model 3/5: P(fus@0ms)=1.000, peak=1.000, 89.2s
+Using device: cuda
+  Model 4/5: P(fus@0ms)=1.000, peak=1.000, 89.5s
+
+== POOLED P(fusion) ==
+  SOA    +0ms (offset +0): P(fus)=1.000 +/- 0.000
+  SOA  -200ms (offset -200): P(fus)=0.000 +/- 0.000
+  SOA  +200ms (offset +200): P(fus)=0.000 +/- 0.000
+  peak P(fus)=1.000 at SOA -100ms
+
+== ROBUST GAUSSIAN FIT (pooled) ==
+  robust-FWHM=267.7ms  SDrob(sigma)=113.7ms  mu=-25.0ms  tbw(crit)=267.4ms  R2=0.625
+  (human target FWHM~414 / SDrob~176 ; #50-degenerate=flat-1.0 -> sigma~200 bound)
+
+== PER-MODEL robust fit ==
+  m0: FWHM=267.7 SDrob=113.7 mu=-25.0 R2=0.625 P(fus@0)=1.000 peak=1.000
+  m1: FWHM=267.7 SDrob=113.7 mu=-25.0 R2=0.625 P(fus@0)=1.000 peak=1.000
+  m2: FWHM=267.7 SDrob=113.7 mu=-25.0 R2=0.625 P(fus@0)=1.000 peak=1.000
+  m3: FWHM=267.7 SDrob=113.7 mu=-25.0 R2=0.625 P(fus@0)=1.000 peak=1.000
+  m4: FWHM=267.7 SDrob=113.7 mu=-25.0 R2=0.625 P(fus@0)=1.000 peak=1.000
+  -> FWHM 268-268 (mean 268) ; SDrob 114-114 (mean 114)
+
+== FULL CURVE (SOA_ms:P) ==
+  -300:0.00  -250:0.00  -200:0.00  -150:0.00  -100:1.00  -50:1.00  +0:1.00  +50:1.00  +100:0.00  +150:0.00  +200:0.00  +250:0.00  +300:0.00
+
+SAVED /scratch/fsts_retrain_asym_20260530/tbw/asymrc_tbw_ep30.npz + asymrc_tbw_ep30.png
+TBW_PROBE_DONE
