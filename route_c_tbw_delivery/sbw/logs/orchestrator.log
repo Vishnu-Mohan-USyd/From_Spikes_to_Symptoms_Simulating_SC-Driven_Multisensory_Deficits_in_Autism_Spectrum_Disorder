@@ -1,0 +1,21 @@
+LAUNCH_10 18:32:57
+ALL_10_DONE 19:13:50
+=== AGGREGATE asymrc (5 seeds) ===
+  asymrc_m0    hw=29.83 deg
+  asymrc_m1    hw=31.00 deg
+  asymrc_m2    hw=31.70 deg
+  asymrc_m3    hw=32.02 deg
+  asymrc_m4    hw=31.18 deg
+hw_mean=31.146  hw_sd=0.753  grand_hw=31.160  degenerate=False
+grand Pf range 0.000..1.000
+WROTE /home/vishnu/coding_proj/routec_sbw_work/sbw_asymrc_AGG.json
+=== AGGREGATE asymd (5 seeds) ===
+  asymd_m0     hw=28.07 deg
+  asymd_m1     hw=28.62 deg
+  asymd_m2     hw=30.73 deg
+  asymd_m3     hw=31.34 deg
+  asymd_m4     hw=29.71 deg
+hw_mean=29.694  hw_sd=1.230  grand_hw=29.701  degenerate=False
+grand Pf range 0.000..1.000
+WROTE /home/vishnu/coding_proj/routec_sbw_work/sbw_asymd_AGG.json
+AGG_DONE 19:13:54

@@ -1,0 +1,4 @@
+=== asymrc_m0 === code_dir=/home/vishnu/coding_proj/fsts_routec_delivery/code SBW_test=/home/vishnu/coding_proj/routec_sbw_work/apparatus/SBW_test.py device=cuda torch=2.10.0+cu130
+Using device: cuda
+[WIRING] asymrc_m0 {'ckpt': 'asymrc_m0_ep80.pt', 'tau_nmda_inh': 25.0, 'tau_nmda': 80.0, 'd_a2msi': 250, 'd_v2msi': 400, 'sigma_in': 6.5, 'n': 180, 'space_size': 180.0, 'plasticity_enabled': False}
+[SBW] asymrc_m0 hw=29.83 Pf=0.00..1.00 -> /home/vishnu/coding_proj/routec_sbw_work/out/sbw_asymrc_m0.json

@@ -1,0 +1,9 @@
+=== AGGREGATE asymrc (5 seeds) ===
+  asymrc_m0    hw=29.83 deg
+  asymrc_m1    hw=31.00 deg
+  asymrc_m2    hw=31.70 deg
+  asymrc_m3    hw=32.02 deg
+  asymrc_m4    hw=31.18 deg
+hw_mean=31.146  hw_sd=0.753  grand_hw=31.160  degenerate=False
+grand Pf range 0.000..1.000
+WROTE /home/vishnu/coding_proj/routec_sbw_work/sbw_asymrc_AGG.json

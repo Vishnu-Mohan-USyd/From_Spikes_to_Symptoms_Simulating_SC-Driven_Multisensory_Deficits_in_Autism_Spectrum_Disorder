@@ -1,0 +1,4 @@
+=== asymd_m2 === code_dir=/home/vishnu/coding_proj/fsts_asym_delay_ep80_20260530/code SBW_test=/home/vishnu/coding_proj/routec_sbw_work/apparatus/SBW_test.py device=cuda torch=2.10.0+cu130
+Using device: cuda
+[WIRING] asymd_m2 {'ckpt': 'asymd_m2_ep80.pt', 'tau_nmda_inh': nan, 'tau_nmda': 80.0, 'd_a2msi': 250, 'd_v2msi': 400, 'sigma_in': 6.5, 'n': 180, 'space_size': 180.0, 'plasticity_enabled': False}
+[SBW] asymd_m2 hw=30.73 Pf=0.00..1.00 -> /home/vishnu/coding_proj/routec_sbw_work/out/sbw_asymd_m2.json

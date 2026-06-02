@@ -1,0 +1,7 @@
+=== sbw_routec_run: prefix=asymrc ===
+eval_app=/home/vishnu/coding_proj/routec_sbw_work/apparatus
+code_dir=/home/vishnu/coding_proj/fsts_routec_delivery/code  Training=/home/vishnu/coding_proj/routec_sbw_work/apparatus/SBW_test.py
+device=cuda  torch=2.10.0+cu130
+seps(33)=[-80, -75, -70, -65, -60, -55, -50, -45, -40, -35, -30, -25, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80]
+Using device: cuda
+[WIRING] m0 {'ckpt': 'asymrc_m0_ep80.pt', 'tau_nmda_inh': 25.0, 'tau_nmda': 80.0, 'd_a2msi': 250, 'd_v2msi': 400, 'sigma_in': 6.5, 'n': 180, 'space_size': 180.0, 'plasticity_enabled': False}
