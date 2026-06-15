@@ -818,7 +818,7 @@ def fit_psychometric_curve(offsets_ms, fusion_probs, p0=None,
 
 def is_temporally_fused(temporal_profile, sigma=2.0, valley_threshold=0.4,
                         min_peak_height=0.2, min_peak_separation=3,
-                        min_total=10.0):
+                        min_total=10.0, return_npeaks=False):
     """Temporal analog of spatial is_fused().
 
     Smooths the MSI population spike-count time series, finds peaks,
@@ -847,9 +847,17 @@ def is_temporally_fused(temporal_profile, sigma=2.0, valley_threshold=0.4,
         classified as not-fused. Set low (default 10) to reject only
         near-silent trials; temporal classification handles the rest.
 
+    return_npeaks : bool
+        If True, return ``(fused_bool, n_peaks)`` where ``n_peaks`` is the
+        number of valid detected peaks. Default False preserves the original
+        scalar-bool return exactly (additive, behaviour-preserving for all
+        existing callers). Used by the Phase-2 per-SOA peak-count dump that
+        makes the is_temporally_fused (<=1 peak => fused) behaviour directly
+        visible — i.e. whether corrected timing splits one MSI peak into two.
+
     Returns
     -------
-    bool
+    bool  (or tuple ``(bool, int)`` when ``return_npeaks=True``)
         True if response is a single fused event, False if two separate events.
     """
     from scipy.ndimage import gaussian_filter1d
@@ -857,9 +865,9 @@ def is_temporally_fused(temporal_profile, sigma=2.0, valley_threshold=0.4,
 
     sm = gaussian_filter1d(np.asarray(temporal_profile, dtype=float), sigma=sigma)
     if sm.max() < 1e-6:
-        return False  # silent → not fused (no response)
+        return (False, 0) if return_npeaks else False  # silent → not fused (no response)
     if sm.sum() < min_total:
-        return False  # too weak → not fused (noise)
+        return (False, 0) if return_npeaks else False  # too weak → not fused (noise)
     sm_norm = sm / sm.max()
 
     # Zero-pad so find_peaks can detect peaks at trial boundaries.
@@ -875,8 +883,9 @@ def is_temporally_fused(temporal_profile, sigma=2.0, valley_threshold=0.4,
     peaks = peaks[valid]
     heights = props['peak_heights'][valid]
 
-    if len(peaks) <= 1:
-        return True  # one or no peak → fused
+    n_peaks = int(len(peaks))
+    if n_peaks <= 1:
+        return (True, n_peaks) if return_npeaks else True  # one or no peak → fused
 
     # Check valley between two tallest peaks
     top2_idx = np.argsort(heights)[-2:]
@@ -884,7 +893,8 @@ def is_temporally_fused(temporal_profile, sigma=2.0, valley_threshold=0.4,
     valley = sm_norm[p1:p2 + 1].min()
     smaller_peak = min(sm_norm[p1], sm_norm[p2])
 
-    return valley / smaller_peak > valley_threshold  # high valley = merged = fused
+    fused = bool(valley / smaller_peak > valley_threshold)  # high valley = merged = fused
+    return (fused, n_peaks) if return_npeaks else fused
 
 
 def compute_tbw_temporal_fusion_persep(
@@ -900,6 +910,7 @@ def compute_tbw_temporal_fusion_persep(
     min_peak_height: float = 0.2,
     min_peak_separation: int = 3,
     min_total: float = 10.0,
+    collect_npeaks: bool = False,
 ):
     """Compute per-trial temporal fusion probability at each offset.
 
@@ -983,19 +994,36 @@ def compute_tbw_temporal_fusion_persep(
 
     p_fusion = np.zeros(n_offsets)
     all_fused = [None] * n_offsets
+    mean_npeaks = np.zeros(n_offsets) if collect_npeaks else None
     for k in range(n_offsets):
         fused_arr = np.zeros(n_trials)
+        npeaks_arr = np.zeros(n_trials) if collect_npeaks else None
         for i in range(n_trials):
-            fused_arr[i] = float(is_temporally_fused(
-                rast_np[:, k, i],
-                sigma=sigma,
-                valley_threshold=valley_threshold,
-                min_peak_height=min_peak_height,
-                min_peak_separation=min_peak_separation,
-                min_total=min_total,
-            ))
+            if collect_npeaks:
+                fused_b, npk = is_temporally_fused(
+                    rast_np[:, k, i],
+                    sigma=sigma,
+                    valley_threshold=valley_threshold,
+                    min_peak_height=min_peak_height,
+                    min_peak_separation=min_peak_separation,
+                    min_total=min_total,
+                    return_npeaks=True,
+                )
+                fused_arr[i] = float(fused_b)
+                npeaks_arr[i] = float(npk)
+            else:
+                fused_arr[i] = float(is_temporally_fused(
+                    rast_np[:, k, i],
+                    sigma=sigma,
+                    valley_threshold=valley_threshold,
+                    min_peak_height=min_peak_height,
+                    min_peak_separation=min_peak_separation,
+                    min_total=min_total,
+                ))
         p_fusion[k] = fused_arr.mean()
         all_fused[k] = fused_arr
+        if collect_npeaks:
+            mean_npeaks[k] = npeaks_arr.mean()
 
     if net.device.type == "cuda":
         torch.cuda.empty_cache()
@@ -1003,6 +1031,8 @@ def compute_tbw_temporal_fusion_persep(
     # Restore state
     net.g_FFinh = initial_g_FFinh
     net.step_counter = initial_step_counter
+    if collect_npeaks:
+        return p_fusion, all_fused, mean_npeaks
     return p_fusion, all_fused
 
 
@@ -1173,7 +1203,8 @@ def run_fusion_across_models(model_paths, offsets, device="cuda",
                              mei_threshold=0.1,
                              enhancement_threshold=10.0,
                              n_trials=50,
-                             loc=90, T=60, D=5, extra=5, stim_in=1.0):
+                             loc=90, T=60, D=5, extra=5, stim_in=1.0,
+                             collect_npeaks=False):
     """
     Run AV temporal integration across model checkpoints and compute
     fusion probability at each offset.
@@ -1241,6 +1272,7 @@ def run_fusion_across_models(model_paths, offsets, device="cuda",
     if fusion_method == 'temporal_fusion':
         import time as _time
         all_pfusion = []  # (n_models, n_offsets)
+        all_npeaks = []   # (n_models, n_offsets) — only filled if collect_npeaks
         n_models = len(model_paths)
 
         for mi, path in enumerate(model_paths):
@@ -1249,11 +1281,19 @@ def run_fusion_across_models(model_paths, offsets, device="cuda",
             if callable(modify_net):
                 modify_net(net)
 
-            p_fusion, _all_fused = compute_tbw_temporal_fusion_persep(
-                net, offsets, n_trials=n_trials, T=T, D=D, stim_in=stim_in,
-                sigma=2.0, valley_threshold=0.4, min_peak_height=0.2,
-                min_peak_separation=3, min_total=10.0,
-            )
+            if collect_npeaks:
+                p_fusion, _all_fused, mean_npeaks = compute_tbw_temporal_fusion_persep(
+                    net, offsets, n_trials=n_trials, T=T, D=D, stim_in=stim_in,
+                    sigma=2.0, valley_threshold=0.4, min_peak_height=0.2,
+                    min_peak_separation=3, min_total=10.0, collect_npeaks=True,
+                )
+                all_npeaks.append(mean_npeaks)
+            else:
+                p_fusion, _all_fused = compute_tbw_temporal_fusion_persep(
+                    net, offsets, n_trials=n_trials, T=T, D=D, stim_in=stim_in,
+                    sigma=2.0, valley_threshold=0.4, min_peak_height=0.2,
+                    min_peak_separation=3, min_total=10.0,
+                )
             all_pfusion.append(p_fusion)
             _dt = _time.time() - _t0
             idx0 = offsets.index(0) if 0 in offsets else len(offsets) // 2
@@ -1274,6 +1314,11 @@ def run_fusion_across_models(model_paths, offsets, device="cuda",
             "sem_int_spikes": all_pfusion.std(0, ddof=1) / np.sqrt(n_models),
             "enhancement_threshold": None,
         }
+        if collect_npeaks:
+            all_npeaks = np.vstack(all_npeaks)  # (n_models, n_offsets)
+            result["all_npeaks"] = all_npeaks
+            result["mean_npeaks"] = all_npeaks.mean(0)
+            result["sem_npeaks"] = all_npeaks.std(0, ddof=1) / np.sqrt(n_models)
         return result
 
     # Standard path: one trial per offset per model (spike_profile, mei, etc.)

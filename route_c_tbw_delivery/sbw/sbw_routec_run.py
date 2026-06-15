@@ -22,6 +22,10 @@ ap.add_argument("--code_dir", required=True, help="dir whose Training.py defines
 ap.add_argument("--ckpt", required=True)
 ap.add_argument("--tag", required=True, help="e.g. asymrc_m0")
 ap.add_argument("--out_json", required=True)
+ap.add_argument("--override_json", default="",
+                help="Phase-2 inference override: JSON dict of corrected hparams "
+                     "(tau_nmda_inh, tau_gaba, Erev_nmda, gNMDA, msi_inh2exc_ms). "
+                     "Empty = baseline (ckpt values, true no-op).")
 args = ap.parse_args()
 
 sys.path.insert(0, args.eval_app)
@@ -43,7 +47,23 @@ print("=== %s === code_dir=%s SBW_test=%s device=%s torch=%s" %
       (args.tag, args.code_dir, getattr(S, "__file__", "?"), device, torch.__version__), flush=True)
 
 net = S.load_msi_model(args.ckpt, device=device)
+
+# ── Phase-2 inference override (post-load setattr; apparatus + Training.py untouched) ──
+override_applied = None
+if args.override_json:
+    with open(args.override_json) as _f:
+        _ovr_cfg = json.load(_f)
+    from routec_overrides import apply_routec_overrides  # resolves via --code_dir on sys.path
+    override_applied = apply_routec_overrides(net, _ovr_cfg)
+    print("[OVERRIDE] %s applied=%s" % (
+        args.tag, {k: v for k, v in override_applied.items() if k != "live"}), flush=True)
+    print("[OVERRIDE] %s LIVE=%s" % (args.tag, override_applied.get("live")), flush=True)
+
 wiring = dict(ckpt=os.path.basename(args.ckpt),
+              tau_gaba=float(getattr(net, "tau_gaba", float("nan"))),
+              Erev_nmda=float(getattr(net, "Erev_nmda", float("nan"))),
+              gNMDA=float(getattr(net, "gNMDA", float("nan"))),
+              msi_inh2exc_ms=float(getattr(net, "conduction_delay_msi_inh2exc_ms", float("nan"))),
               tau_nmda_inh=float(getattr(net, "tau_nmda_inh", float("nan"))),
               tau_nmda=float(getattr(net, "tau_nmda", float("nan"))),
               d_a2msi=int(getattr(net, "conduction_delay_a2msi", -1)),
@@ -66,6 +86,7 @@ me = ev[0] if isinstance(ev, (tuple, list)) else ev
 
 out = dict(tag=args.tag, ckpt=args.ckpt, wiring=wiring, separations_deg=seps,
            n_trials=50, intensity=0.5, duration=20, roi_half=20,
+           override_json=args.override_json, override=override_applied,
            apparatus="SBW_test.compute_sbw_fused_persep (is_fused P(fusion), plasticity-OFF); hw=|fit_pedestal_curve popt[2]|",
            pfusion=pf.tolist(), halfwidth_deg=hw, enhancement=np.asarray(me, float).tolist())
 json.dump(out, open(args.out_json, "w"), indent=1)

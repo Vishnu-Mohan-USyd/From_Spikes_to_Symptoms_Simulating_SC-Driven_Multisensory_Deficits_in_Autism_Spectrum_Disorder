@@ -1,0 +1,25 @@
+# Artifacts — regenerate with the trainers/measurement drivers, do not track.
+# (Checkpoints already committed in earlier history stay tracked; this only blocks new ones.)
+
+# Model checkpoints / weights
+*.pt
+*.pth
+*.ckpt
+
+# Figures and array dumps
+*.png
+*.npz
+*.npy
+
+# Logs
+*.log
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# OS / editor cruft
+.DS_Store
+*.swp

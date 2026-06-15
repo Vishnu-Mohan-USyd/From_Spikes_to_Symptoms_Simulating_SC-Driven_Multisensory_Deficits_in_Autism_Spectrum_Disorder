@@ -1325,68 +1325,6 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self.post_rate_avg = torch.zeros((self.batch_size, self.n),
                                          device=self.device)
 
-        # ── task#200 Phase-6: Turrigiano homeostatic excitatory synaptic scaling ──
-        # Multiplicative, rate/drive-driven scaling on the 4 FF->MSI_exc weights to
-        # supply the activity-setpoint homeostat the MSI_exc weights previously lacked
-        # (the Oja anchor targets a weight PATTERN, not a rate -> runaway exc-drive
-        # collapse as iSTDP matures; debugger-2's proven ep50 wide-box root cause).
-        # CADENCE = PER MINI-BATCH (lead-locked Option A): the scaling is the SLOWEST
-        # homeostat in the hierarchy (iSTDP per-substep > Oja/heterosynaptic per-timestep
-        # > scaling per-batch). ONE actuation per batch keeps alpha a true ~0.2%/batch
-        # gain; per-frame would inflate it T_max-fold. Actuation lives in
-        # train_unsupervised_batch, after the for-t loop. Config finalized by the lead
-        # post-data; defaults below are net-rate + r*=1.17 (tracker-units PLACEHOLDER).
-        # The calibrated r*_tracker is supplied per-run via argparse -> mutable_hparams.
-        # Exported in mutable_hparams (restored via setattr on load).
-        self.hss_sensor    = 'net_rate'  # 'net_rate' (msi_exc_rate_persistent, Hz)
-        #                                  | 'exc_drive' (msi_exc_drive_persistent, SumW)
-        self.hss_r_target  = 1.17        # PLACEHOLDER setpoint in TRACKER units (trial-avg
-        #   Hz, ~25x deflated vs evoked). NOT 30 (=evoked Hz): a tracker maxing ~1.2 with
-        #   r*=30 forces deficit~0.96 every batch -> runaway. Calibrated r*_tracker (=30-Hz-
-        #   equivalent on the ep30 ckpt) is plumbed via argparse; co-registered w/ iSTDP 30Hz.
-        self.hss_alpha     = 2e-3        # PER-BATCH scale gain (~0.2% * deficit / batch)
-        self.hss_step_clip = 0.10        # +/-10% per-batch clamp on the scale factor
-        self.hss_beta      = 0.05        # per-BATCH EMA coeff for sensor trackers (~20-batch horizon)
-        # ── task#200 iterate#2 — BCM sliding threshold REPLACES the HSS scaler ──────────
-        # bcm_theta_enabled : per-postsynaptic-row BCM threshold on the FF->MSI_exc LTD
-        #   term (theta = msi_exc_rate_persistent / hss_r_target, clamped). Folds the rate
-        #   setpoint INTO the STDP rule so the fixed point sits AT r_post=r* (the bare
-        #   soft-bound fixed point W*=Wmax*rho/(1+rho) sits sub-setpoint). Set False for
-        #   the theta==1 ablation -> reverts to the bare soft-bound rule -> reproduces the
-        #   exc-drive collapse (the lead/green PASS-bar ablation control).
-        # hss_scaler_enabled: the OLD Turrigiano multiplicative scaler. DISABLED this
-        #   iterate (lead decision: <=0.8%/ep authority is ~10x too weak vs the net-
-        #   depressing FF->MSI STDP at -2..-3%/ep). The rate SENSOR keeps updating (BCM
-        #   theta consumes it); only the scale-APPLICATION is a no-op. Flip True to restore.
-        self.bcm_theta_enabled  = True
-        self.hss_scaler_enabled = False
-        # ── task#200 iterate#2 Part C' — clamp the 4 FF->MSI_exc weights to their
-        # soft-bound wmax (receptor-saturation ceiling) instead of _p_add's abs_cap=50.
-        # Without it, STDP overshoots the soft-bound ceiling -> an over-cap reservoir ->
-        # the per-frame 25/75 re-split's clamp drops the excess every frame (the ~-10.5
-        # exc-SUM leak — an IMPLEMENTATION artifact, not biology). Clamping at the source
-        # makes LTP occlusive (asymptotes AT wmax) so W_tot<=0.024 -> the re-split is
-        # exactly sum-conserving (its clamp never fires). FF->MSI-EXCLUSIVE (only the
-        # _softbound_wmax keys). Set False to reproduce the leak (verification control).
-        self.ffmsi_wmax_clamp_enabled = True
-        # re-split clamp-activation instrumentation (OFF in production; set _resplit_instr
-        # =True for the clamp-fires->0 verification, then read these two counters).
-        self._resplit_instr      = False
-        self._resplit_clamp_n    = 0      # # entries the 25/75 re-split clamped this run
-        self._resplit_clamp_mass = 0.0    # total over-cap mass the re-split dropped
-        # Persistent per-MSI_exc-neuron sensor trackers; init ONCE here, NEVER reset in
-        # reset_state (cross-minibatch integral). Seeded at the setpoint so deficit~0 at
-        # the epoch-26 onset (no cold-start scaling kick).
-        self.msi_exc_rate_persistent  = torch.full((self.n,), float(self.hss_r_target),
-                                                    dtype=torch.float32, device=self.device)
-        self.msi_exc_drive_persistent = torch.full((self.n,), float(self.hss_r_target),
-                                                    dtype=torch.float32, device=self.device)
-        # TRANSIENT per-batch accumulators (zeroed every minibatch in reset_state; the
-        # persistent trackers above are NOT): per-MSI_exc-neuron spike total + scalar
-        # substep*trial denom -> this batch's mean MSI_exc rate.
-        self._hss_spk_pn = torch.zeros(self.n, dtype=torch.float32, device=self.device)
-        self._hss_denom  = 0.0
-
         # ------------- Biases --------------
         self.b_uniA = torch.zeros(self.n, dtype=torch.float32, device=self.device)
         self.b_uniV = torch.zeros(self.n, dtype=torch.float32, device=self.device)
@@ -1425,6 +1363,20 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self.post_trace_msiInh2Exc = torch.zeros(
             (self.batch_size, self.n), dtype=torch.float32, device=self.device
         )
+        # Increment 3: recurrent MSI->MSI excitatory STDP eligibility traces.
+        # Same (batch, n) shape + machinery as the FF->MSI excitatory STDP traces
+        # (pre_trace_a2msi etc.); here pre == post == the MSI population. Re-zeroed
+        # in reset_state, mirroring the FF traces exactly.
+        self.pre_trace_msi_rec = torch.zeros(
+            (self.batch_size, self.n), dtype=torch.float32, device=self.device
+        )
+        self.post_trace_msi_rec = torch.zeros(
+            (self.batch_size, self.n), dtype=torch.float32, device=self.device
+        )
+        # delay-fix: previous external-step MSI spikes = the DELAYED pre for the
+        # recurrent STDP (pre leads post by 1 external step). None => zeros at the
+        # start of each sequence; re-Noned in reset_state.
+        self._prev_sMSI_rec = None
         self.tau_istdp_pre = 20.0    # ms — symmetric pre-trace decay
         self.tau_istdp_post = 20.0   # ms — symmetric post-trace decay
         self.eta_istdp = 2e-5        # was 5e-4 (25× lower); debugger #193 §Q3.E range 1e-5 to 5e-5
@@ -1443,18 +1395,9 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self.msi_inh_refrac_substeps = 20  # 2 ms @ dt=0.1ms — absolute refractory ceiling for PV/MSI_inh
         # -- soft-bound FF->MSI_exc STDP config (graded MSI_exc; no content-free brake) --
         # Weight-dependent STDP for the 4 FF->MSI_exc weights: dW=lr*[A+*(Wmax-W)^mu - A-*W^mu].
-        # Validated in the debugger soft-bound stint (dbg6); per-synapse caps.
+        # Validated in the debugger soft-bound stint (dbg6); per-synapse caps, mu=1.0.
         # Unimodal W_inA/W_inV are NOT in this dict -> they stay additive (intended).
-        # ── task#200 iterate#2 Part A — mu 1.0 -> 0.05 (Gutig 2003 "nlta" intermediate
-        # regime). mu=1 is FULLY multiplicative -> a UNIMODAL, NON-competitive equilibrium:
-        # every FF->MSI synapse relaxes to the SAME target (the measured ~92% uniform decay,
-        # 0% to floor, 0% potentiation), which makes a redistributive/bimodal outcome
-        # mathematically unreachable. mu=0.05 restores bimodal synaptic COMPETITION while
-        # keeping a mild soft self-limit. Affects ONLY the 4 FF->MSI_exc weights (the
-        # _softbound_wmax keys below); iSTDP and In->Uni STDP are untouched (they don't use
-        # this branch). Single var -> green overrides it for the mu-sweep {0.02,0.05,0.1}
-        # with no re-bake. Part A + Part B (BCM theta on LTD) together = triplet/BCM rule.
-        self._softbound_mu = 0.05
+        self._softbound_mu = 1.0
         self._softbound_wmax = {
             'W_a2msi_AMPA': 0.006, 'W_a2msi_NMDA': 0.018,
             'W_v2msi_AMPA': 0.006, 'W_v2msi_NMDA': 0.018,
@@ -1530,6 +1473,11 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self.conduction_delay_a2msi = 250   # 25.0 ms auditory (task#47 restore pre-f92d04a; cat-SC defensible per #45)
         self.conduction_delay_v2msi = 400   # 40.0 ms visual, slower-arriving => V-leading-wider TBW
         self.conduction_delay_msi2out = conduction_delay_msi2out
+        # delay-fix (recurrent MSI->MSI transmission delay): 100 substeps = 10.0 ms
+        # = exactly 1 external step at n_substeps=100. Gives the recurrent synapse a
+        # conduction delay so pre LEADS post, breaking the zero-delay antisymmetric-by-
+        # construction LTP=LTD cancellation that froze W_MSI_exc at init (debugger H1).
+        self.conduction_delay_msi_rec = 100
 
         # task #192 Phase A: REMOVED conduction_delay_inA_inh / _inV_inh
         # (paired with the direct FF-inh shortcut rip in __init__ above).
@@ -1556,6 +1504,7 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self.conduction_delay_v2msi_inh_ms   = self.conduction_delay_v2msi_inh   * self.dt
         self.conduction_delay_msi_inh2exc_ms = self.conduction_delay_msi_inh2exc * self.dt
         self.conduction_delay_msi2out_ms     = self.conduction_delay_msi2out     * self.dt
+        self.conduction_delay_msi_rec_ms     = self.conduction_delay_msi_rec     * self.dt
 
         # --- GPU ring buffers (replace Python deques) ---
         self._delay_positions = {}
@@ -1590,6 +1539,8 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
 
         # NMDA gating state (MSI excit)
         self.nmda_m = torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device)
+        # recurrent MSI->MSI NMDA gating state (Increment 1; inert at g_rec=0).
+        self.nmda_m_rec = torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device)
         self.v_nmda = torch.full((self.batch_size, self.n), self.v_nmda_rest, dtype=torch.float32, device=self.device)
 
         self.v_dend_inhA = torch.full((self.batch_size, self.n_inh), self.cMi, device=self.device)
@@ -1620,6 +1571,19 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self._dbg_spk_MSI = 0.0  # accumulated spikes in MSI excit
         self._dbg_steps = 0  # how many external frames have been seen
 
+        # --- task#21 per-epoch logging panel (read-only instrumentation) ----
+        # All default-OFF / None so the panel is a strict no-op unless
+        # run_training explicitly enables it (proven trajectory-neutral via the
+        # §7 bit-identity smoke gate). _dbg_spk_Mi mirrors _dbg_spk_MSI for the
+        # PV/FS (interneuron) rate (S1), normalised by n_inh (NOT n).
+        self._panel_enabled = False
+        self._panel_seed = None
+        self._panel_rows = []
+        self._panel_inh_accum = None   # E2: INH plateau accumulator (battery-only)
+        self._panel_dW_accum = None    # E3: FF dW flux accumulator (Tap-A)
+        self._last_rates_hz = None     # E1: rates stashed by print_epoch_spike_summary
+        self._dbg_spk_Mi = 0.0         # E1/S1: accumulated spikes in MSI inhibitory
+
         # Weights are stored directly as positive/non-negative values.
         # No parametrize wrappers — clamping is done in _p_add().
 
@@ -1649,6 +1613,27 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
                                       requires_grad=False)
 
         self.register_buffer("W_MSI_inh_init", init_W.clone())
+
+        # ── recurrent MSI->MSI excitation — Increment 1 (INERT at g_rec=0) ──
+        # Excitatory counterpart of the Mexican-hat surround inhibition above:
+        # a SHORT-RANGE local Gaussian over the SAME MSI-sheet geometry
+        # (self.dist_mask), driven by MSI spikes, carrying co-localised
+        # AMPA+NMDA into the fast excitatory channel I_M (see forward pass).
+        # The whole contribution is scaled by g_rec; default 0.0 => the pathway
+        # is inert and inference is bit-identical to the pre-recurrence build.
+        # No plasticity yet. Built deterministically (no RNG) so adding it does
+        # NOT perturb the init RNG stream. Diagonal zeroed => no self-autapse.
+        # R_rec / rec_*_frac are activation-increment tunables (no effect now).
+        self.g_rec = 0.0           # recurrent excitation strength (Increment 1: OFF)
+        self.R_rec = 2.0           # recurrent radius (neurons); narrower than R_near
+        self.rec_ampa_frac = 0.25  # AMPA:NMDA split mirrors FF->MSI 0.25/0.75 renorm
+        self.rec_nmda_frac = 0.75
+        with torch.no_grad():
+            _rec_kernel = torch.exp(-(self.dist_mask / self.R_rec) ** 2)
+            _rec_kernel.fill_diagonal_(0.0)
+            _W_rec_init = Positive()(_rec_kernel)
+        self.W_MSI_exc = nn.Parameter(_W_rec_init, requires_grad=False)
+        self.register_buffer("W_MSI_exc_init", _W_rec_init.clone())
 
         self.g_GABA = 2  # was 3 – stronger Mexican-hat inhibition
         # task #192 Phase A: g_FFinh retained as ORPHAN attribute only.
@@ -1770,6 +1755,7 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             d_v2msi_inh   = self._delay_substeps_from_ms(self.conduction_delay_v2msi_inh_ms)
             d_msi_inh2exc = self._delay_substeps_from_ms(self.conduction_delay_msi_inh2exc_ms)
             d_msi2out     = self._delay_substeps_from_ms(self.conduction_delay_msi2out_ms)
+            d_msi_rec     = self._delay_substeps_from_ms(self.conduction_delay_msi_rec_ms)
         else:
             d_a2msi       = self.conduction_delay_a2msi
             d_v2msi       = self.conduction_delay_v2msi
@@ -1777,12 +1763,14 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             d_v2msi_inh   = self.conduction_delay_v2msi_inh
             d_msi_inh2exc = self.conduction_delay_msi_inh2exc
             d_msi2out     = self.conduction_delay_msi2out
+            d_msi_rec     = self.conduction_delay_msi_rec
         self._ensure_delay_buffer("buffer_a2msi",       delay=d_a2msi,       width=self.n)
         self._ensure_delay_buffer("buffer_v2msi",       delay=d_v2msi,       width=self.n)
         self._ensure_delay_buffer("buffer_a2msi_inh",   delay=d_a2msi_inh,   width=self.n)
         self._ensure_delay_buffer("buffer_v2msi_inh",   delay=d_v2msi_inh,   width=self.n)
         self._ensure_delay_buffer("buffer_msi_inh2exc", delay=d_msi_inh2exc, width=self.n_inh)
         self._ensure_delay_buffer("buffer_msi2out",     delay=d_msi2out,     width=self.n)
+        self._ensure_delay_buffer("buffer_msi_rec",     delay=d_msi_rec,     width=self.n)
 
     def _p_add(self, attr: str, dW: torch.Tensor,
                eps: float = 1e-9,
@@ -1792,17 +1780,6 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         """Clipped additive update for direct weight parameters."""
         with torch.no_grad():
             W = getattr(self, attr)
-            # task#200 iterate#2 Part C' — soft-bound (FF->MSI_exc) weights clamp to their
-            # receptor-saturation wmax, NOT abs_cap=50. STDP otherwise overshoots the
-            # soft-bound ceiling -> over-cap reservoir -> the per-frame 25/75 re-split drops
-            # the excess every frame (the ~-10.5 leak). Occlusive LTP (asymptote AT wmax)
-            # makes the re-split sum-conserving. FF->MSI-EXCLUSIVE: only the 4 _softbound_wmax
-            # keys; uni W_inA/W_inV, iSTDP, readouts keep abs_cap. Enforced here (not just at
-            # the STDP call) so ALL FF->MSI writers (STDP + topo-anchor + competition) respect
-            # the ceiling -> guarantees the re-split clamp can't fire.
-            _sb = getattr(self, '_softbound_wmax', None)
-            if getattr(self, 'ffmsi_wmax_clamp_enabled', True) and _sb is not None and attr in _sb:
-                abs_cap = _sb[attr]
             step_limit = (rel_clip * W.abs().clamp_min(eps)).clamp_min(abs_step)  # task#155: abs_step floor breaks compound-growth bottleneck for iSTDP
             step = torch.clamp(dW, -step_limit, step_limit)
             W.copy_((W + step).clamp(min=eps, max=abs_cap))
@@ -1898,7 +1875,16 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         return translated
 
     def load_state_dict(self, state_dict, strict: bool = True, assign: bool = False):
-        translated = self._translate_legacy_state_dict(state_dict)
+        translated = dict(self._translate_legacy_state_dict(state_dict))
+        # Increment 1 (recurrent MSI->MSI excitation): pre-recurrence ckpts have
+        # no W_MSI_exc / W_MSI_exc_init. Inject the freshly-built deterministic
+        # values so a strict load of a legacy ckpt succeeds, WITHOUT weakening
+        # strict checking for any other key. New (post-recurrence) ckpts already
+        # carry these keys, so the injection is skipped for them.
+        _own = self.state_dict()
+        for _k in ("W_MSI_exc", "W_MSI_exc_init"):
+            if _k in _own and _k not in translated:
+                translated[_k] = _own[_k].clone()
         return super().load_state_dict(translated, strict=strict, assign=assign)
 
     def _probe_spike_sum(self, *, stim_peak: float = 1.0, probe_frames: int = 15) -> float:
@@ -2136,6 +2122,305 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self._ei_record = None
         return out
 
+    # ====================================================================
+    # task#21 per-epoch logging panel (E4/E5) — READ-ONLY instrumentation.
+    # Trajectory-neutral: the battery saves/restores RNG+step_counter+flags+
+    # _ei_record (§5); plasticity is OFF; transient state is auto-wiped by the
+    # next epoch's reset_state. Proven by the §7 bit-identity smoke gate.
+    # ====================================================================
+    @staticmethod
+    def _sarle_bc(x):
+        """Sarle's bimodality coefficient over a value vector (P6 fusion-shape).
+        High (->1) = bimodal/box-like; low = graded/unimodal."""
+        x = np.asarray(x, dtype=float); n = x.size
+        if n < 4:
+            return float('nan')
+        s = x.std()
+        if s <= 1e-12:
+            return float('nan')
+        z = (x - x.mean()) / s
+        g1 = float(np.mean(z ** 3))           # skewness
+        g2 = float(np.mean(z ** 4) - 3.0)      # excess kurtosis
+        denom = g2 + 3.0 * (n - 1) ** 2 / ((n - 2) * (n - 3))
+        return (g1 ** 2 + 1.0) / denom if denom != 0 else float('nan')
+
+    def _tbw_reduce(self, p, soa):
+        """P1/P6 reductions from a P(fusion) curve `p` over ms-offsets `soa`."""
+        out = {}
+        i0 = int(np.argmin(np.abs(soa)))
+        out['P1_P_at_0'] = float(p[i0])
+        out['P1_P_at_m400'] = float(p[0])
+        out['P1_P_at_p400'] = float(p[-1])
+        above = p >= 0.5
+        best = None; lo = None
+        for i, a in enumerate(above):
+            if a and lo is None:
+                lo = i
+            if (not a or i == len(above) - 1) and lo is not None:
+                hi = i if a else i - 1
+                if best is None or (hi - lo) > (best[1] - best[0]):
+                    best = (lo, hi)
+                lo = None
+        if best is None:
+            out['P1_width_ms'] = 0.0
+            out['P1_lo_ms'] = float('nan'); out['P1_hi_ms'] = float('nan')
+            out['P1_midpoint_ms'] = float('nan')
+        else:
+            lo_ms, hi_ms = float(soa[best[0]]), float(soa[best[1]])
+            out['P1_width_ms'] = hi_ms - lo_ms
+            out['P1_lo_ms'] = lo_ms; out['P1_hi_ms'] = hi_ms
+            out['P1_midpoint_ms'] = 0.5 * (lo_ms + hi_ms)
+        out['P6_n_graded'] = int(np.sum((p > 0.02) & (p < 0.98)))
+        out['P6_n_offsets'] = int(p.size)
+        out['P6_bc'] = float(self._sarle_bc(p))
+        return out
+
+    def _panel_ff_sigma(self, path="A2MSI"):
+        """Mean effective spatial σ (neurons) of FF weight rows (S5; vectorised
+        equivalent of feedforward_row_stats, which only prints)."""
+        if path == "A2MSI":
+            W = (self.W_a2msi_AMPA + self.W_a2msi_NMDA).detach().cpu()
+        else:
+            W = (self.W_v2msi_AMPA + self.W_v2msi_NMDA).detach().cpu()
+        n = W.shape[1]
+        xs = torch.arange(n, dtype=torch.float32)
+        rs = W.sum(1)
+        keep = rs > 0
+        if int(keep.sum()) == 0:
+            return float('nan')
+        Wk = W[keep]; rk = rs[keep]
+        mu = (Wk * xs).sum(1) / rk
+        var = (Wk * (xs - mu.unsqueeze(1)) ** 2).sum(1) / rk
+        return float(var.clamp_min(0).sqrt().mean().item())
+
+    def _panel_single_volley(self, B=8, T_frames=120):
+        """ONE coincident A+V volley (offset=0, noise off) — same path as the
+        canonical TBW probe (mirrors dbg18 build_single_volley)."""
+        loc = self.space_size // 2
+        ls, msq = generate_two_event_offset_seq(loc=int(loc), T=T_frames, D=5,
+                                                offset=0, space_size=self.space_size)
+        xA, xV, mask = generate_av_batch_tensor(
+            [ls] * B, [msq] * B, [False] * B, n=self.n, space_size=self.space_size,
+            sigma_in=self.sigma_in, noise_std=0.0, device=self.device,
+            max_len=T_frames, stimulus_intensity=1.0)
+        return xA, xV, mask
+
+    def _panel_weights_readout(self):
+        """Direct-read weight reductions: P3 (iSTDP GABA), P4 (FF->MSI exc),
+        H2 (frozen FF->INH). No forward pass, no RNG."""
+        r = {}
+        g = self.W_msiInh2Exc_GABA.detach()
+        if getattr(self, '_panel_gaba_init', None) is None:
+            self._panel_gaba_init = float(g.mean().item())
+        r['P3_GABA_mean'] = float(g.mean().item())
+        r['P3_GABA_std'] = float(g.std().item())
+        r['P3_GABA_max'] = float(g.max().item())
+        r['P3_GABA_clampfrac'] = float((g >= 0.999 * self.W_gaba_clamp).float().mean().item())
+        r['P3_GABA_drift_vs_init'] = float(g.mean().item()) - self._panel_gaba_init
+        sb = getattr(self, '_softbound_wmax', {}) or {}
+        for nm in ('W_a2msi_AMPA', 'W_a2msi_NMDA', 'W_v2msi_AMPA', 'W_v2msi_NMDA'):
+            w = getattr(self, nm).detach()
+            r['P4_%s_mean' % nm] = float(w.mean().item())
+            r['P4_%s_max' % nm] = float(w.max().item())
+            r['P4_%s_rowsigma' % nm] = float(w.mean(dim=1).std().item())
+            wmax = sb.get(nm)
+            r['P4_%s_clampfrac' % nm] = (float((w >= 0.999 * wmax).float().mean().item())
+                                         if wmax else float('nan'))
+
+        def _mean(nm):
+            return float(getattr(self, nm).detach().mean().item())
+        r['P4_a_AMPA2NMDA'] = _mean('W_a2msi_AMPA') / (_mean('W_a2msi_NMDA') + 1e-12)
+        r['P4_v_AMPA2NMDA'] = _mean('W_v2msi_AMPA') / (_mean('W_v2msi_NMDA') + 1e-12)
+        for nm in ('W_a2msiInh_AMPA', 'W_a2msiInh_NMDA', 'W_v2msiInh_AMPA', 'W_v2msiInh_NMDA'):
+            r['H2_%s_mean' % nm] = float(getattr(self, nm).detach().mean().item())
+        return r
+
+    def _panel_health_readout(self):
+        """H1 numerical health + H3 E:I count (sanity; cheap, every epoch)."""
+        r = {}
+        vm = getattr(self, 'v_msi', None)
+        r['H1_vmsi_min'] = float(vm.min().item()) if torch.is_tensor(vm) else float('nan')
+        r['H1_vmsi_max'] = float(vm.max().item()) if torch.is_tensor(vm) else float('nan')
+        vmi = getattr(self, 'v_msi_inh', None)
+        r['H1_vmsiinh_min'] = float(vmi.min().item()) if torch.is_tensor(vmi) else float('nan')
+        r['H1_vmsiinh_max'] = float(vmi.max().item()) if torch.is_tensor(vmi) else float('nan')
+        nan_ct = 0
+        for nm in ('W_inA', 'W_inV', 'W_a2msi_AMPA', 'W_a2msi_NMDA', 'W_v2msi_AMPA',
+                   'W_v2msi_NMDA', 'W_msiInh2Exc_GABA', 'W_a2msiInh_AMPA', 'W_v2msiInh_AMPA',
+                   'v_msi', 'v_msi_inh', 'post_rate_avg'):
+            t = getattr(self, nm, None)
+            if torch.is_tensor(t):
+                nan_ct += int(torch.isnan(t).sum().item())
+        r['H1_nan_count'] = int(nan_ct)
+        r['H3_n'] = int(self.n)
+        r['H3_n_inh'] = int(self.n_inh)
+        return r
+
+    @torch.no_grad()
+    def _panel_battery(self, seed, full=False):
+        """Tap-B controlled probe (plasticity-OFF, fixed seed). Returns a flat
+        dict of reductions. SAVE/RESTORE RNG+step_counter+flags+_ei_record so the
+        whole battery is a trajectory no-op (§5)."""
+        from TBW_test import compute_tbw_temporal_fusion_persep
+        rng_cpu = torch.get_rng_state()
+        rng_cuda = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+        rng_np = np.random.get_state()  # DBG22-FIX save numpy RNG
+        np.random.seed(int(seed))
+        saved = dict(step=int(self.step_counter), plast=self.plasticity_enabled,
+                     probe=self.enable_probe, ei=self._ei_record)
+        self.plasticity_enabled = False
+        self.enable_probe = False
+        self._ei_record = None
+        self._panel_inh_accum = None
+        torch.manual_seed(int(seed))
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(int(seed))
+        out = {}
+        try:
+            # (a) TBW (P1/P6) — cadence-selected grid (1 frame = 10 ms)
+            if full:
+                offs = list(range(-40, 41, 2)); ntr = 50           # 41-pt full
+            else:
+                offs = sorted(list(range(-20, 21, 2)) + [-40, -32, -24, 24, 32, 40])
+                ntr = 20                                           # 27-pt reduced
+            p_fusion, _af = compute_tbw_temporal_fusion_persep(
+                self, offs, n_trials=ntr, T=60, D=5, sigma=2.0, valley_threshold=0.4,
+                min_peak_height=0.2, min_peak_separation=3, min_total=10.0)
+            p = np.asarray([float(x) for x in p_fusion], dtype=float)
+            soa = np.asarray([o * 10.0 for o in offs], dtype=float)
+            out.update(self._tbw_reduce(p, soa))
+
+            # (b,d,e,S5) ONE coincident single-volley: E/I + plateau + rate + spatial-FWHM
+            self.reset_state(8)
+            self._panel_inh_accum = {k: [] for k in
+                ('mg_iA', 'mg_iV', 'mg_iA_on', 'mg_iV_on', 'v_dend_inhA', 'v_dend_inhV')}
+            self.start_ei_recording()
+            xA, xV, mask = self._panel_single_volley(B=8, T_frames=120)
+            for t in range(xA.shape[1]):
+                self.update_all_layers_batch(xA[:, t], xV[:, t], mask[:, t], return_spike_sum=True)
+            ei = self.stop_ei_recording()
+            acc = self._panel_inh_accum; self._panel_inh_accum = None
+
+            def _m(k):
+                v = ei.get(k)
+                return float(np.mean(v)) if (v is not None and len(v)) else float('nan')
+            QE, QI = _m('Q_E'), _m('Q_I')
+            out['P2B_Q_E'] = QE; out['P2B_Q_I'] = QI
+            out['P2B_EI_ratio'] = (QE / QI) if (QI and not np.isnan(QI)) else float('nan')
+            out['P2B_AMPA'] = _m('AMPA'); out['P2B_NMDA'] = _m('NMDA')
+            out['P2B_RecurInh'] = _m('RecurInh'); out['P2B_LatInh'] = _m('LatInh')
+            out['P2B_I_GABA'] = out['P2B_RecurInh'] + out['P2B_LatInh']
+            # plateau (S2): NMDA-plateau duration from per-substep mg-on series
+            res_ms = float(self.dt)
+            mga_on = np.asarray(acc['mg_iA_on'], dtype=float)
+            mgv_on = np.asarray(acc['mg_iV_on'], dtype=float)
+            on = (mga_on >= 0.5) | (mgv_on >= 0.5)
+            idx = np.where(on)[0]
+            out['S2_plateau_dur_ms'] = float((idx[-1] - idx[0] + 1) * res_ms) if idx.size else 0.0
+            out['S2_mg_iA_frac'] = float(np.mean(mga_on)) if mga_on.size else float('nan')
+            out['S2_mg_iV_frac'] = float(np.mean(mgv_on)) if mgv_on.size else float('nan')
+            out['S2_v_dend_inhA'] = float(np.mean(acc['v_dend_inhA'])) if acc['v_dend_inhA'] else float('nan')
+            out['S2_v_dend_inhV'] = float(np.mean(acc['v_dend_inhV'])) if acc['v_dend_inhV'] else float('nan')
+            # rate (P5-B) + sparseness (S7) from per-neuron post_rate_avg
+            rate = self.post_rate_avg.mean(0).detach()
+            hz = rate * (1000.0 / float(self.dt))
+            out['P5_peak_hz'] = float(hz.max().item())
+            n_act = int((hz > 1.0).sum().item())
+            out['P5_active_mean_hz'] = float(hz[hz > 1.0].mean().item()) if n_act else 0.0
+            out['P5_std_hz'] = float(hz.std().item())
+            out['S7_n_active'] = n_act
+            out['S7_pct_active'] = float((hz > 1.0).float().mean().item())
+            # (S5) spatial FWHM of the MSI population response
+            try:
+                out['S5_msi_fwhm_deg'] = float(msi_pop_fwhm(rate, space_size=self.space_size))
+            except Exception:
+                out['S5_msi_fwhm_deg'] = float('nan')
+
+            if full:
+                out['S5_ff_sigma'] = self._panel_ff_sigma("A2MSI")
+                # (f) MSE / multisensory enhancement (S6). self.evaluate_batch
+                # (substrate @3409) is otherwise-uncalled code with a latent final_t
+                # overflow (`non_blank[-1]+5` can exceed len(loc_seq) @~3489 ->
+                # IndexError). S6/MSE is the LOWEST-priority, every-5, sheddable metric
+                # (lead §0): degrade to NaN on ANY failure rather than crash the
+                # otherwise-valid panel-ON run. Substrate evaluate_batch is NOT touched.
+                try:
+                    e_both = float(self.evaluate_batch(50, condition="both", batch_size=50))
+                    e_a = float(self.evaluate_batch(50, condition="audio_only", batch_size=50))
+                    e_v = float(self.evaluate_batch(50, condition="visual_only", batch_size=50))
+                    u = min(e_a, e_v)
+                    out['S6_err_both'] = e_both; out['S6_err_audio'] = e_a; out['S6_err_visual'] = e_v
+                    out['S6_ME_pct'] = 100.0 * (e_both - u) / u if u > 1e-9 else float('nan')
+                except Exception as _s6e:
+                    out['S6_err_both'] = float('nan'); out['S6_err_audio'] = float('nan')
+                    out['S6_err_visual'] = float('nan'); out['S6_ME_pct'] = float('nan')
+                # (g) MSI_inh STP resources (S4)
+                out['S4_R_a_inh'] = float(self.R_a_inh.mean().item())
+                out['S4_R_v_inh'] = float(self.R_v_inh.mean().item())
+        finally:
+            self.plasticity_enabled = saved['plast']
+            self.enable_probe = saved['probe']
+            self._ei_record = saved['ei']
+            self.step_counter = saved['step']
+            self._panel_inh_accum = None
+            np.random.set_state(rng_np)  # DBG22-FIX restore numpy RNG
+            torch.set_rng_state(rng_cpu)
+            if rng_cuda is not None:
+                torch.cuda.set_rng_state_all(rng_cuda)
+        return out
+
+    def _epoch_panel_dump(self, epoch, seed):
+        """Assemble + append ONE panel row for (epoch, seed). Tap-A scalars are
+        read BEFORE the battery (which reset_states and would zero them)."""
+        if not getattr(self, '_panel_enabled', False):
+            return None
+        row = {'epoch': int(epoch), 'seed': int(seed)}
+        full = (int(epoch) % 5 == 0)
+        # (1) Tap-A FIRST: P5/S1 rates (stashed by print_epoch_spike_summary)
+        lr = self._last_rates_hz or {}
+        row['P5_A_hz'] = float(lr.get('A', float('nan')))
+        row['P5_V_hz'] = float(lr.get('V', float('nan')))
+        row['P5_MSI_hz'] = float(lr.get('MSI', float('nan')))
+        row['S1_MSIinh_hz'] = float(lr.get('MSI_inh', float('nan')))
+        # P2-A in-training E/I: stop + reduce Tap-A _ei_record
+        ei_keys = ['P2A_Q_E', 'P2A_Q_I', 'P2A_EI_ratio', 'P2A_AMPA', 'P2A_NMDA',
+                   'P2A_FFInh', 'P2A_RecurInh', 'P2A_LatInh', 'P2A_I_GABA']
+        if self._ei_record is not None:
+            ei = self.stop_ei_recording()
+
+            def _m(k):
+                v = ei.get(k)
+                return float(np.mean(v)) if (v is not None and len(v)) else float('nan')
+            QE, QI = _m('Q_E'), _m('Q_I')
+            row['P2A_Q_E'] = QE; row['P2A_Q_I'] = QI
+            row['P2A_EI_ratio'] = (QE / QI) if (QI and not np.isnan(QI)) else float('nan')
+            row['P2A_AMPA'] = _m('AMPA'); row['P2A_NMDA'] = _m('NMDA')
+            row['P2A_FFInh'] = _m('FFInh'); row['P2A_RecurInh'] = _m('RecurInh')
+            row['P2A_LatInh'] = _m('LatInh')
+            row['P2A_I_GABA'] = row['P2A_RecurInh'] + row['P2A_LatInh']
+        else:
+            for k in ei_keys:
+                row[k] = float('nan')
+        # S3 dW flux: reduce + clear
+        dW = self._panel_dW_accum or {}
+        tot = 0.0
+        for nm in ('W_inA', 'W_inV', 'W_a2msi_AMPA', 'W_v2msi_AMPA',
+                   'W_a2msi_NMDA', 'W_v2msi_NMDA'):
+            v = float(dW.get(nm, float('nan')))
+            row['S3_dW_' + nm] = v
+            if v == v:  # not NaN
+                tot += v
+        row['S3_dW_total'] = tot if dW else float('nan')
+        self._panel_dW_accum = None
+        # (2) direct-read weights (P3,P4,H2) + (3) health (H1,H3)
+        row.update(self._panel_weights_readout())
+        row.update(self._panel_health_readout())
+        # (5) battery (Tap-B)
+        row.update(self._panel_battery(seed, full=full))
+        # (6) append
+        self._panel_rows.append(row)
+        return row
+
     def reset_state(self, batch_size=None):
         if batch_size is not None:
             self.batch_size = batch_size
@@ -2193,6 +2478,15 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self.post_trace_msiInh2Exc = torch.zeros(
             (self.batch_size, self.n), dtype=torch.float32, device=self.device
         )
+        # Increment 3: re-zero recurrent MSI->MSI excitatory STDP traces.
+        self.pre_trace_msi_rec = torch.zeros(
+            (self.batch_size, self.n), dtype=torch.float32, device=self.device
+        )
+        self.post_trace_msi_rec = torch.zeros(
+            (self.batch_size, self.n), dtype=torch.float32, device=self.device
+        )
+        # delay-fix: clear the delayed recurrent-STDP pre at each sequence start.
+        self._prev_sMSI_rec = None
         self.ampa_m.zero_()  # clear low-pass AMPA state
 
         # clear conduction ring buffers
@@ -2205,6 +2499,8 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
 
         # reset NMDA gating
         self.nmda_m = torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device)
+        # recurrent MSI->MSI NMDA gating state (Increment 1; inert at g_rec=0).
+        self.nmda_m_rec = torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device)
         self.v_nmda = torch.full((self.batch_size, self.n), self.v_nmda_rest, dtype=torch.float32, device=self.device)
         self.nmda_m_inh = torch.zeros((self.batch_size, self.n_inh), dtype=torch.float32, device=self.device)
         self.v_nmda_inh = torch.full((self.batch_size, self.n_inh), self.v_nmda_rest, dtype=torch.float32,
@@ -2235,16 +2531,12 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
                                          dtype=torch.float32,
                                          device=self.device)
 
-        # task#200 Phase-6: zero the TRANSIENT per-batch HSS accumulators each minibatch
-        # (the persistent trackers msi_exc_rate/drive_persistent are deliberately NOT reset).
-        self._hss_spk_pn = torch.zeros(self.n, dtype=torch.float32, device=self.device)
-        self._hss_denom = 0.0
-
         # --- debug counters -------------------------------------------------
         self._dbg_spk_A = 0.0  # accumulated spikes in layer A
         self._dbg_spk_V = 0.0  # accumulated spikes in layer V
         self._dbg_spk_MSI = 0.0  # accumulated spikes in MSI excit
         self._dbg_steps = 0  # how many external frames have been seen
+        self._dbg_spk_Mi = 0.0  # task#21/S1: PV/FS spike accumulator
 
         # task #185 (minimal-arch §5.1): REMOVED AGC gate-state reset
         # (_last_agc_fast_t, _last_agc_slow_t no longer exist).
@@ -2263,11 +2555,14 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         rA = self._dbg_spk_A / norm
         rV = self._dbg_spk_V / norm
         rM = self._dbg_spk_MSI / norm
+        # task#21/S1: PV/FS (MSI inhibitory) rate — normalise by n_inh, NOT n
+        rMi = self._dbg_spk_Mi / (self._dbg_steps * self.n_inh)
 
         # Convert to Hz
         ms_per_frame = self.n_substeps * self.dt
         hz_fact = 1000.0 / ms_per_frame
         rA_hz, rV_hz, rM_hz = (x * hz_fact for x in (rA, rV, rM))
+        rMi_hz = rMi * hz_fact  # task#21/S1
 
         print(f"[rate] {tag:10s}"
               f"  A={rA_hz:6.2f} Hz"
@@ -2275,8 +2570,12 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
               f"  MSI={rM_hz:6.2f} Hz")
               # task #188: REMOVED (target=rho0*hz_fact) — no iSTDP setpoint
 
+        # task#21/E1: stash rates for the panel BEFORE the reset zeroes them (P5/S1)
+        self._last_rates_hz = dict(A=rA_hz, V=rV_hz, MSI=rM_hz, MSI_inh=rMi_hz)
+
         # ready for next epoch
         self._dbg_spk_A = self._dbg_spk_V = self._dbg_spk_MSI = 0.0
+        self._dbg_spk_Mi = 0.0
         self._dbg_steps = 0
 
     def update_all_layers_batch(self,
@@ -2363,6 +2662,7 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         buf_v2msi_inh = self.buffer_v2msi_inh
         buf_msi_inh2exc = self.buffer_msi_inh2exc
         buf_msi2out = self.buffer_msi2out
+        buf_msi_rec = self.buffer_msi_rec   # delay-fix: recurrent MSI->MSI delay line
 
         pos_a2msi = self._delay_positions["buffer_a2msi"]
         pos_v2msi = self._delay_positions["buffer_v2msi"]
@@ -2371,6 +2671,7 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         pos_v2msi_inh = self._delay_positions["buffer_v2msi_inh"]
         pos_msi_inh2exc = self._delay_positions["buffer_msi_inh2exc"]
         pos_msi2out = self._delay_positions["buffer_msi2out"]
+        pos_msi_rec = self._delay_positions["buffer_msi_rec"]   # delay-fix
 
         # task #27: when dt_correct_nmda is True, derive substep delays from
         # physical-ms attributes so the physical delay duration is dt-invariant.
@@ -2383,6 +2684,7 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             delay_v2msi_inh   = self._delay_substeps_from_ms(self.conduction_delay_v2msi_inh_ms)
             delay_msi_inh2exc = self._delay_substeps_from_ms(self.conduction_delay_msi_inh2exc_ms)
             delay_msi2out     = self._delay_substeps_from_ms(self.conduction_delay_msi2out_ms)
+            delay_msi_rec     = self._delay_substeps_from_ms(self.conduction_delay_msi_rec_ms)
         else:
             delay_a2msi = self.conduction_delay_a2msi
             delay_v2msi = self.conduction_delay_v2msi
@@ -2390,6 +2692,7 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             delay_v2msi_inh = self.conduction_delay_v2msi_inh
             delay_msi_inh2exc = self.conduction_delay_msi_inh2exc
             delay_msi2out = self.conduction_delay_msi2out
+            delay_msi_rec = self.conduction_delay_msi_rec
 
         zero_exc = torch.zeros((batch_size, self.n), device=self.device)
         zero_inh = torch.zeros((batch_size, self.n_inh), device=self.device)
@@ -2397,6 +2700,7 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         # ---- accumulate debug counters on GPU, sync once at end ----
         dbg_spk_A = torch.tensor(0.0, device=self.device)
         dbg_spk_V = torch.tensor(0.0, device=self.device)
+        dbg_spk_Mi = torch.tensor(0.0, device=self.device)  # task#21/S1: PV/FS
         dbg_spk_M = torch.tensor(0.0, device=self.device)
 
         for sub_i in range(self.n_substeps):
@@ -2423,6 +2727,9 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             delayed_spikes_v2msi_inh = buf_v2msi_inh[pos_v2msi_inh] if delay_v2msi_inh > 0 else zero_exc
             delayed_spikes_msi_inh2exc = buf_msi_inh2exc[pos_msi_inh2exc] if delay_msi_inh2exc > 0 else zero_inh
             delayed_spikes_msi2out = buf_msi2out[pos_msi2out] if delay_msi2out > 0 else zero_exc
+            # delay-fix: recurrent MSI->MSI presynaptic spikes, delayed by
+            # conduction_delay_msi_rec substeps (100 = 10 ms = 1 external step).
+            delayed_spikes_msi_rec = buf_msi_rec[pos_msi_rec] if delay_msi_rec > 0 else zero_exc
 
             # ============== A->MSI (AMPA+NMDA) ==============
             # (Tsodyks-Markram STP usage for A->MSI)
@@ -2601,6 +2908,16 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             self.v_nmda_inh += self.dt * dv_nmda_inh
             mg_iA = 1.0 / (1.0 + torch.exp(-self.mg_k * (self.v_dend_inhA - self.mg_vhalf)))
             mg_iV = 1.0 / (1.0 + torch.exp(-self.mg_k * (self.v_dend_inhV - self.mg_vhalf)))
+            # task#21/E2/S2: INH-plateau accumulator — battery single-volley probe ONLY
+            # (_panel_inh_accum is None during training => strict no-op, trajectory-neutral)
+            if self._panel_inh_accum is not None:
+                _pa = self._panel_inh_accum
+                _pa['mg_iA'].append(mg_iA.mean().item())
+                _pa['mg_iV'].append(mg_iV.mean().item())
+                _pa['mg_iA_on'].append((mg_iA > 0.5).float().mean().item())
+                _pa['mg_iV_on'].append((mg_iV > 0.5).float().mean().item())
+                _pa['v_dend_inhA'].append(self.v_dend_inhA.mean().item())
+                _pa['v_dend_inhV'].append(self.v_dend_inhV.mean().item())
             I_nmda_inh = self.gNMDA * self.nmda_m_inh * (mg_iA + mg_iV) * (self.Erev_nmda - self.v_msi_inh)
             # task #135: unified linear dt-scaling for inhibitory NMDA (same as
             # the I_M site above; `dt_linear_scale = dt / 0.1` precomputed at
@@ -2669,6 +2986,40 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             # (tau_gaba decay = 50ms biology) instead of fast I_M. Magnitude
             # is added as positive; subtracted from I_M at integration.
             self.I_M_gaba.add_(self.g_GABA * I_latM)
+
+            # ── recurrent MSI->MSI excitation — Increment 1 (INERT at g_rec=0) ──
+            # Excitatory sibling of the surround inhibition just above: this
+            # substep's MSI spikes (new_sM) drive a narrow local Gaussian
+            # (W_MSI_exc) carrying co-localised AMPA + NMDA with driving force
+            # and a single FF dendritic Mg-block gate (mg_A) — mirroring the FF
+            # A/V->MSI NMDA physics, only the conductance SOURCE differs (MSI
+            # spikes, not afferents) — injected into the fast excitatory channel
+            # I_M. (The recurrent input shares the FF dendritic Mg gate; a
+            # dedicated recurrent dendritic compartment is an activation-increment
+            # option, inert here at g_rec=0.) The whole
+            # block is gated on g_rec: at the default 0.0 it does not execute, so
+            # I_M / nmda_m_rec are untouched and inference is bit-identical to the
+            # pre-recurrence build. dt_linear_scale keeps the injection
+            # dt-invariant exactly like the FF AMPA/NMDA sites. No plasticity yet.
+            if self.g_rec != 0.0:
+                # delay-fix EDIT #1: inject from the DELAYED recurrent spikes
+                # (presynaptic MSI activity from 1 external step / 10 ms ago) instead
+                # of the instantaneous new_sM, so pre leads post on the recurrent path.
+                g_rec_syn = F.linear(delayed_spikes_msi_rec, self.W_MSI_exc)   # (B,n) conductance
+                I_rec_ampa = (self.gAMPA * (self.rec_ampa_frac * g_rec_syn)
+                              * (self.Erev_ampa - self.v_msi))
+                self.nmda_m_rec.mul_(nmda_decay)
+                self.nmda_m_rec.add_(self.nmda_alpha * (self.rec_nmda_frac * g_rec_syn))
+                # single post-synaptic Mg-unblock gate. v_dend_A ≡ v_dend_V are
+                # degenerate (identical init + identical passive coupling to the same
+                # soma, no differential A/V dendritic drive) ⇒ mg_A ≡ mg_V, so the FF
+                # site's (mg_A+mg_V) would be a literal 2× double-count on this NEW
+                # untuned recurrent path. Use ONE gate (mg_A) — each FF NMDA pathway
+                # is itself gated by exactly one Mg factor — preserving the intended
+                # 0.75:0.25 recurrent NMDA:AMPA balance.
+                I_rec_nmda = (self.gNMDA * self.nmda_m_rec * mg_A
+                              * (self.Erev_nmda - self.v_msi))
+                self.I_M.add_(self.g_rec * (I_rec_ampa + I_rec_nmda) * dt_linear_scale)
 
             # ── E/I component recording (separate synaptic currents) ──
             if self._ei_record is not None:
@@ -2783,6 +3134,10 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             if delay_msi2out > 0:
                 buf_msi2out[pos_msi2out].copy_(new_sM)
                 pos_msi2out = (pos_msi2out + 1) % delay_msi2out
+            # delay-fix: push this substep's MSI spikes into the recurrent delay line.
+            if delay_msi_rec > 0:
+                buf_msi_rec[pos_msi_rec].copy_(new_sM)
+                pos_msi_rec = (pos_msi_rec + 1) % delay_msi_rec
 
             sA, sV, sM, sMi, sO = new_sA, new_sV, new_sM, new_sMi, new_sO
 
@@ -2824,8 +3179,8 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             # ---------- epoch-level debug counters (GPU accumulate) ----
             dbg_spk_A += sA.sum()
             dbg_spk_V += sV.sum()
+            dbg_spk_Mi += sMi.sum()  # task#21/S1: PV/FS spikes (mirror of sM, post-mask)
             dbg_spk_M += sM.sum()
-            self._hss_spk_pn += sM.sum(0)  # task#200 Phase-6: per-neuron MSI_exc spikes, summed over batch (per-batch accumulator)
 
             if curr_debug:
                 self.debug_msi_current_and_stp(sub_i)
@@ -2867,15 +3222,14 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self._delay_positions["buffer_v2msi_inh"] = pos_v2msi_inh
         self._delay_positions["buffer_msi_inh2exc"] = pos_msi_inh2exc
         self._delay_positions["buffer_msi2out"] = pos_msi2out
+        self._delay_positions["buffer_msi_rec"] = pos_msi_rec   # delay-fix
 
         # ------ sync debug counters (one GPU->CPU transfer) ------
         self._dbg_spk_A += dbg_spk_A.item()
         self._dbg_spk_V += dbg_spk_V.item()
         self._dbg_spk_MSI += dbg_spk_M.item()
+        self._dbg_spk_Mi += dbg_spk_Mi.item()  # task#21/S1: PV/FS host-sync
         self._dbg_steps += batch_size
-        # task#200 Phase-6: per-batch denom for the net-rate sensor (substeps*trials in
-        # THIS frame; summed over the for-t loop -> total substep-trials for the batch).
-        self._hss_denom += self.n_substeps * batch_size
 
         # ------------------------------------------------------------------
         # ------------------------------------------------------------------
@@ -2927,57 +3281,6 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             return sA, sV, sM, sO  # 4 objs
 
     # ─────────────────────────────────────────────────────────
-    def homeostatic_exc_scaling(self, sensor='net_rate', r_target=1.17,
-                                alpha=2e-3, step_clip=0.10):
-        """task#200 Phase-6 — Turrigiano-type multiplicative homeostatic excitatory
-        synaptic scaling on the 4 FF->MSI_exc weights. Supplies the activity-setpoint
-        homeostat the MSI_exc weights previously lacked (the Oja anchor targets a
-        weight PATTERN, not a rate -> runaway exc-drive collapse as iSTDP matures;
-        debugger-2's proven root cause of the ep50 wide-box fusion).
-
-        Normalized-difference form (NOT a ratio -> avoids the rate->0 blow-up):
-            deficit = (r_target - signal) / r_target          # >0 => under-active => UP
-            scale   = clamp(1 + alpha*deficit, 1 +/- step_clip)
-        Per-postsynaptic-row scaling preserves each MSI_exc neuron's receptive-field
-        PATTERN (matches the Oja anchor's r_post.unsqueeze(1) convention). Caps = the
-        pre-existing per-synapse soft-bound wmax (receptor saturation), NOT a new cap.
-
-        sensor='net_rate'  -> signal = self.msi_exc_rate_persistent  (Hz)
-        sensor='exc_drive' -> signal = self.msi_exc_drive_persistent (Sum FF->MSI_exc W)
-        Both signals are persistent per-MSI_exc-neuron trackers, shape (n,). The
-        sensor + r_target are finalized by the lead post-data; this method is agnostic
-        to which is active.
-        """
-        with torch.no_grad():
-            if sensor == 'net_rate':
-                signal = self.msi_exc_rate_persistent
-            elif sensor == 'exc_drive':
-                signal = self.msi_exc_drive_persistent
-            else:
-                raise ValueError(f"homeostatic_exc_scaling: unknown sensor {sensor!r} "
-                                 f"(expected 'net_rate' or 'exc_drive')")
-            # Normalized-difference deficit, CLAMPED to [-1,+1] (purple silent-neuron
-            # rule): a rate-0 neuron yields deficit=+1 -> bounded scale at the per-step
-            # rate-limit (with alpha=2e-3 the per-step factor stays ~[0.998,1.002]),
-            # never an unbounded kick.
-            deficit = ((r_target - signal) / r_target).clamp(-1.0, 1.0)  # (n,) >0 => under-active
-            scale = (1.0 + alpha * deficit).clamp(1.0 - step_clip, 1.0 + step_clip)
-            # Silent-neuron rule: a persistent rate < 5% of r* is an unrepresented map
-            # edge -> ALLOW scale-DOWN but FREEZE scale-UP (don't drive silent rows to
-            # cap -> no spurious tuning). Scale-down (scale<1) passes through untouched.
-            silent = signal < (0.05 * r_target)                          # (n,)
-            scale = torch.where(silent & (scale > 1.0), torch.ones_like(scale), scale)
-            s = scale.unsqueeze(1)                                       # (n,1) per-row
-            for attr in ('W_a2msi_AMPA', 'W_a2msi_NMDA',
-                         'W_v2msi_AMPA', 'W_v2msi_NMDA'):
-                W = getattr(self, attr)
-                W.mul_(s)
-                # Floor 1e-9 (NOT 0): matches the codebase soft-bound floor (L3146-52);
-                # multiplicative scaling can't lift a weight off exactly 0, so a 0 floor
-                # would make any fully-depressed row permanently unrecoverable.
-                W.clamp_(min=1e-9, max=self._softbound_wmax[attr])
-
-    # ─────────────────────────────────────────────────────────
     # ─────────────────────────────────────────────────────────
     def stdp_update_batch(self,
                           W_attr: str,
@@ -3012,24 +3315,7 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
                 ltd += torch.ger(post_trace[b], pre_spk[b])
             _g_ltp = (_Wmax - W).clamp(min=0.0).pow(_mu)
             _g_ltd = W.clamp(min=0.0).pow(_mu)
-            # ── task#200 iterate#2 — BCM SLIDING THRESHOLD on the LTD term (FF->MSI only) ──
-            # _softbound_wmax is EXACTLY the 4 FF->MSI_exc weights (L142x; uni W_inA/W_inV
-            # are additive -> else-branch), and each has post-dim = n (= n_MSI), so the
-            # per-row theta.unsqueeze(1) broadcasts exactly like the HSS scaler's
-            # s.unsqueeze(1). The explicit _is_ffmsi guard names those 4 weights so a future
-            # non-MSI entry in _softbound_wmax can never silently inherit an MSI-rate theta.
-            # theta = rate_sensor / r* makes LTD amplitude rate-dependent: r_post>r* ->
-            # theta>1 -> more LTD -> drive DOWN; r_post<r* -> theta<1 -> net potentiation ->
-            # drive UP. Fixed point AT r_post=r* by construction. Linear ratio (exponent=1),
-            # clamp [0.3,3.0]; consumes the existing per-batch EMA sensor (beta=0.05, no
-            # separate beta_theta this iterate). bcm_theta_enabled=False -> theta==1 ablation.
-            _is_ffmsi = W_attr in ('W_a2msi_AMPA', 'W_a2msi_NMDA',
-                                   'W_v2msi_AMPA', 'W_v2msi_NMDA')
-            if _is_ffmsi and getattr(self, 'bcm_theta_enabled', True):
-                theta = (self.msi_exc_rate_persistent / self.hss_r_target).clamp(min=0.3, max=3.0)  # (n,)
-                dW = A_plus * _g_ltp * ltp - A_minus * theta.unsqueeze(1) * _g_ltd * ltd
-            else:
-                dW = A_plus * _g_ltp * ltp - A_minus * _g_ltd * ltd
+            dW = A_plus * _g_ltp * ltp - A_minus * _g_ltd * ltd
         else:
             dW = torch.zeros_like(W)
             for b in range(B):
@@ -3039,6 +3325,12 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
 
         # Apply via the positive reparam
         self._p_add(W_attr, dW)
+
+        # task#21/E3/S3: Tap-A FF dW-flux capture (read-only; _panel_dW_accum is
+        # None unless run_training set it this epoch => strict no-op otherwise).
+        # Centralised here so all 6 FF STDP weights are caught in one place.
+        if self._panel_dW_accum is not None and W_attr in self._panel_dW_accum:
+            self._panel_dW_accum[W_attr] += dW.abs().sum().item()
 
         return pre_trace, post_trace, dW
 
@@ -3202,6 +3494,37 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
                     A_minus=1,
                     debug=debug)
 
+                # Increment 3: recurrent MSI->MSI excitatory STDP, gated post-ep25
+                # to match the MSI plasticity staging (the g_rec conductance turns
+                # on at the same epoch gate). Faithful mirror of the FF->MSI
+                # excitatory STDP above: SAME stdp_update_batch rule, lr, and trace
+                # machinery — the ONLY change is the recurrent source/target
+                # (pre == post == MSI population spikes sMSI). The learned iSTDP on
+                # W_msiInh2Exc_GABA is the stabilizer; W_MSI_exc is intentionally
+                # NOT registered in _softbound_wmax (no added homeostatic cap), so
+                # it uses the additive STDP branch under the universal _p_add
+                # guardrail. Diagonal re-zeroed each step to preserve the
+                # no-autapse structure (init fill_diagonal_(0)).
+                if epoch_idx > 25:
+                    # delay-fix EDIT #2: the recurrent STDP pre is the PREVIOUS external
+                    # step's MSI spikes (delayed by 1 external step), so pre leads post.
+                    # This breaks the post==pre==sMSI antisymmetric LTP=LTD cancellation
+                    # (debugger H1; matches the §B harness lag=1 proof). post stays the
+                    # current-step sMSI; the pre-trace is built off the delayed pre inside
+                    # stdp_update_batch. _prev is None (=> zeros) at each sequence start.
+                    pre_spk_rec = (self._prev_sMSI_rec if self._prev_sMSI_rec is not None
+                                   else torch.zeros_like(sMSI))
+                    self.pre_trace_msi_rec, self.post_trace_msi_rec, _ = self.stdp_update_batch(
+                        'W_MSI_exc',
+                        post_spk=sMSI,
+                        pre_spk=pre_spk_rec,
+                        post_trace=self.post_trace_msi_rec,
+                        pre_trace=self.pre_trace_msi_rec,
+                        lr=self.lr_msi,
+                        debug=debug)
+                    self.W_MSI_exc.data.fill_diagonal_(0.0)
+                    self._prev_sMSI_rec = sMSI.detach()
+
                 # --- OPTIONAL: re-normalise AMPA/NMDA split -------------------
                 # Task #66 fix: migrated from set_param_weight()/parametrizations
                 # to direct .copy_() ops with _p_add-style clamp bounds
@@ -3216,54 +3539,15 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
                     else:
                         _cap_aA = _cap_aN = _cap_vA = _cap_vN = 5.0
                     W_tot_a = self.W_a2msi_AMPA + self.W_a2msi_NMDA
-                    W_tot_v = self.W_v2msi_AMPA + self.W_v2msi_NMDA
-                    if getattr(self, '_resplit_instr', False):
-                        # task#200 iterate#2 Part C' verification — count entries this 25/75
-                        # re-split clamps (over-cap) + the over-cap mass it drops. With C' on
-                        # (weights<=wmax) -> W_tot<=0.024 -> stays 0; with C' off -> the leak.
-                        for _pre, _cap in ((0.25 * W_tot_a, _cap_aA), (0.75 * W_tot_a, _cap_aN),
-                                           (0.25 * W_tot_v, _cap_vA), (0.75 * W_tot_v, _cap_vN)):
-                            _over = (_pre - _cap).clamp(min=0.0)
-                            self._resplit_clamp_n    += int((_over > 0).sum().item())
-                            self._resplit_clamp_mass += float(_over.sum().item())
-                    # A -> MSI connections — redistribute 25/75 AMPA/NMDA
                     self.W_a2msi_AMPA.copy_((0.25 * W_tot_a).clamp_(min=1e-9, max=_cap_aA))
                     self.W_a2msi_NMDA.copy_((0.75 * W_tot_a).clamp_(min=1e-9, max=_cap_aN))
+
                     # V -> MSI connections — redistribute 25/75 AMPA/NMDA
+                    W_tot_v = self.W_v2msi_AMPA + self.W_v2msi_NMDA
                     self.W_v2msi_AMPA.copy_((0.25 * W_tot_v).clamp_(min=1e-9, max=_cap_vA))
                     self.W_v2msi_NMDA.copy_((0.75 * W_tot_v).clamp_(min=1e-9, max=_cap_vN))
 
             # end-for t
-
-            # ── task#200 Phase-6 (lead-locked Option A): ONCE-PER-MINI-BATCH Turrigiano
-            # homeostatic excitatory synaptic scaling — the SLOW homeostat (one actuation
-            # per batch; per-frame would inflate the gain T_max-fold). Gated epoch>25 under
-            # plasticity_enabled. EMA this batch's sensor signal(s) into the NEVER-reset
-            # persistent tracker(s), then scale ONCE. _hss_spk_pn/_hss_denom were
-            # accumulated over the for-t loop and are zeroed by the next reset_state.
-            if getattr(self, 'plasticity_enabled', True) and epoch_idx > 25:
-                with torch.no_grad():
-                    beta = float(self.hss_beta)
-                    # net-rate sensor: this batch's mean spikes/substep/neuron -> Hz
-                    denom = max(float(self._hss_denom), 1.0)
-                    rate_hz = (self._hss_spk_pn / denom) * (1000.0 / self.dt)   # (n,)
-                    self.msi_exc_rate_persistent.mul_(1.0 - beta).add_(beta * rate_hz)
-                    # exc-drive sensor: per-postsynaptic-row Sum FF->MSI_exc weight
-                    # magnitude (= the debugger's Wtot drive proxy)
-                    drive = (self.W_a2msi_AMPA.sum(dim=1) + self.W_a2msi_NMDA.sum(dim=1) +
-                             self.W_v2msi_AMPA.sum(dim=1) + self.W_v2msi_NMDA.sum(dim=1))  # (n,)
-                    self.msi_exc_drive_persistent.mul_(1.0 - beta).add_(beta * drive)
-                # task#200 iterate#2 — HSS multiplicative scaler DISABLED (replaced by the
-                # BCM sliding threshold in the STDP rule core). The rate-sensor EMA above
-                # (msi_exc_rate_persistent / msi_exc_drive_persistent) KEEPS updating because
-                # the BCM theta consumes the rate sensor; only the scale-APPLICATION is the
-                # no-op. Flip hss_scaler_enabled=True to restore the old behaviour.
-                if getattr(self, 'hss_scaler_enabled', False):
-                    self.homeostatic_exc_scaling(sensor=self.hss_sensor,
-                                                 r_target=self.hss_r_target,
-                                                 alpha=self.hss_alpha,
-                                                 step_clip=self.hss_step_clip)
-
             seq_counter += B
 
             # (Optional) print diagnostics once per mini-batch
@@ -3553,13 +3837,6 @@ def make_checkpoint(net,
         eta_istdp=net.eta_istdp,
         istdp_baseline=net.istdp_baseline,
         W_gaba_clamp=net.W_gaba_clamp,
-
-        # task#200 Phase-6: Turrigiano homeostatic exc synaptic-scaling config
-        hss_sensor=net.hss_sensor,
-        hss_r_target=net.hss_r_target,
-        hss_alpha=net.hss_alpha,
-        hss_step_clip=net.hss_step_clip,
-        hss_beta=net.hss_beta,
 
         # conduction delays outside the constructor
         # task#192 Phase A: removed conduction_delay_inA_inh / _inV_inh
@@ -4061,13 +4338,48 @@ def plot_temporal_binding(results, *, fit_model="gaussian", **fit_kw):
     print("Int. spikes  :", ints.tolist())  # diagnostics
 
 
+def _write_panel_outputs(rows, out_dir, seed):
+    """task#21/E6: write per-epoch panel rows -> panel_seed{seed}.csv + .npz."""
+    import csv, os
+    if not rows:
+        print(f"[panel] no rows to write for seed {seed}")
+        return
+    keys = []
+    for r in rows:
+        for k in r:
+            if k not in keys:
+                keys.append(k)
+    os.makedirs(out_dir, exist_ok=True)
+    csv_path = os.path.join(out_dir, f"panel_seed{seed}.csv")
+    with open(csv_path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=keys)
+        w.writeheader()
+        for r in rows:
+            w.writerow({k: r.get(k, "") for k in keys})
+    cols = {k: np.array([r.get(k, float('nan')) for r in rows], dtype=float) for k in keys}
+    npz_path = os.path.join(out_dir, f"panel_seed{seed}.npz")
+    np.savez(npz_path, **cols)
+    print(f"[panel] wrote {csv_path} + {npz_path} ({len(rows)} rows, {len(keys)} cols)")
+
+
 def run_training(
         batch_size=1000,
         n_unsup_epochs=80,
+        seed=None,
+        panel=False,
+        panel_out_dir=".",
 ):
     """
     Main training run
     """
+    # task#21/E7: deterministic per-replicate seeding (seed=None preserves any
+    # seeding already done by the caller, e.g. train_and_save).
+    if seed is not None:
+        torch.manual_seed(int(seed))
+        np.random.seed(int(seed))
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(int(seed))
+    _seed_tag = int(seed) if seed is not None else 0
     print(f"Initializing network with batch size {batch_size}...")
     net = MultiBatchAudVisMSINetworkTime(
         n_neurons=180,
@@ -4131,6 +4443,10 @@ def run_training(
         net.v_nmda_rest = -65.0
         net.nmda_vrest_offset = 7.0
         net.mg_vhalf = -35.0
+        # task#21/E8 (RUN CONFIG §0) — the ONLY parameter change from 3a29fa88.
+        # tau_nmda_inh default is 45.0 (interneuron NMDA decay @~1507); 21.6 ms
+        # halves the IN NMDA-plateau (Task #18). Smoke asserts ==21.6 @ ep0.
+        net.tau_nmda_inh = 21.6
 
 
     net.u_a.fill_(0.7)
@@ -4152,6 +4468,13 @@ def run_training(
     print("\n--- STDP training (unsupervised) ---")
     unsup_start = time.time()
     last_ep = 0
+    if panel:
+        # task#21/E6a: enable the read-only per-epoch logging panel.
+        net._panel_enabled = True
+        net._panel_seed = _seed_tag
+        net._panel_rows = []
+        print(f"[panel] ENABLED seed={_seed_tag} out_dir={panel_out_dir} "
+              f"tau_nmda_inh={getattr(net, 'tau_nmda_inh', None)}")
     for epoch in range(n_unsup_epochs):
         last_ep = epoch
         epoch_start = time.time()
@@ -4163,11 +4486,33 @@ def run_training(
         with torch.no_grad():
             W_before = net.W_inA.clone()  # snapshot *before* training
 
+        if panel:
+            # task#21/E6b: Tap-A taps — FF dW-flux accumulator + in-training E/I
+            # recording around train_unsupervised_batch (both read-only).
+            net._panel_dW_accum = {nm: 0.0 for nm in
+                ('W_inA', 'W_inV', 'W_a2msi_AMPA', 'W_v2msi_AMPA',
+                 'W_a2msi_NMDA', 'W_v2msi_NMDA')}
+            net.start_ei_recording()
+
+        # Increment 3: recurrent MSI->MSI excitation schedule — OFF until the
+        # post-ep25 MSI plasticity stage, then static g_rec=0.1, matching the
+        # epoch_idx>25 gate on the recurrent STDP (0-indexed: ON from epoch 26).
+        net.g_rec = 0.1 if epoch > 25 else 0.0
         net.train_unsupervised_batch(1000, batch_size=256, debug=False, epoch_idx=epoch)  # run some sequences
         net.print_epoch_spike_summary(f"unsup {epoch + 1:02d}")
 
         if 2 <= epoch <= 79:
             net._probe.report(net, f"epoch {epoch}")
+
+        if panel:
+            # task#21/E6c: assemble + append the panel row; full ckpt every-5.
+            net._epoch_panel_dump(epoch, _seed_tag)
+            if epoch % 5 == 0:
+                import os as _os
+                _ck = make_checkpoint(net, epoch=epoch,
+                                      comment=f"panel seed{_seed_tag} ep{epoch}")
+                torch.save(_ck, _os.path.join(panel_out_dir,
+                                              f"ckpt_ep{epoch}_seed{_seed_tag}.pt"))
 
         with torch.no_grad():
             delta = (net.W_inA - W_before).abs().max().item()
@@ -4176,6 +4521,10 @@ def run_training(
         print(f"  Unsup Epoch {epoch + 1}/{n_unsup_epochs} - Time: {epoch_time:.2f}s")
     unsup_time = time.time() - unsup_start
     print(f"Unsupervised training completed in {unsup_time:.2f}s")
+
+    if panel:
+        # task#21/E6d: write per-epoch panel rows for this replicate.
+        _write_panel_outputs(net._panel_rows, panel_out_dir, _seed_tag)
 
     net.set_inhib_plasticity(False)
 

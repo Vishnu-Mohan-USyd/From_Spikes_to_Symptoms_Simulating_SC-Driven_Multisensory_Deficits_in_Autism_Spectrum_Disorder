@@ -368,6 +368,19 @@ def main():
     parser.add_argument("--model_idx", type=int, required=True, help="0..4")
     parser.add_argument("--n_epochs", type=int, default=N_EPOCHS)
     parser.add_argument("--prefix", type=str, default="task192", help="output prefix for ckpt/csv/workdir")
+    # task#200 Phase-6 (option b): homeostatic exc-scaling knobs -> set on net post-construction
+    # (mutable_hparams). r*/alpha default None => keep Training.py default (no override) so
+    # Training.py md5 stays stable across r* tweaks. r_target is in TRACKER units (calibrated).
+    parser.add_argument("--hss_sensor", type=str, default="net_rate",
+                        choices=["net_rate", "exc_drive"], help="task#200 homeostatic sensor")
+    parser.add_argument("--hss_r_target", type=float, required=True,
+                        help="task#200 calibrated r*_tracker (tracker units); REQUIRED (lead decision 3) "
+                             "-- NO None->1.17 placeholder fallback; a forgotten flag crashes loudly "
+                             "instead of silently using the catastrophic 1.17.")
+    parser.add_argument("--hss_alpha", type=float, default=None,
+                        help="task#200 per-batch scale gain; None=Training.py default")
+    parser.add_argument("--hss_step_clip", type=float, default=None,
+                        help="task#200 per-batch +/- clamp on the scale factor; None=Training.py default")
     args = parser.parse_args()
     model_idx = args.model_idx
     n_epochs = args.n_epochs
@@ -442,6 +455,24 @@ def main():
     net.tau_rec = 400.0
     net.input_scaling = 400
     net.g_GABA = 10
+
+    # ----- task#200 Phase-6: homeostatic exc-scaling config (option b, argparse) -----
+    # Override Training.py defaults on the net; these are exported in mutable_hparams, so
+    # they persist into every ckpt. r_target is in TRACKER units (trial-averaged Hz, ~25x
+    # deflated vs evoked) -> the CALIBRATED r*_tracker, NOT 30. When overriding r_target,
+    # RE-SEED both persistent trackers to it so deficit~0 at the epoch-26 onset (no
+    # cold-start scaling kick). None => keep the Training.py default untouched.
+    net.hss_sensor = args.hss_sensor
+    if args.hss_r_target is not None:
+        net.hss_r_target = float(args.hss_r_target)
+        net.msi_exc_rate_persistent.fill_(float(args.hss_r_target))
+        net.msi_exc_drive_persistent.fill_(float(args.hss_r_target))
+    if args.hss_alpha is not None:
+        net.hss_alpha = float(args.hss_alpha)
+    if args.hss_step_clip is not None:
+        net.hss_step_clip = float(args.hss_step_clip)
+    print(f"[net cfg] task#200 HSS: sensor={net.hss_sensor} r_target={net.hss_r_target} "
+          f"alpha={net.hss_alpha} step_clip={net.hss_step_clip} beta={net.hss_beta}", flush=True)
 
     # ----- frozen-identity reference: FF->PV (W_*2msiInh_*) must NOT drift -----
     # pre-registered Stage-1 KILL (retrain2_gate_spec): max|d vs init|=0. These are
