@@ -1,0 +1,11 @@
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Generated measurement outputs (reproducible from the shipped checkpoints + npz; not tracked).
+# The SBW profile inputs (out/*.npz, out/diag_141_pedestal.json) ARE tracked and stay shipped.
+logs/
+out/measure_107_*.json
+out/ensemble_92_*.json
+out/*.png
+out/*.log
