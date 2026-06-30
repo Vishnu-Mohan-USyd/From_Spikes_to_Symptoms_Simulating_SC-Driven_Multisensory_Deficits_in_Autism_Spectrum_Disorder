@@ -1,0 +1,771 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="1164pt" height="891.3375pt" viewBox="0 0 1164 891.3375" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:date>2026-06-30T15:29:43.267540</dc:date>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.10.8, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 891.3375 
+L 1164 891.3375 
+L 1164 0 
+L 0 0 
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 280.889241 685.45 
+L 916.409241 685.45 
+L 916.409241 49.93 
+L 280.889241 49.93 
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g clip-path="url(#p57d7fed5a0)">
+    <image xlink:href="data:image/png;base64,
+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" id="imageddaa60b288" transform="scale(1 -1) translate(0 -635.76)" x="280.889241" y="-49.69" width="635.76" height="635.76"/>
+   </g>
+   <g id="matplotlib.axis_1">
+    <g id="xtick_1">
+     <g id="line2d_1">
+      <defs>
+       <path id="m704baa9f5c" d="M 0 0 
+L 0 14 
+" style="stroke: #000000; stroke-width: 2"/>
+      </defs>
+      <g>
+       <use xlink:href="#m704baa9f5c" x="312.665241" y="685.45" style="stroke: #000000; stroke-width: 2"/>
+      </g>
+     </g>
+     <g id="text_1">
+      <text style="font-size: 40px; font-family: 'Roboto'; text-anchor: middle" x="312.665241" y="732.95" transform="rotate(-0 312.665241 732.95)">2</text>
+     </g>
+    </g>
+    <g id="xtick_2">
+     <g id="line2d_2">
+      <g>
+       <use xlink:href="#m704baa9f5c" x="376.217241" y="685.45" style="stroke: #000000; stroke-width: 2"/>
+      </g>
+     </g>
+     <g id="text_2">
+      <text style="font-size: 40px; font-family: 'Roboto'; text-anchor: middle" x="376.217241" y="732.95" transform="rotate(-0 376.217241 732.95)">4</text>
+     </g>
+    </g>
+    <g id="xtick_3">
+     <g id="line2d_3">
+      <g>
+       <use xlink:href="#m704baa9f5c" x="439.769241" y="685.45" style="stroke: #000000; stroke-width: 2"/>
+      </g>
+     </g>
+     <g id="text_3">
+      <text style="font-size: 40px; font-family: 'Roboto'; text-anchor: middle" x="439.769241" y="732.95" transform="rotate(-0 439.769241 732.95)">6</text>
+     </g>
+    </g>
+    <g id="xtick_4">
+     <g id="line2d_4">
+      <g>
+       <use xlink:href="#m704baa9f5c" x="503.321241" y="685.45" style="stroke: #000000; stroke-width: 2"/>
+      </g>
+     </g>
+     <g id="text_4">
+      <text style="font-size: 40px; font-family: 'Roboto'; text-anchor: middle" x="503.321241" y="732.95" transform="rotate(-0 503.321241 732.95)">8</text>
+     </g>
+    </g>
+    <g id="xtick_5">
+     <g id="line2d_5">
+      <g>
+       <use xlink:href="#m704baa9f5c" x="566.873241" y="685.45" style="stroke: #000000; stroke-width: 2"/>
+      </g>
+     </g>
+     <g id="text_5">
+      <text style="font-size: 40px; font-family: 'Roboto'; text-anchor: middle" x="566.873241" y="732.95" transform="rotate(-0 566.873241 732.95)">10</text>
+     </g>
+    </g>
+    <g id="xtick_6">
+     <g id="line2d_6">
+      <g>
+       <use xlink:href="#m704baa9f5c" x="630.425241" y="685.45" style="stroke: #000000; stroke-width: 2"/>
+      </g>
+     </g>
+     <g id="text_6">
+      <text style="font-size: 40px; font-family: 'Roboto'; text-anchor: middle" x="630.425241" y="732.95" transform="rotate(-0 630.425241 732.95)">12</text>
+     </g>
+    </g>
+    <g id="xtick_7">
+     <g id="line2d_7">
+      <g>
+       <use xlink:href="#m704baa9f5c" x="693.977241" y="685.45" style="stroke: #000000; stroke-width: 2"/>
+      </g>
+     </g>
+     <g id="text_7">
+      <text style="font-size: 40px; font-family: 'Roboto'; text-anchor: middle" x="693.977241" y="732.95" transform="rotate(-0 693.977241 732.95)">14</text>
+     </g>
+    </g>
+    <g id="xtick_8">
+     <g id="line2d_8">
+      <g>
+       <use xlink:href="#m704baa9f5c" x="757.529241" y="685.45" style="stroke: #000000; stroke-width: 2"/>
+      </g>
+     </g>
+     <g id="text_8">
+      <text style="font-size: 40px; font-family: 'Roboto'; text-anchor: middle" x="757.529241" y="732.95" transform="rotate(-0 757.529241 732.95)">16</text>
+     </g>
+    </g>
+    <g id="xtick_9">
+     <g id="line2d_9">
+      <g>
+       <use xlink:href="#m704baa9f5c" x="821.081241" y="685.45" style="stroke: #000000; stroke-width: 2"/>
+      </g>
+     </g>
+     <g id="text_9">
+      <text style="font-size: 40px; font-family: 'Roboto'; text-anchor: middle" x="821.081241" y="732.95" transform="rotate(-0 821.081241 732.95)">18</text>
+     </g>
+    </g>
+    <g id="xtick_10">
+     <g id="line2d_10">
+      <g>
+       <use xlink:href="#m704baa9f5c" x="884.633241" y="685.45" style="stroke: #000000; stroke-width: 2"/>
+      </g>
+     </g>
+     <g id="text_10">
+      <text style="font-size: 40px; font-family: 'Roboto'; text-anchor: middle" x="884.633241" y="732.95" transform="rotate(-0 884.633241 732.95)">20</text>
+     </g>
+    </g>
+    <g id="text_11">
+     <!-- $\sigma_V$  (deg)   — visual cue width  (wide = unreliable) -->
+     <g transform="translate(163.849241 777.475)">
+      <text>
+       <tspan x="0" y="-0.90625" style="font-style: oblique; font-size: 40px; font-family: 'DejaVu Sans'">σ</tspan>
+       <tspan x="25.351562" y="5.65625" style="font-style: oblique; font-size: 28px; font-family: 'DejaVu Sans'">V</tspan>
+       <tspan x="45.599609" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'"> </tspan>
+       <tspan x="55.501953" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'"> </tspan>
+       <tspan x="65.404297" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">(</tspan>
+       <tspan x="79.076172" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">d</tspan>
+       <tspan x="101.634766" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">e</tspan>
+       <tspan x="122.826172" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">g</tspan>
+       <tspan x="145.267578" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">)</tspan>
+       <tspan x="159.173828" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'"> </tspan>
+       <tspan x="169.076172" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'"> </tspan>
+       <tspan x="178.978516" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'"> </tspan>
+       <tspan x="228.880859" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'"> </tspan>
+       <tspan x="238.783203" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">v</tspan>
+       <tspan x="258.158203" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">i</tspan>
+       <tspan x="267.865234" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">s</tspan>
+       <tspan x="288.490234" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">u</tspan>
+       <tspan x="310.541016" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">a</tspan>
+       <tspan x="332.298828" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">l</tspan>
+       <tspan x="342.005859" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'"> </tspan>
+       <tspan x="351.908203" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">c</tspan>
+       <tspan x="372.845703" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">u</tspan>
+       <tspan x="394.896484" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">e</tspan>
+       <tspan x="416.087891" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'"> </tspan>
+       <tspan x="425.990234" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">w</tspan>
+       <tspan x="456.048828" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">i</tspan>
+       <tspan x="465.755859" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">d</tspan>
+       <tspan x="488.314453" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">t</tspan>
+       <tspan x="501.380859" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">h</tspan>
+       <tspan x="523.412109" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'"> </tspan>
+       <tspan x="533.314453" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'"> </tspan>
+       <tspan x="543.216797" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">(</tspan>
+       <tspan x="556.888672" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">w</tspan>
+       <tspan x="586.947266" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">i</tspan>
+       <tspan x="596.654297" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">d</tspan>
+       <tspan x="619.212891" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">e</tspan>
+       <tspan x="640.404297" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'"> </tspan>
+       <tspan x="650.306641" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">=</tspan>
+       <tspan x="672.259766" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'"> </tspan>
+       <tspan x="682.162109" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">u</tspan>
+       <tspan x="704.212891" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">n</tspan>
+       <tspan x="726.283203" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">r</tspan>
+       <tspan x="739.818359" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">e</tspan>
+       <tspan x="761.009766" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">l</tspan>
+       <tspan x="770.716797" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">i</tspan>
+       <tspan x="780.423828" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">a</tspan>
+       <tspan x="802.181641" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">b</tspan>
+       <tspan x="824.623047" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">l</tspan>
+       <tspan x="834.330078" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">e</tspan>
+       <tspan x="855.521484" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">)</tspan>
+       <tspan x="188.880859" y="-0.90625" style="font-size: 40px; font-family: 'DejaVu Sans Display'">—</tspan>
+      </text>
+     </g>
+    </g>
+   </g>
+   <g id="matplotlib.axis_2">
+    <g id="ytick_1">
+     <g id="line2d_11">
+      <defs>
+       <path id="mefc7841415" d="M 0 0 
+L -14 0 
+" style="stroke: #000000; stroke-width: 2"/>
+      </defs>
+      <g>
+       <use xlink:href="#mefc7841415" x="280.889241" y="653.674" style="stroke: #000000; stroke-width: 2"/>
+      </g>
+     </g>
+     <g id="text_12">
+      <text style="font-size: 40px; font-family: 'Roboto'; text-anchor: end" x="263.389241" y="668.674" transform="rotate(-0 263.389241 668.674)">2</text>
+     </g>
+    </g>
+    <g id="ytick_2">
+     <g id="line2d_12">
+      <g>
+       <use xlink:href="#mefc7841415" x="280.889241" y="590.122" style="stroke: #000000; stroke-width: 2"/>
+      </g>
+     </g>
+     <g id="text_13">
+      <text style="font-size: 40px; font-family: 'Roboto'; text-anchor: end" x="263.389241" y="605.122" transform="rotate(-0 263.389241 605.122)">4</text>
+     </g>
+    </g>
+    <g id="ytick_3">
+     <g id="line2d_13">
+      <g>
+       <use xlink:href="#mefc7841415" x="280.889241" y="526.57" style="stroke: #000000; stroke-width: 2"/>
+      </g>
+     </g>
+     <g id="text_14">
+      <text style="font-size: 40px; font-family: 'Roboto'; text-anchor: end" x="263.389241" y="541.57" transform="rotate(-0 263.389241 541.57)">6</text>
+     </g>
+    </g>
+    <g id="ytick_4">
+     <g id="line2d_14">
+      <g>
+       <use xlink:href="#mefc7841415" x="280.889241" y="463.018" style="stroke: #000000; stroke-width: 2"/>
+      </g>
+     </g>
+     <g id="text_15">
+      <text style="font-size: 40px; font-family: 'Roboto'; text-anchor: end" x="263.389241" y="478.018" transform="rotate(-0 263.389241 478.018)">8</text>
+     </g>
+    </g>
+    <g id="ytick_5">
+     <g id="line2d_15">
+      <g>
+       <use xlink:href="#mefc7841415" x="280.889241" y="399.466" style="stroke: #000000; stroke-width: 2"/>
+      </g>
+     </g>
+     <g id="text_16">
+      <text style="font-size: 40px; font-family: 'Roboto'; text-anchor: end" x="263.389241" y="414.466" transform="rotate(-0 263.389241 414.466)">10</text>
+     </g>
+    </g>
+    <g id="ytick_6">
+     <g id="line2d_16">
+      <g>
+       <use xlink:href="#mefc7841415" x="280.889241" y="335.914" style="stroke: #000000; stroke-width: 2"/>
+      </g>
+     </g>
+     <g id="text_17">
+      <text style="font-size: 40px; font-family: 'Roboto'; text-anchor: end" x="263.389241" y="350.914" transform="rotate(-0 263.389241 350.914)">12</text>
+     </g>
+    </g>
+    <g id="ytick_7">
+     <g id="line2d_17">
+      <g>
+       <use xlink:href="#mefc7841415" x="280.889241" y="272.362" style="stroke: #000000; stroke-width: 2"/>
+      </g>
+     </g>
+     <g id="text_18">
+      <text style="font-size: 40px; font-family: 'Roboto'; text-anchor: end" x="263.389241" y="287.362" transform="rotate(-0 263.389241 287.362)">14</text>
+     </g>
+    </g>
+    <g id="ytick_8">
+     <g id="line2d_18">
+      <g>
+       <use xlink:href="#mefc7841415" x="280.889241" y="208.81" style="stroke: #000000; stroke-width: 2"/>
+      </g>
+     </g>
+     <g id="text_19">
+      <text style="font-size: 40px; font-family: 'Roboto'; text-anchor: end" x="263.389241" y="223.81" transform="rotate(-0 263.389241 223.81)">16</text>
+     </g>
+    </g>
+    <g id="ytick_9">
+     <g id="line2d_19">
+      <g>
+       <use xlink:href="#mefc7841415" x="280.889241" y="145.258" style="stroke: #000000; stroke-width: 2"/>
+      </g>
+     </g>
+     <g id="text_20">
+      <text style="font-size: 40px; font-family: 'Roboto'; text-anchor: end" x="263.389241" y="160.258" transform="rotate(-0 263.389241 160.258)">18</text>
+     </g>
+    </g>
+    <g id="ytick_10">
+     <g id="line2d_20">
+      <g>
+       <use xlink:href="#mefc7841415" x="280.889241" y="81.706" style="stroke: #000000; stroke-width: 2"/>
+      </g>
+     </g>
+     <g id="text_21">
+      <text style="font-size: 40px; font-family: 'Roboto'; text-anchor: end" x="263.389241" y="96.706" transform="rotate(-0 263.389241 96.706)">20</text>
+     </g>
+    </g>
+    <g id="text_22">
+     <!-- $\sigma_A$  (deg)   — auditory cue width -->
+     <g transform="translate(205.264241 650.09) rotate(-90)">
+      <text>
+       <tspan x="0" y="-0.90625" style="font-style: oblique; font-size: 40px; font-family: 'DejaVu Sans'">σ</tspan>
+       <tspan x="25.351562" y="5.65625" style="font-style: oblique; font-size: 28px; font-family: 'DejaVu Sans'">A</tspan>
+       <tspan x="45.599609" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'"> </tspan>
+       <tspan x="55.501953" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'"> </tspan>
+       <tspan x="65.404297" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">(</tspan>
+       <tspan x="79.076172" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">d</tspan>
+       <tspan x="101.634766" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">e</tspan>
+       <tspan x="122.826172" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">g</tspan>
+       <tspan x="145.267578" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">)</tspan>
+       <tspan x="159.173828" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'"> </tspan>
+       <tspan x="169.076172" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'"> </tspan>
+       <tspan x="178.978516" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'"> </tspan>
+       <tspan x="228.880859" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'"> </tspan>
+       <tspan x="238.783203" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">a</tspan>
+       <tspan x="260.541016" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">u</tspan>
+       <tspan x="282.591797" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">d</tspan>
+       <tspan x="305.150391" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">i</tspan>
+       <tspan x="314.857422" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">t</tspan>
+       <tspan x="327.923828" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">o</tspan>
+       <tspan x="350.736328" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">r</tspan>
+       <tspan x="364.271484" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">y</tspan>
+       <tspan x="383.197266" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'"> </tspan>
+       <tspan x="393.099609" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">c</tspan>
+       <tspan x="414.037109" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">u</tspan>
+       <tspan x="436.087891" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">e</tspan>
+       <tspan x="457.279297" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'"> </tspan>
+       <tspan x="467.181641" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">w</tspan>
+       <tspan x="497.240234" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">i</tspan>
+       <tspan x="506.947266" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">d</tspan>
+       <tspan x="529.505859" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">t</tspan>
+       <tspan x="542.572266" y="-0.90625" style="font-size: 40px; font-family: 'Roboto'">h</tspan>
+       <tspan x="188.880859" y="-0.90625" style="font-size: 40px; font-family: 'DejaVu Sans Display'">—</tspan>
+      </text>
+     </g>
+    </g>
+   </g>
+   <g id="patch_3">
+    <path d="M 280.889241 685.45 
+L 280.889241 49.93 
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 916.409241 685.45 
+L 916.409241 49.93 
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 280.889241 685.45 
+L 916.409241 685.45 
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_6">
+    <path d="M 280.889241 49.93 
+L 916.409241 49.93 
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="text_23">
+    <g id="patch_7">
+     <path d="M 334.908441 157.612531 
+L 465.088441 157.612531 
+Q 470.838441 157.612531 470.838441 151.862531 
+L 470.838441 75.708812 
+Q 470.838441 69.958812 465.088441 69.958812 
+L 334.908441 69.958812 
+Q 329.158441 69.958812 329.158441 75.708812 
+L 329.158441 151.862531 
+Q 329.158441 157.612531 334.908441 157.612531 
+z
+" style="fill: #ffffff; opacity: 0.65"/>
+    </g>
+    <!-- MLE: $w_V\to1$ -->
+    <g transform="translate(334.908441 92.351469)">
+     <text>
+      <tspan x="0" y="-0.234375" style="font-size: 23px; font-family: 'Roboto'">M</tspan>
+      <tspan x="20.080078" y="-0.234375" style="font-size: 23px; font-family: 'Roboto'">L</tspan>
+      <tspan x="32.456055" y="-0.234375" style="font-size: 23px; font-family: 'Roboto'">E</tspan>
+      <tspan x="45.52832" y="-0.234375" style="font-size: 23px; font-family: 'Roboto'">:</tspan>
+      <tspan x="51.098633" y="-0.234375" style="font-size: 23px; font-family: 'Roboto'"> </tspan>
+      <tspan x="56.79248" y="-0.234375" style="font-style: oblique; font-size: 23px; font-family: 'DejaVu Sans'">w</tspan>
+      <tspan x="75.603516" y="3.539062" style="font-style: oblique; font-size: 16.1px; font-family: 'DejaVu Sans'">V</tspan>
+      <tspan x="91.7271" y="-0.234375" style="font-size: 23px; font-family: 'DejaVu Sans'">→</tspan>
+      <tspan x="115.479541" y="-0.234375" style="font-size: 23px; font-family: 'DejaVu Sans'">1</tspan>
+     </text>
+    </g>
+    <text style="font-weight: 700; font-size: 23px; font-family: 'Roboto'" transform="translate(334.908441 119.163719)">(V reliable,</text>
+    <text style="font-weight: 700; font-size: 23px; font-family: 'Roboto'" transform="translate(334.908441 146.583312)">A unreliable)</text>
+   </g>
+   <g id="text_24">
+    <g id="patch_8">
+     <path d="M 797.42185 649.141134 
+L 908.292632 649.141134 
+Q 914.042632 649.141134 914.042632 643.391134 
+L 914.042632 594.657009 
+Q 914.042632 588.907009 908.292632 588.907009 
+L 797.42185 588.907009 
+Q 791.67185 588.907009 791.67185 594.657009 
+L 791.67185 643.391134 
+Q 791.67185 649.141134 797.42185 649.141134 
+z
+" style="fill: #ffffff; opacity: 0.65"/>
+    </g>
+    <!-- $w_V\to0$ -->
+    <g transform="translate(816.172241 611.299666)">
+     <text>
+      <tspan x="0" y="-0.921875" style="font-style: oblique; font-size: 23px; font-family: 'DejaVu Sans'">w</tspan>
+      <tspan x="18.811035" y="2.851562" style="font-style: oblique; font-size: 16.1px; font-family: 'DejaVu Sans'">V</tspan>
+      <tspan x="34.934619" y="-0.921875" style="font-size: 23px; font-family: 'DejaVu Sans'">→</tspan>
+      <tspan x="58.687061" y="-0.921875" style="font-size: 23px; font-family: 'DejaVu Sans'">0</tspan>
+     </text>
+    </g>
+    <text style="font-weight: 700; font-size: 23px; font-family: 'Roboto'" transform="translate(797.42185 638.111916)">(A reliable)</text>
+   </g>
+   <g id="text_25">
+    <!-- Gate 7 — model visual weight $w_V$ over the cue-reliability grid (n=10) -->
+    <g transform="translate(106.289241 33.93)">
+     <text>
+      <tspan x="0" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">G</tspan>
+      <tspan x="22.478027" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">a</tspan>
+      <tspan x="40.428223" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">t</tspan>
+      <tspan x="51.208008" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">e</tspan>
+      <tspan x="68.690918" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'"> </tspan>
+      <tspan x="76.860352" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">7</tspan>
+      <tspan x="95.390625" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'"> </tspan>
+      <tspan x="136.560059" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'"> </tspan>
+      <tspan x="144.729492" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">m</tspan>
+      <tspan x="173.652832" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">o</tspan>
+      <tspan x="192.473145" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">d</tspan>
+      <tspan x="211.083984" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">e</tspan>
+      <tspan x="228.566895" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">l</tspan>
+      <tspan x="236.575195" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'"> </tspan>
+      <tspan x="244.744629" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">v</tspan>
+      <tspan x="260.729004" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">i</tspan>
+      <tspan x="268.737305" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">s</tspan>
+      <tspan x="285.75293" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">u</tspan>
+      <tspan x="303.944824" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">a</tspan>
+      <tspan x="321.89502" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">l</tspan>
+      <tspan x="329.90332" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'"> </tspan>
+      <tspan x="338.072754" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">w</tspan>
+      <tspan x="362.871094" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">e</tspan>
+      <tspan x="380.354004" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">i</tspan>
+      <tspan x="388.362305" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">g</tspan>
+      <tspan x="406.876465" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">h</tspan>
+      <tspan x="425.052246" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">t</tspan>
+      <tspan x="435.832031" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'"> </tspan>
+      <tspan x="487.69585" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'"> </tspan>
+      <tspan x="495.865283" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">o</tspan>
+      <tspan x="514.685596" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">v</tspan>
+      <tspan x="530.669971" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">e</tspan>
+      <tspan x="548.152881" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">r</tspan>
+      <tspan x="559.319385" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'"> </tspan>
+      <tspan x="567.488818" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">t</tspan>
+      <tspan x="578.268604" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">h</tspan>
+      <tspan x="596.444385" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">e</tspan>
+      <tspan x="613.927295" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'"> </tspan>
+      <tspan x="622.096729" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">c</tspan>
+      <tspan x="639.370166" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">u</tspan>
+      <tspan x="657.562061" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">e</tspan>
+      <tspan x="675.044971" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">-</tspan>
+      <tspan x="684.148975" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">r</tspan>
+      <tspan x="695.315479" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">e</tspan>
+      <tspan x="712.798389" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">l</tspan>
+      <tspan x="720.806689" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">i</tspan>
+      <tspan x="728.81499" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">a</tspan>
+      <tspan x="746.765186" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">b</tspan>
+      <tspan x="765.279346" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">i</tspan>
+      <tspan x="773.287646" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">l</tspan>
+      <tspan x="781.295947" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">i</tspan>
+      <tspan x="789.304248" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">t</tspan>
+      <tspan x="800.084033" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">y</tspan>
+      <tspan x="815.697803" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'"> </tspan>
+      <tspan x="823.867236" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">g</tspan>
+      <tspan x="842.381396" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">r</tspan>
+      <tspan x="853.5479" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">i</tspan>
+      <tspan x="861.556201" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">d</tspan>
+      <tspan x="880.167041" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'"> </tspan>
+      <tspan x="888.336475" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">(</tspan>
+      <tspan x="899.615771" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">n</tspan>
+      <tspan x="917.823779" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">=</tspan>
+      <tspan x="935.935107" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">1</tspan>
+      <tspan x="954.465381" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">0</tspan>
+      <tspan x="972.995654" y="-0.53125" style="font-size: 33px; font-family: 'Roboto'">)</tspan>
+      <tspan x="103.560059" y="-0.53125" style="font-size: 33px; font-family: 'DejaVu Sans Display'">—</tspan>
+      <tspan x="444.001465" y="-0.53125" style="font-style: oblique; font-size: 33px; font-family: 'DejaVu Sans'">w</tspan>
+      <tspan x="470.991211" y="4.882812" style="font-style: oblique; font-size: 23.1px; font-family: 'DejaVu Sans'">V</tspan>
+     </text>
+    </g>
+   </g>
+  </g>
+  <g id="axes_2">
+   <g id="patch_9">
+    <path d="M 949.877501 685.45 
+L 981.653501 685.45 
+L 981.653501 49.93 
+L 949.877501 49.93 
+z
+" style="fill: #ffffff"/>
+   </g>
+   <image xlink:href="data:image/png;base64,
+iVBORw0KGgoAAAANSUhEUgAAACwAAANzCAYAAADStPq+AAAFVElEQVR4nO3c240bQRAEwX2MaTJB/psiygZ+JIgCIixIEIPu2SXv7j/338815Pl1wLfmgs91bzVv1V6Ce+d+7l83fGXuE54LNtZqgmvGWm0u2FirCa6dy1hrzQWf63YkUoJr5362mrdqr8FgY602F3wuU6IluGas1eaCPdPVBNfO7d1aay7YWKsJrrmt1eaCHYma4JoXKbW5YGOtNhfsSNQE15zh2lyw9xI1wTVjrTYX7NetNcE1q7k2F2zT1QTXnOHaXLAjUZsLdvmpCa4Za7W54PNxJFqCa2cteSx3MNimqwmuOcO1uWBHoia45omjNhfsAl8TXLOaa3PBjkRtLtjlpya45rZWmwu26WqCa1ZzbS74XFsnYu8TFlyzmmtzweczljyWK7hnrNXmgs9n60TsfcJzwaZETXDNQ2htLtirqprgmm+RanPBxlpNcM1trTYX7L1ETXDNi5TaXLCxVpsLdvmpCa75Pz+1uWCbria4ZjXX5oKNtZrgmvcStblgY60muOa2VpsLNtZqgmtua7W5YGOtNhfs8lMTXPMnlrW5YGOtJrjmtlabC/ZMVxNcM9Zqc8FuazXBNWOtNhdsrNXmgk2JmuCasVabCzbWaoJrxlptLtj/SKkJrhlrtblgt7Wa4JqxVpsLdiRqc8E2XU1wzVirzQUbazXBNWOtNhdsrNUE14y12lywI1ETXLOaa3PBxlpNcO18fl3wpblPeC7YWKvNBTsSNcE1F/jaXLCxVhNcM9Zqc8HGWk1wzRmuzQXbdDXBNWOtNhfsSNTmgm26muCasVabCzbWaoJrxlptLtiRqAmuWc21uWBjrSa4Jrg2F2zT1eaCbbqa4JozXJsLtulqgmvGWm0u2FirCa4Za7W54HPdW3+KPfcJC65ZzbW5YJuuNhfsSNQE12y62lywsVYTXHOGa3PB3kvUBNfc1mqCa4Jrc8Fua7W5YJuuJrjmiaM2F2zT1eaCHYma4JozXJsLdvmpCa4Za7W5YO8laoJrVnNtLtimqwmundsZbs0F23S1uWCbria45gzX5oLPddl0KcE1Y602F3xuF/iW4JqxVpsLNtZqgmvGWm0u2Bv42lywN/A1wTW3tdpcsE1XE1wz1mpzwZ7paoJrxlptLviMTbW9T1hwzVirzQU7EjXBNS9SanPB5zHWWnPBNl1NcM0Zrs0Fu/zUBNfc1mpzwTZdTXDtPP6erjUX7LZWE1xzW6vNBbut1eaCTYma4JqxVpsLNtZqgmveS9Tmgm26muCa1VybC3YkaoJrznBtLtiRqM0Fe6arCa4Za7W5YEeiJrjmDNfmgh2JmuCaJ47aXLCxVhNcO8/979cNX5n7hOeCjbWa4JrbWm0u2FirzQW7/NQE185rrLXmgl1+aoJrVnNtLtgFvia4dl6ruTUXbNPVBNes5tpcsPcStbng81w2XUpwzaarzQWf11hrCa4Za7W54PN6L9ESXPNNaG0u2FirCa75yqA2F+yLxdpcsClRE1wz1mpzwcZaTXDNVwa1uWBv4GuCa8ZabS7Y69aa4JpvkWpzwcZabS7Yr1trgmt+tF+bC/ZMVxNc85VBbS7YWKsJrrmt1eaCPYTWBNe8W6vNBbut1QTXfItUmwu26WpzwX7wXBNc8xBamwu26WqCa1ZzbS7Yj/ZrgmverdXmgm26muCa1VybCzbWanPBjkRNcO08968TvjP3Cc8FG2s1wbWzVrzWuxd8XpuuJbh23mvrEM99wnPBNl1NcO28t7GWmgs+j03Xmgt2+akJrhlrtblgl5+a4Np5xpq3aq/BYJuuJrh23nureav2Ggy26WqCa/8BGYWR6EDa1jAAAAAASUVORK5CYII=" id="image5e3f52ba07" transform="scale(1 -1) translate(0 -635.76)" x="949.68" y="-48.96" width="31.68" height="635.76"/>
+   <g id="matplotlib.axis_3"/>
+   <g id="matplotlib.axis_4">
+    <g id="ytick_11">
+     <g id="line2d_21">
+      <defs>
+       <path id="mccaa9938ed" d="M 0 0 
+L 3.5 0 
+" style="stroke: #000000; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#mccaa9938ed" x="981.653501" y="685.45" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_26">
+      <text style="font-size: 32px; font-family: 'Roboto'; text-anchor: start" x="988.653501" y="697.45" transform="rotate(-0 988.653501 697.45)">0.0</text>
+     </g>
+    </g>
+    <g id="ytick_12">
+     <g id="line2d_22">
+      <g>
+       <use xlink:href="#mccaa9938ed" x="981.653501" y="558.346" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_27">
+      <text style="font-size: 32px; font-family: 'Roboto'; text-anchor: start" x="988.653501" y="570.346" transform="rotate(-0 988.653501 570.346)">0.2</text>
+     </g>
+    </g>
+    <g id="ytick_13">
+     <g id="line2d_23">
+      <g>
+       <use xlink:href="#mccaa9938ed" x="981.653501" y="431.242" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_28">
+      <text style="font-size: 32px; font-family: 'Roboto'; text-anchor: start" x="988.653501" y="443.242" transform="rotate(-0 988.653501 443.242)">0.4</text>
+     </g>
+    </g>
+    <g id="ytick_14">
+     <g id="line2d_24">
+      <g>
+       <use xlink:href="#mccaa9938ed" x="981.653501" y="304.138" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_29">
+      <text style="font-size: 32px; font-family: 'Roboto'; text-anchor: start" x="988.653501" y="316.138" transform="rotate(-0 988.653501 316.138)">0.6</text>
+     </g>
+    </g>
+    <g id="ytick_15">
+     <g id="line2d_25">
+      <g>
+       <use xlink:href="#mccaa9938ed" x="981.653501" y="177.034" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_30">
+      <text style="font-size: 32px; font-family: 'Roboto'; text-anchor: start" x="988.653501" y="189.034" transform="rotate(-0 988.653501 189.034)">0.8</text>
+     </g>
+    </g>
+    <g id="ytick_16">
+     <g id="line2d_26">
+      <g>
+       <use xlink:href="#mccaa9938ed" x="981.653501" y="49.93" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_31">
+      <text style="font-size: 32px; font-family: 'Roboto'; text-anchor: start" x="988.653501" y="61.93" transform="rotate(-0 988.653501 61.93)">1.0</text>
+     </g>
+    </g>
+    <g id="text_32">
+     <!-- model visual weight  $w_V$ -->
+     <g transform="translate(1064.013501 559.39) rotate(-90)">
+      <text>
+       <tspan x="0" y="-0" style="font-size: 36px; font-family: 'Roboto'">m</tspan>
+       <tspan x="31.552734" y="-0" style="font-size: 36px; font-family: 'Roboto'">o</tspan>
+       <tspan x="52.083984" y="-0" style="font-size: 36px; font-family: 'Roboto'">d</tspan>
+       <tspan x="72.386719" y="-0" style="font-size: 36px; font-family: 'Roboto'">e</tspan>
+       <tspan x="91.458984" y="-0" style="font-size: 36px; font-family: 'Roboto'">l</tspan>
+       <tspan x="100.195312" y="-0" style="font-size: 36px; font-family: 'Roboto'"> </tspan>
+       <tspan x="109.107422" y="-0" style="font-size: 36px; font-family: 'Roboto'">v</tspan>
+       <tspan x="126.544922" y="-0" style="font-size: 36px; font-family: 'Roboto'">i</tspan>
+       <tspan x="135.28125" y="-0" style="font-size: 36px; font-family: 'Roboto'">s</tspan>
+       <tspan x="153.84375" y="-0" style="font-size: 36px; font-family: 'Roboto'">u</tspan>
+       <tspan x="173.689453" y="-0" style="font-size: 36px; font-family: 'Roboto'">a</tspan>
+       <tspan x="193.271484" y="-0" style="font-size: 36px; font-family: 'Roboto'">l</tspan>
+       <tspan x="202.007812" y="-0" style="font-size: 36px; font-family: 'Roboto'"> </tspan>
+       <tspan x="210.919922" y="-0" style="font-size: 36px; font-family: 'Roboto'">w</tspan>
+       <tspan x="237.972656" y="-0" style="font-size: 36px; font-family: 'Roboto'">e</tspan>
+       <tspan x="257.044922" y="-0" style="font-size: 36px; font-family: 'Roboto'">i</tspan>
+       <tspan x="265.78125" y="-0" style="font-size: 36px; font-family: 'Roboto'">g</tspan>
+       <tspan x="285.978516" y="-0" style="font-size: 36px; font-family: 'Roboto'">h</tspan>
+       <tspan x="305.806641" y="-0" style="font-size: 36px; font-family: 'Roboto'">t</tspan>
+       <tspan x="317.566406" y="-0" style="font-size: 36px; font-family: 'Roboto'"> </tspan>
+       <tspan x="326.478516" y="-0" style="font-size: 36px; font-family: 'Roboto'"> </tspan>
+       <tspan x="335.390625" y="-0" style="font-style: oblique; font-size: 36px; font-family: 'DejaVu Sans'">w</tspan>
+       <tspan x="364.833984" y="5.90625" style="font-style: oblique; font-size: 25.2px; font-family: 'DejaVu Sans'">V</tspan>
+      </text>
+     </g>
+    </g>
+   </g>
+   <g id="LineCollection_1"/>
+   <g id="patch_10">
+    <path d="M 949.877501 685.45 
+L 965.765501 685.45 
+L 981.653501 685.45 
+L 981.653501 49.93 
+L 965.765501 49.93 
+L 949.877501 49.93 
+L 949.877501 685.45 
+z
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+  </g>
+  <g id="text_33">
+   <!-- paper-faithful: constant-area Gaussian, gain $\propto\,\sigma_{ref}/\sigma$.  all 100 cells measurable (no empties).  raw per-cell ensemble mean (n=10). -->
+   <g style="fill: #4c4c4c" transform="translate(7.2 879.5375)">
+    <text>
+     <tspan x="0" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">p</tspan>
+     <tspan x="11.220703" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">a</tspan>
+     <tspan x="22.099609" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">p</tspan>
+     <tspan x="33.320312" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">e</tspan>
+     <tspan x="43.916016" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">r</tspan>
+     <tspan x="50.683594" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">-</tspan>
+     <tspan x="56.201172" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">f</tspan>
+     <tspan x="63.144531" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">a</tspan>
+     <tspan x="74.023438" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">i</tspan>
+     <tspan x="78.876953" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">t</tspan>
+     <tspan x="85.410156" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">h</tspan>
+     <tspan x="96.425781" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">f</tspan>
+     <tspan x="103.369141" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">u</tspan>
+     <tspan x="114.394531" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">l</tspan>
+     <tspan x="119.248047" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">:</tspan>
+     <tspan x="124.091797" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c"> </tspan>
+     <tspan x="129.042969" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">c</tspan>
+     <tspan x="139.511719" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">o</tspan>
+     <tspan x="150.917969" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">n</tspan>
+     <tspan x="161.953125" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">s</tspan>
+     <tspan x="172.265625" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">t</tspan>
+     <tspan x="178.798828" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">a</tspan>
+     <tspan x="189.677734" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">n</tspan>
+     <tspan x="200.712891" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">t</tspan>
+     <tspan x="207.246094" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">-</tspan>
+     <tspan x="212.763672" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">a</tspan>
+     <tspan x="223.642578" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">r</tspan>
+     <tspan x="230.410156" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">e</tspan>
+     <tspan x="241.005859" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">a</tspan>
+     <tspan x="251.884766" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c"> </tspan>
+     <tspan x="256.835938" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">G</tspan>
+     <tspan x="270.458984" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">a</tspan>
+     <tspan x="281.337891" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">u</tspan>
+     <tspan x="292.363281" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">s</tspan>
+     <tspan x="302.675781" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">s</tspan>
+     <tspan x="312.988281" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">i</tspan>
+     <tspan x="317.841797" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">a</tspan>
+     <tspan x="328.720703" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">n</tspan>
+     <tspan x="339.755859" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">,</tspan>
+     <tspan x="343.681641" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c"> </tspan>
+     <tspan x="348.632812" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">g</tspan>
+     <tspan x="359.853516" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">a</tspan>
+     <tspan x="370.732422" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">i</tspan>
+     <tspan x="375.585938" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">n</tspan>
+     <tspan x="386.621094" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c"> </tspan>
+     <tspan x="468.834049" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">.</tspan>
+     <tspan x="474.097721" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c"> </tspan>
+     <tspan x="479.048893" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c"> </tspan>
+     <tspan x="484.000065" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">a</tspan>
+     <tspan x="494.878971" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">l</tspan>
+     <tspan x="499.732487" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">l</tspan>
+     <tspan x="504.586002" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c"> </tspan>
+     <tspan x="509.537174" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">1</tspan>
+     <tspan x="520.767643" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">0</tspan>
+     <tspan x="531.998112" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">0</tspan>
+     <tspan x="543.228581" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c"> </tspan>
+     <tspan x="548.179752" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">c</tspan>
+     <tspan x="558.648502" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">e</tspan>
+     <tspan x="569.244206" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">l</tspan>
+     <tspan x="574.097721" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">l</tspan>
+     <tspan x="578.951237" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">s</tspan>
+     <tspan x="589.263737" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c"> </tspan>
+     <tspan x="594.214909" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">m</tspan>
+     <tspan x="611.744206" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">e</tspan>
+     <tspan x="622.339909" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">a</tspan>
+     <tspan x="633.218815" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">s</tspan>
+     <tspan x="643.531315" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">u</tspan>
+     <tspan x="654.556706" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">r</tspan>
+     <tspan x="661.324284" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">a</tspan>
+     <tspan x="672.20319" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">b</tspan>
+     <tspan x="683.423893" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">l</tspan>
+     <tspan x="688.277409" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">e</tspan>
+     <tspan x="698.873112" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c"> </tspan>
+     <tspan x="703.824284" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">(</tspan>
+     <tspan x="710.660221" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">n</tspan>
+     <tspan x="721.695377" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">o</tspan>
+     <tspan x="733.101627" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c"> </tspan>
+     <tspan x="738.052799" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">e</tspan>
+     <tspan x="748.648502" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">m</tspan>
+     <tspan x="766.177799" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">p</tspan>
+     <tspan x="777.398502" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">t</tspan>
+     <tspan x="783.931706" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">i</tspan>
+     <tspan x="788.785221" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">e</tspan>
+     <tspan x="799.380924" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">s</tspan>
+     <tspan x="809.693424" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">)</tspan>
+     <tspan x="816.646549" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">.</tspan>
+     <tspan x="821.910221" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c"> </tspan>
+     <tspan x="826.861393" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c"> </tspan>
+     <tspan x="831.812565" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">r</tspan>
+     <tspan x="838.580143" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">a</tspan>
+     <tspan x="849.459049" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">w</tspan>
+     <tspan x="864.488346" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c"> </tspan>
+     <tspan x="869.439518" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">p</tspan>
+     <tspan x="880.660221" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">e</tspan>
+     <tspan x="891.255924" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">r</tspan>
+     <tspan x="898.023502" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">-</tspan>
+     <tspan x="903.541081" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">c</tspan>
+     <tspan x="914.009831" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">e</tspan>
+     <tspan x="924.605534" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">l</tspan>
+     <tspan x="929.459049" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">l</tspan>
+     <tspan x="934.312565" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c"> </tspan>
+     <tspan x="939.263737" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">e</tspan>
+     <tspan x="949.85944" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">n</tspan>
+     <tspan x="960.894596" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">s</tspan>
+     <tspan x="971.207096" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">e</tspan>
+     <tspan x="981.802799" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">m</tspan>
+     <tspan x="999.332096" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">b</tspan>
+     <tspan x="1010.552799" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">l</tspan>
+     <tspan x="1015.406315" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">e</tspan>
+     <tspan x="1026.002018" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c"> </tspan>
+     <tspan x="1030.95319" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">m</tspan>
+     <tspan x="1048.482487" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">e</tspan>
+     <tspan x="1059.07819" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">a</tspan>
+     <tspan x="1069.957096" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">n</tspan>
+     <tspan x="1080.992252" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c"> </tspan>
+     <tspan x="1085.943424" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">(</tspan>
+     <tspan x="1092.779362" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">n</tspan>
+     <tspan x="1103.814518" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">=</tspan>
+     <tspan x="1114.791081" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">1</tspan>
+     <tspan x="1126.021549" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">0</tspan>
+     <tspan x="1137.252018" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">)</tspan>
+     <tspan x="1144.205143" y="-0.953125" style="font-size: 20px; font-family: 'Roboto'; fill: #4c4c4c">.</tspan>
+     <tspan x="395.46875" y="-0.953125" style="font-size: 20px; font-family: 'DejaVu Sans'; fill: #4c4c4c">∝</tspan>
+     <tspan x="449.419987" y="-0.953125" style="font-size: 20px; font-family: 'DejaVu Sans'; fill: #4c4c4c">/</tspan>
+     <tspan x="416.899479" y="-0.953125" style="font-style: oblique; font-size: 20px; font-family: 'DejaVu Sans'; fill: #4c4c4c">σ</tspan>
+     <tspan x="456.158268" y="-0.953125" style="font-style: oblique; font-size: 20px; font-family: 'DejaVu Sans'; fill: #4c4c4c">σ</tspan>
+     <tspan x="429.57526" y="2.328125" style="font-style: oblique; font-size: 14px; font-family: 'DejaVu Sans'; fill: #4c4c4c">r</tspan>
+     <tspan x="435.33112" y="2.328125" style="font-style: oblique; font-size: 14px; font-family: 'DejaVu Sans'; fill: #4c4c4c">e</tspan>
+     <tspan x="443.944401" y="2.328125" style="font-style: oblique; font-size: 14px; font-family: 'DejaVu Sans'; fill: #4c4c4c">f</tspan>
+    </text>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p57d7fed5a0">
+   <rect x="280.889241" y="49.93" width="635.52" height="635.52"/>
+  </clipPath>
+ </defs>
+</svg>

@@ -1,0 +1,226 @@
+================= ARM k0  (K_DVDT=0.0)  /tmp/p5_cheapprove/formA_k0_tau40 =================
+---- LATENCY §B2 (race-model at COINCIDENCE-optimal SOA: B_fastest=L_B*<min(L_A,L_V); V-lead scan 0-30ms) ----
+[firewall BEFORE] TBW=80d33465c4bf55d6e85b5990acb92da7  SBW=73b7d13626964d851cc090818b728311
+Using device: cuda
+[response_latency s42] dev=cuda:0 epoch=79 g_rec=0.03 tau_nmda_inh=21.6 tau_gaba=10.0 sigma_in=10.0 izh={'aM': 0.02, 'bM': 0.2, 'cM': -65.0, 'dM': 8.0} missing=[] unexpected=[] plast=False
+[firewall AFTER] TBW=80d33465c4bf55d6e85b5990acb92da7  SBW=73b7d13626964d851cc090818b728311
+
+[response_latency s42] SCORECARD  (112.7s)
+  L_A=33.7  L_V=48.6  L_B=33.7 ms   uni_mean=41.1  Δ=+7.4 ms (+18.1%)
+  B_fastest=False  spiked A/V/B=128/128/128 of 128   (paper L_A=56 L_V=54 L_B=36 Δ=19)
+  [COINCIDENCE §B2] L_B(V-lead SOA): 0ms:33.7  10ms:43.4  20ms:48.3  30ms:48.6
+  coincidence-opt SOA=0ms  L_B*=33.7  min(L_A,L_V)=33.7  Δ_race=+0.0ms  B_fastest_coincidence=False
+  -> wrote /tmp/p5_cheapprove/formA_k0_tau40/response_latency_formA_k0.json
+---- VITALS GATES 1/3/6 — q5_58 (clamp + pop-IE + shunt-aware E/I) ----
+[firewall BEFORE] TBW=80d33465c4bf55d6e85b5990acb92da7  SBW=73b7d13626964d851cc090818b728311
+Using device: cuda
+
+===== #58 SCORECARD — tame-clamp-saturation cheap-prove (final ckpt_ep79_seed42_bs250_delay52_tau10_dL3.pt) =====
+  config (baked): g_rec=0.030  k_shunt=0.0260  istdp_baseline=0.600  W_gaba_clamp=0.500  gNMDA=0.500
+
+[0] CLAMP STATUS (the salvage discriminator): W_msiInh2Exc_GABA absmax=0.1695 / ceiling=0.500  absmean=0.1424  gaba_clampfrac=0.000
+    -> SUB-CEILING (lever relieved the saturation) — GOAL MET
+    per-epoch clamp trajectory (saturation onset):
+Using device: cuda
+      ep  5 | absmax=0.0020 clampfrac=0.000
+Using device: cuda
+      ep 30 | absmax=0.0591 clampfrac=0.000
+Using device: cuda
+      ep 50 | absmax=0.1402 clampfrac=0.000
+Using device: cuda
+      ep 79 | absmax=0.1695 clampfrac=0.000
+
+[1] POP-IE (validator TEST1)  band: weak-favouring/monotone-decreasing = GO
+    INTENSITIES [0.05, 0.1, 0.2, 0.4, 0.8, 1.6]
+    MEI =   4.00   7.60   6.15   1.77   0.97   0.99  -> MID-PEAK@0.1    R_A@1.6=1191  R_B@1.6=2383
+
+[2] g_rec subsumption (single-variable KO) + MSI activity proxy (R_B@1.6 vs #53 hot baseline 7619):
+Using device: cuda
+    g_rec=0.030 (trained): MEI =   4.00   7.60   6.15   1.77   0.97   0.99 -> MID-PEAK@0.1   R_B@1.6=2383
+Using device: cuda
+    g_rec=0.000 (  KO_0 ): MEI =   4.00   6.80   6.14   1.95   1.02   0.99 -> MONOTONE-dec   R_B@1.6=2218
+
+[3] E-I membrane ratio (offsets -30..30; band [0.80,1.25]):
+    STOCK        <I_M>/<I_M_gaba>                : sync=3.233  off=3.230  (NOT shunt-aware)
+    SHUNT-AWARE  <I_M>/<I_M_gaba - I_surr_shunt> : sync=1.059  off=1.092  IN-band  <- FAITHFUL
+
+================ #58 SCORECARD SUMMARY ================
+  [0] CLAMP        : clampfrac=0.000 absmax=0.1695  SUB-CEILING (GOAL MET)
+  [1] POP-IE       : MID-PEAK@0.1  GO
+  [3] E/I shuntaware: sync=1.059  PASS (band [0.80,1.25])
+[firewall AFTER] TBW=80d33465c4bf55d6e85b5990acb92da7  SBW=73b7d13626964d851cc090818b728311
+[firewall OK] frozen-readout md5 unchanged; inference/instrumentation only; no production edit.
+---- VITALS GATES 2/4 — eitbw (#108 TBW + MSI-Hz + E/I) ----
+[firewall BEFORE] TBW=80d33465c4bf55d6e85b5990acb92da7  SBW=73b7d13626964d851cc090818b728311
+Using device: cuda
+shunt=True k=0.026 E_gaba=-70.0 g_GABA=10.0 mg_vhalf=-48.0 mg_vhalf_inh=-30.0 mg_k=0.15 tau_nmda=40.0 g_rec=0.03 surr_budget=0.0 surr_d0=15.0 gNMDA=0.5
+Using device: cuda
+[firewall AFTER] TBW=80d33465c4bf55d6e85b5990acb92da7  SBW=73b7d13626964d851cc090818b728311
+
+[E/I]  ei_sync=1.059  ei_off=1.092    GO[0.80,1.25] -> GO
+[TBW]  raw-half-max-width=260.0ms  (psychometric fit-FWHM=278.8ms; UNRELIABLE if fit failed)  P0=1.00  peak_raw=1.00    #108[185,270] on raw-width -> GO
+[MSI]  Hz=17.19  I/E=nan    GO[25,45] -> NO-GO  (#53 hot 68.4)
+
+[CAVEAT A — raw TBW fusion curve]
+SOA(ms):   -300   -280   -260   -240   -220   -200   -180   -160   -140   -120   -100    -80    -60    -40    -20      0     20     40     60     80    100    120    140    160    180    200    220    240    260    280    300
+Pfus:      0.00   0.00   0.00   0.00   0.02   0.14   0.16   0.34   0.56   0.92   0.94   1.00   1.00   1.00   1.00   1.00   1.00   0.98   0.90   0.88   0.76   0.50   0.14   0.08   0.04   0.00   0.00   0.00   0.00   0.00   0.00
+max|SOA| sampled=300ms  tail(|SOA|>=280)=0.000  tail(outermost)=0.000  edges-unfill(<=0.20) -> YES
+=> plateau raw-half-max-width=260.0ms in #108[185,270]? YES  (edges-unfill BUT plateau-wide => separate temporal residual: tau_NMDA / latency-jitter, NOT more gain)
+[firewall OK] frozen-readout md5 unchanged.
+---- VITALS GATE 5 §A5 — clean same-pipeline CRE (q132: ALL 3 R-defs; sign on >=1 well-cond. + center r2/HWHM) ----
+[firewall BEFORE] TBW=80d33465c4bf55d6e85b5990acb92da7  SBW=73b7d13626964d851cc090818b728311
+/tmp/p5_cheapprove/gnmda070_stage/diag_136b_cre_5seed.py:121: RuntimeWarning: divide by zero encountered in divide
+  cre_rom = np.where(best_m > 1e-9, (mRAV - best_m) / best_m * 100.0, np.nan)        # ratio-of-means CRE %
+/tmp/p5_cheapprove/gnmda070_stage/diag_136b_cre_5seed.py:122: RuntimeWarning: Mean of empty slice
+  cre_mean = np.nanmean(cre_pt, 1)
+/home/vishnu/miniconda3/lib/python3.13/site-packages/numpy/lib/_nanfunctions_impl.py:2015: RuntimeWarning: Degrees of freedom <= 0 for slice.
+  var = nanvar(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
+/tmp/p5_cheapprove/gnmda070_stage/diag_136b_cre_5seed.py:125: RuntimeWarning: divide by zero encountered in divide
+  add_ratio = np.where((mRA + mRV) > 1e-9, mRAV / (mRA + mRV), np.nan)               # R_AV / (R_A+R_V)
+Using device: cuda
+
+===== [#132] CLEAN diag_136b CRE lobe (same-pipeline) — formA_k0_tau40 =====
+  ckpt = /tmp/p5_cheapprove/formA_k0_tau40/ckpt_ep79_seed42_bs250_delay52_tau10_dL3.pt
+  measured: gNMDA=0.5 tau=40.0 g_rec=0.03 mg_vhalf=-48.0 mg_k=0.15 alpha=2.0 g_GABA=10.0 shunt=True(k=0.026) sigma_in=10.0
+  ckpt-stored: {'gNMDA': 0.5, 'tau_nmda': 40.0, 'mg_vhalf': -48.0, 'mg_k': 0.15, 'dend_coupling_alpha': 2.0, 'g_GABA': 10.0}
+  [config asserts PASS] operating point == as-trained
+  captured AV/AO/VO shape=(33, 60, 180)  (nsep=33 dense2.5deg, NT=60, N=180)
+
+  -- R-def: TOTAL_pop_sum --
+     CRE%(dense):  +150  +151  +149  +150  +151  +151  +153  +150  +147  +146  +138  +127  +121  +116  +117  +108  +106  +105  +105  +100  +102  +104  +106  +107  +100  +106  +108  +110  +104  +109  +109  +108  +108
+     peak@15.0deg=152.7%  |  CENTER: model-free HWHM=nandeg  indep-Gauss HWHM=94.2deg (sigma=80.0, r2=0.596)
+     SURROUND: zero-cross=NaNdeg  onset=NaNdeg  depth(min)=99.6% @ 60.0deg  far-floor(d>=50)=+106.2%  indep-trough sigma=nan (r2=nan)
+     => surround ABSENT  (neg far-floor &/or finite zero-cross)
+
+  -- R-def: PEAK_pop --
+     CRE%(dense):   +77   +76   +73   +70   +68   +59   +57   +48   +40   +34   +23   +13    -0    -3    -2    -9    -9    -5    -4    -4    +2    +1    +0    -1    +1    +0    -0    +3    +0    +0    +1    +2    -0
+     peak@0.0deg=77.2%  |  CENTER: model-free HWHM=20.5deg  indep-Gauss HWHM=19.8deg (sigma=16.8, r2=0.979)
+     SURROUND: zero-cross=29.9deg  onset=29.9deg  depth(min)=-9.3% @ 37.5deg  far-floor(d>=50)=+0.8%  indep-trough sigma=3.7 (r2=0.805)
+     => surround PRESENT  (neg far-floor &/or finite zero-cross)
+
+  -- R-def: CENTER_neuron --
+     CRE%(dense):   +87   +83   +91   +99  +107  +111  +126  +131  +147  +156  +170  +153  +196  +248  +465  +827  +739  +461  +173   +44 +1120  +nan  +nan  +nan  +nan  +nan  +nan  +nan  +nan  +nan  +nan  +nan  +nan
+     peak@50.0deg=1120.0%  |  CENTER: model-free HWHM=nandeg  indep-Gauss HWHM=94.2deg (sigma=80.0, r2=-0.077)
+     SURROUND: zero-cross=NaNdeg  onset=NaNdeg  depth(min)=43.7% @ 47.5deg  far-floor(d>=50)=+nan%  indep-trough sigma=nan (r2=nan)
+     => surround ABSENT  (neg far-floor &/or finite zero-cross)
+[firewall AFTER] TBW=80d33465c4bf55d6e85b5990acb92da7  SBW=73b7d13626964d851cc090818b728311
+
+  -> /tmp/p5_cheapprove/gnmda070_stage/q132_clean_cre_formA_k0_tau40.json
+  [firewall OK] frozen-readout md5 unchanged; inference only; net never mutated.
+
+================= ARM k1  (K_DVDT=0.20)  /tmp/p5_cheapprove/formA_k0.20_tau40 =================
+---- LATENCY §B2 (race-model at COINCIDENCE-optimal SOA: B_fastest=L_B*<min(L_A,L_V); V-lead scan 0-30ms) ----
+[firewall BEFORE] TBW=80d33465c4bf55d6e85b5990acb92da7  SBW=73b7d13626964d851cc090818b728311
+Using device: cuda
+[response_latency s42] dev=cuda:0 epoch=79 g_rec=0.03 tau_nmda_inh=21.6 tau_gaba=10.0 sigma_in=10.0 izh={'aM': 0.02, 'bM': 0.2, 'cM': -65.0, 'dM': 8.0} missing=[] unexpected=[] plast=False
+[firewall AFTER] TBW=80d33465c4bf55d6e85b5990acb92da7  SBW=73b7d13626964d851cc090818b728311
+
+[response_latency s42] SCORECARD  (115.7s)
+  L_A=33.7  L_V=48.6  L_B=33.7 ms   uni_mean=41.1  Δ=+7.4 ms (+18.1%)
+  B_fastest=False  spiked A/V/B=128/128/128 of 128   (paper L_A=56 L_V=54 L_B=36 Δ=19)
+  [COINCIDENCE §B2] L_B(V-lead SOA): 0ms:33.7  10ms:43.4  20ms:48.3  30ms:48.6
+  coincidence-opt SOA=0ms  L_B*=33.7  min(L_A,L_V)=33.7  Δ_race=+0.0ms  B_fastest_coincidence=False
+  -> wrote /tmp/p5_cheapprove/formA_k0.20_tau40/response_latency_formA_k1.json
+---- VITALS GATES 1/3/6 — q5_58 (clamp + pop-IE + shunt-aware E/I) ----
+[firewall BEFORE] TBW=80d33465c4bf55d6e85b5990acb92da7  SBW=73b7d13626964d851cc090818b728311
+Using device: cuda
+
+===== #58 SCORECARD — tame-clamp-saturation cheap-prove (final ckpt_ep79_seed42_bs250_delay52_tau10_dL3.pt) =====
+  config (baked): g_rec=0.030  k_shunt=0.0260  istdp_baseline=0.600  W_gaba_clamp=0.500  gNMDA=0.500
+
+[0] CLAMP STATUS (the salvage discriminator): W_msiInh2Exc_GABA absmax=0.1694 / ceiling=0.500  absmean=0.1420  gaba_clampfrac=0.000
+    -> SUB-CEILING (lever relieved the saturation) — GOAL MET
+    per-epoch clamp trajectory (saturation onset):
+Using device: cuda
+      ep  5 | absmax=0.0020 clampfrac=0.000
+Using device: cuda
+      ep 30 | absmax=0.0598 clampfrac=0.000
+Using device: cuda
+      ep 50 | absmax=0.1398 clampfrac=0.000
+Using device: cuda
+      ep 79 | absmax=0.1694 clampfrac=0.000
+
+[1] POP-IE (validator TEST1)  band: weak-favouring/monotone-decreasing = GO
+    INTENSITIES [0.05, 0.1, 0.2, 0.4, 0.8, 1.6]
+    MEI =   4.00   7.64   7.07   1.82   0.95   0.94  -> MONOTONE-dec    R_A@1.6=1190  R_B@1.6=2365
+
+[2] g_rec subsumption (single-variable KO) + MSI activity proxy (R_B@1.6 vs #53 hot baseline 7619):
+Using device: cuda
+    g_rec=0.030 (trained): MEI =   4.00   7.64   7.07   1.82   0.95   0.94 -> MONOTONE-dec   R_B@1.6=2365
+Using device: cuda
+    g_rec=0.000 (  KO_0 ): MEI =   4.00   6.60   6.17   2.07   1.01   0.96 -> MONOTONE-dec   R_B@1.6=2212
+
+[3] E-I membrane ratio (offsets -30..30; band [0.80,1.25]):
+    STOCK        <I_M>/<I_M_gaba>                : sync=3.217  off=3.138  (NOT shunt-aware)
+    SHUNT-AWARE  <I_M>/<I_M_gaba - I_surr_shunt> : sync=1.064  off=1.090  IN-band  <- FAITHFUL
+
+================ #58 SCORECARD SUMMARY ================
+  [0] CLAMP        : clampfrac=0.000 absmax=0.1694  SUB-CEILING (GOAL MET)
+  [1] POP-IE       : MONOTONE-dec  GO
+  [3] E/I shuntaware: sync=1.064  PASS (band [0.80,1.25])
+[firewall AFTER] TBW=80d33465c4bf55d6e85b5990acb92da7  SBW=73b7d13626964d851cc090818b728311
+[firewall OK] frozen-readout md5 unchanged; inference/instrumentation only; no production edit.
+---- VITALS GATES 2/4 — eitbw (#108 TBW + MSI-Hz + E/I) ----
+[firewall BEFORE] TBW=80d33465c4bf55d6e85b5990acb92da7  SBW=73b7d13626964d851cc090818b728311
+Using device: cuda
+shunt=True k=0.026 E_gaba=-70.0 g_GABA=10.0 mg_vhalf=-48.0 mg_vhalf_inh=-30.0 mg_k=0.15 tau_nmda=40.0 g_rec=0.03 surr_budget=0.0 surr_d0=15.0 gNMDA=0.5
+Using device: cuda
+[firewall AFTER] TBW=80d33465c4bf55d6e85b5990acb92da7  SBW=73b7d13626964d851cc090818b728311
+
+[E/I]  ei_sync=1.064  ei_off=1.090    GO[0.80,1.25] -> GO
+[TBW]  raw-half-max-width=240.0ms  (psychometric fit-FWHM=276.7ms; UNRELIABLE if fit failed)  P0=1.00  peak_raw=1.00    #108[185,270] on raw-width -> GO
+[MSI]  Hz=17.19  I/E=nan    GO[25,45] -> NO-GO  (#53 hot 68.4)
+
+[CAVEAT A — raw TBW fusion curve]
+SOA(ms):   -300   -280   -260   -240   -220   -200   -180   -160   -140   -120   -100    -80    -60    -40    -20      0     20     40     60     80    100    120    140    160    180    200    220    240    260    280    300
+Pfus:      0.00   0.00   0.00   0.00   0.02   0.10   0.18   0.34   0.56   0.90   0.94   1.00   1.00   1.00   1.00   1.00   1.00   0.98   0.90   0.86   0.76   0.48   0.14   0.06   0.04   0.00   0.00   0.00   0.00   0.00   0.00
+max|SOA| sampled=300ms  tail(|SOA|>=280)=0.000  tail(outermost)=0.000  edges-unfill(<=0.20) -> YES
+=> plateau raw-half-max-width=240.0ms in #108[185,270]? YES  (edges-unfill BUT plateau-wide => separate temporal residual: tau_NMDA / latency-jitter, NOT more gain)
+[firewall OK] frozen-readout md5 unchanged.
+---- VITALS GATE 5 §A5 — clean same-pipeline CRE (q132: ALL 3 R-defs; sign on >=1 well-cond. + center r2/HWHM) ----
+[firewall BEFORE] TBW=80d33465c4bf55d6e85b5990acb92da7  SBW=73b7d13626964d851cc090818b728311
+/tmp/p5_cheapprove/gnmda070_stage/diag_136b_cre_5seed.py:121: RuntimeWarning: divide by zero encountered in divide
+  cre_rom = np.where(best_m > 1e-9, (mRAV - best_m) / best_m * 100.0, np.nan)        # ratio-of-means CRE %
+/tmp/p5_cheapprove/gnmda070_stage/diag_136b_cre_5seed.py:122: RuntimeWarning: Mean of empty slice
+  cre_mean = np.nanmean(cre_pt, 1)
+/home/vishnu/miniconda3/lib/python3.13/site-packages/numpy/lib/_nanfunctions_impl.py:2015: RuntimeWarning: Degrees of freedom <= 0 for slice.
+  var = nanvar(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
+/tmp/p5_cheapprove/gnmda070_stage/diag_136b_cre_5seed.py:125: RuntimeWarning: divide by zero encountered in divide
+  add_ratio = np.where((mRA + mRV) > 1e-9, mRAV / (mRA + mRV), np.nan)               # R_AV / (R_A+R_V)
+Using device: cuda
+
+===== [#132] CLEAN diag_136b CRE lobe (same-pipeline) — formA_k1_tau40 =====
+  ckpt = /tmp/p5_cheapprove/formA_k0.20_tau40/ckpt_ep79_seed42_bs250_delay52_tau10_dL3.pt
+  measured: gNMDA=0.5 tau=40.0 g_rec=0.03 mg_vhalf=-48.0 mg_k=0.15 alpha=2.0 g_GABA=10.0 shunt=True(k=0.026) sigma_in=10.0
+  ckpt-stored: {'gNMDA': 0.5, 'tau_nmda': 40.0, 'mg_vhalf': -48.0, 'mg_k': 0.15, 'dend_coupling_alpha': 2.0, 'g_GABA': 10.0}
+  [config asserts PASS] operating point == as-trained
+  captured AV/AO/VO shape=(33, 60, 180)  (nsep=33 dense2.5deg, NT=60, N=180)
+
+  -- R-def: TOTAL_pop_sum --
+     CRE%(dense):  +152  +153  +150  +153  +152  +153  +154  +152  +149  +149  +141  +129  +122  +118  +117  +110  +107  +106  +106  +101  +104  +105  +106  +109  +100  +107  +111  +111  +105  +110  +109  +109  +108
+     peak@15.0deg=154.2%  |  CENTER: model-free HWHM=nandeg  indep-Gauss HWHM=94.2deg (sigma=80.0, r2=0.605)
+     SURROUND: zero-cross=NaNdeg  onset=NaNdeg  depth(min)=100.5% @ 60.0deg  far-floor(d>=50)=+107.3%  indep-trough sigma=nan (r2=nan)
+     => surround ABSENT  (neg far-floor &/or finite zero-cross)
+
+  -- R-def: PEAK_pop --
+     CRE%(dense):   +78   +78   +75   +73   +69   +61   +59   +49   +41   +36   +26   +13    +1    -3    -3    -8    -9    -5    -2    -4    +2    +1    +1    +0    +0    +1    +2    +4    +1    +3    +3    +2    +2
+     peak@0.0deg=78.4%  |  CENTER: model-free HWHM=21.0deg  indep-Gauss HWHM=19.1deg (sigma=16.2, r2=0.959)
+     SURROUND: zero-cross=30.6deg  onset=30.6deg  depth(min)=-9.2% @ 40.0deg  far-floor(d>=50)=+1.8%  indep-trough sigma=3.9 (r2=0.728)
+     => surround PRESENT  (neg far-floor &/or finite zero-cross)
+
+  -- R-def: CENTER_neuron --
+     CRE%(dense):   +89   +91   +94  +101  +109  +113  +129  +136  +151  +159  +175  +153  +201  +246  +485  +781  +727  +475  +180   +41  +950  +nan  +nan  +nan  +nan  +nan  +nan  +nan  +nan  +nan  +nan  +nan  +nan
+     peak@50.0deg=950.0%  |  CENTER: model-free HWHM=nandeg  indep-Gauss HWHM=94.2deg (sigma=80.0, r2=-0.084)
+     SURROUND: zero-cross=NaNdeg  onset=NaNdeg  depth(min)=40.8% @ 47.5deg  far-floor(d>=50)=+nan%  indep-trough sigma=nan (r2=nan)
+     => surround ABSENT  (neg far-floor &/or finite zero-cross)
+[firewall AFTER] TBW=80d33465c4bf55d6e85b5990acb92da7  SBW=73b7d13626964d851cc090818b728311
+
+  -> /tmp/p5_cheapprove/gnmda070_stage/q132_clean_cre_formA_k1_tau40.json
+  [firewall OK] frozen-readout md5 unchanged; inference only; net never mutated.
+
+################ k0-vs-k1 LATENCY single-variable summary ################
+compare L_B / Δ / B_fastest across the two response_latency_formA_*.json (k0 = as-built control #129;
+k1 = Form-A ON). The Form-A effect = k1 minus k0. Vitals must hold in-band on BOTH arms.
+GO/KILL bar = debugger #133's pre-registered cheap-prove acceptance.
+/tmp/p5_cheapprove/formA_k0.20_tau40/response_latency_formA_k1.json
+/tmp/p5_cheapprove/formA_k0_tau40/response_latency_formA_k0.json
