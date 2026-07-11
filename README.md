@@ -1,0 +1,374 @@
+# FSTS Route-C SC Multisensory Network — **dm10 (tau18)** 10-model ensemble, 7 validations
+
+A **clean, self-contained, reproducible bundle** of the route-C superior-colliculus (SCi) multisensory
+(MSI) spiking network at the **`dm10` operating point**: the **10-seed ensemble** (seeds 42–51, epoch 79)
+and the **seven biological validations** it has been measured against, each rendered with across-seed error
+bars. An independent full-7 validation over all 10 models returns **GO** (every seed passes every gate).
+
+Everything needed to **train**, **reproduce all seven validations**, **regenerate every figure**, and
+**reproduce the frozen-weight mechanism-influence analysis** lives in this directory and resolves by
+bundle-relative paths — no `/tmp`, no external scratch, no network.
+
+> **What `dm10` is, in one line:** the certified route-C substrate with a single change to excitatory
+> spike-frequency adaptation — **`ADAPT_A 0.008 → 0.02` and `ADAPT_DM 8 → 10`** — which narrows the
+> temporal binding window from **~388 ms to 260 ms** (the paper's **HARD ≤ 300 ms** line) **without
+> breaking any of the other six validations.** The change is baked into **training**, not applied at
+> inference.
+
+### ▶ Start here (30-second orientation)
+
+Three first moves, from the bundle root:
+
+1. **Integrity** — `md5sum -c CKPT_MD5.txt` (all 10 checkpoints + the 2 frozen readouts should print `OK`).
+2. **Reproduce one seed** — `bash measure/run_all.sh 42` (config pre-flight → 7 gates → grade → figures
+   for seed 42; needs one GPU). Drop the `42` to run all ten.
+3. **Read the results** — open **§7 · Results** for the honest across-seed numbers, using the
+   **§3 · Layout** map to find everything else.
+
+---
+
+## 1 · What it is
+
+Route-C is a disynaptic feed-forward-inhibition (FFI) model of multisensory integration in the deep
+superior colliculus. Auditory (A) and visual (V) afferents drive a shared MSI population on an `n = 180`
+neuron spatial ring of **Izhikevich** units at **dt = 0.1 ms**; cross-modal inhibition is **disynaptic**
+(A/V → interneuron → MSI), and cross-modal integration is carried by **slow NMDA** through a
+voltage-dependent dendritic Mg-gate. Two biologically-motivated jitter sources are **baked into training**:
+
+- **Correlated common-mode A–V latency jitter** `sigma_dL = 3 frames` (~30 ms), a per-trial shared onset
+  offset of the A and V streams.
+- **Independent per-channel afferent-arrival jitter** `afferent_jitter_ms = 4` (task #327): per-trial,
+  per-channel (A and V independent), substep-resolution jitter on the conduction-delay ring-buffer read.
+  It graduates the otherwise-deterministic first-spike-latency **step** into biology's graded
+  inverse-effectiveness taper. (Gated; default 0 → byte-identical to the un-jittered build.)
+
+**Asymmetric V-leading conduction delays** (auditory arrives ~15 ms before visual at the MSI) are the
+source of the V-leading temporal-binding-window asymmetry — **do not alter the A/V delays.**
+
+---
+
+## 2 · The `dm10` fix (what changed, and why)
+
+`dm10` differs from the certified `baseline008` route-C operating point in **exactly two hyperparameters**,
+both governing **excitatory spike-frequency adaptation (SFA)** of the MSI units (Izhikevich recovery
+variable `u`):
+
+| knob | env var | baseline008 | **dm10** | meaning |
+|---|---|---|---|---|
+| `aM` | `ADAPT_A`  | 0.008 | **0.02** | adaptation **recovery rate** (`tau_adapt = 1/aM`; higher → faster-recovering, but stronger sustained drag per the paired `dM`) |
+| `dM` | `ADAPT_DM` | 8 | **10** | **spike-triggered** adaptation increment added to `u` on each MSI spike |
+
+Stronger, faster excitatory SFA makes each MSI unit's response to a late-arriving second cue smaller, so
+the **fused-response window closes sooner in time** → the temporal binding window narrows. Measured on
+frozen weights (§7), turning adaptation from `baseline008` to `dm10` moves the raw-FWHM TBW from ~360 ms
+to 240 ms; the ensemble gate width is **260 ± 0 ms** (vs the ~388 ms baseline the fix was chosen to cure).
+Crucially, the other six validations remain in-spec (see §6).
+
+The fix is **trained in**: both the CUDA-graphed TRAIN build and the eager MEASURE build read `aM/dM`
+(and every other knob) from the environment at net-build time, save them to the checkpoint's
+`mutable_hparams`, and restore them at measure time — so training and measurement share one operating point.
+
+### dm10 substrate (as-trained operating point)
+
+Authoritative source = each checkpoint's `mutable_hparams` (verified uniform across all 10 seeds by the
+pre-flight in `measure/val394_dm10_stage2.py`).
+
+- **Adaptation (the fix):** `aM = 0.02`, `dM = 10`  · interneuron SFA `aMi = 0.1`, `dMi = 2.0` (default).
+- **NMDA:** `tau_nmda = 40 ms`, `gNMDA = 0.51`; dendritic Mg-gate `dend_coupling_alpha = 2`,
+  `mg_vhalf_exc = -48`, `mg_vhalf_inh = -30`, `mg_k = 0.15`.
+- **Inhibition:** divisive **surround-shunt GABA** `k_shunt_surr = 0.026`, `E_gaba = -70 mV`,
+  `GABA_SHUNT_SURR = 1`; GABA decay `tau_gaba = 18 ms`; iSTDP inhibition set-point `istdp_baseline = 0.56`.
+- **Short-term plasticity:** `u_stp_a = u_stp_v = 0.20`, `nmda_std_scale = 0.80`, `tau_rec = 400 ms`.
+- **Recurrence:** `g_rec = 0.03` (post-warmup).
+- **Jitter (baked in):** `sigma_dL_frames = 3` (~30 ms correlated), `afferent_jitter_ms = 4` (per-channel).
+- **Delays:** asymmetric V-leading; `conduction_delay_msi_inh2exc = 52`, `v2msi = 400 / inh 420` substeps.
+- **Inert:** Form-A dV/dt-adaptive threshold `K_DVDT = 0.0` (`tau_dvdt = 3`, `v_thresh_floor = 20`,
+  `dvdt_cap = 50`); SOM/Martinotti GABA facilitation `FACIL_GABA_ON = 0`.
+- **Training:** `bs = 250`, `ep0..79`, `delay = 52` substeps.
+
+> Note (from the §7 mechanism analysis): the env `G_GABA` is **not consumed** by this net — the
+> mechanism-true, inference-time GABA-conductance scale is the live scalar `pv_gaba_scale`. `G_GABA` is
+> retained in the training recipe only for byte-exact command-line parity with the `baseline008` lineage.
+
+---
+
+## ▶ Current state & where to pick up from
+
+**Where this bundle sits.** This repository is the ASD-modelling paper *From Spikes to Symptoms:
+Simulating SC-Driven Multisensory Deficits in Autism Spectrum Disorder.* The bundle on this branch is
+the **certified HEALTHY route-C multisensory baseline** — not the ASD study itself (see the
+forward-pointer below).
+
+**Done / certified** (grounded in `records/grade_dm10_ensemble.out` + §7):
+- The dm10 (tau18) substrate is the certified healthy baseline: **all 7 biological validations pass
+  independently across the 10-seed ensemble — verdict GO**, every seed × every gate.
+- The temporal-binding-window fix (excitatory adaptation `aM/dM`) is **baked into training** and
+  validated (TBW 260 ± 0 ms, inside the HARD ≤ 300 ms line).
+- Frozen-weight mechanism-influence (§8; `mechanism_influence/DEBUGGER_397_DOSERESPONSE.md`) confirms
+  adaptation, NMDA, and GABA (via decay timing) **each still causally move TBW** — the fix flattened none.
+
+**Known open limitation** (described *empirically* from §7 — no single mechanistic cause is asserted):
+- The cross-modal **latency / MEI magnitude is modest / capped.** The onset-latency advantage is
+  confined to the low-intensity corner — **+15 ms at I = 0.05, collapsing by I = 0.1** — and the
+  paper-faithful §2.7 mean advantage at full intensity is a conservative **+7.5 ms** (the race-model
+  `min(L_A,L_V) − L_B` descriptor ties ≈ 0 at strong intensity, reported as an honest null; see §7).
+- The **SBW surround trough (−15 %)** is conservative relative to the biology (mean cross-modal surround
+  depression ~46 %).
+- `records/` does **not** name a single mechanistic cause for this cap, so none is claimed here; the
+  numbers above are the empirical envelope from §7 and `records/grade_dm10_ensemble.out`.
+
+**Where the work continues** (forward-pointer — **NOT in this bundle**):
+- The natural next step is the **ASD perturbation study**: perturbing SC inhibition (GABA / PV
+  interneurons) away from this healthy baseline to reproduce ASD multisensory deficits, with a
+  **widened TBW** as the key marker. That study is **not part of this bundle** — this branch is the
+  healthy-substrate reproduction only.
+
+---
+
+## 3 · Layout
+
+```
+fallback_5of6_tau40/                 (directory name is historical; the models are the dm10/tau18 point)
+├── README.md                 ·  this file
+├── CKPT_MD5.txt              ·  md5 manifest (10 ckpts + 2 frozen readouts); `md5sum -c` verifiable
+├── .gitignore
+│
+│   ── importable core (flat siblings; self-relative imports) ──
+├── routec_net_io.py          ·  net-IO: load_ckpt, ckpt_path_for_seed, frozen-readout md5 firewall, plotting helpers
+├── val36_traj_d52.py         ·  load/measure harness; restores the as-trained operating point from the ckpt
+├── Training_delayfix_d52.py  ·  eager MEASURE build (substep first-spike probe)
+├── Training_graphdf_d52.py   ·  CUDA-graphed TRAIN build
+├── retrain5_jitter.py        ·  training driver (ep0 assert_reference config firewall)
+├── TBW_test.py  SBW_test.py  ·  FROZEN readouts — md5-LOCKED (80d33465 / 73b7d136), run/import-only
+├── inverse_effectiveness_routec.py  response_latency_routec.py  cue_reliability_routec.py
+├── diag_136b_cre_5seed.py  panelgraph.py
+│
+│   ── validated measurement lineage (imported by the gate chain / frozen readouts — NOT scratch) ──
+├── Training.py                 ·  canonical net build (md5 466c9a76); the frozen readouts `from Training import *`
+├── measure_107_convergence.py  ·  #104/#107 measurement path — imported by measure/measure_ens_main.py,
+├── measure_develop_check.py    ·     which imports this, which imports harden_85 + grade_88_noise
+├── harden_85.py  grade_88_noise.py  q5_53_scorecard.py  ·  #82/#88 metric helpers + scorecard (imported by that path)
+├── run34.py                    ·  snapshot/restore + graph-capture helpers (imported by panelgraph.py)
+│
+├── checkpoint/               ·  the 10 trained dm10 models — ckpt_ep79_seed{42..51}_bs250_delay52_tau18_dL3.pt
+├── fonts/Roboto-Regular.ttf  ·  house-style font
+│
+├── measure/                  ·  ensemble drivers + the dm10 runner/grader
+│   ├── val394_dm10_stage2.py ·  dm10 runner shim: per-seed config pre-flight + runs the OFFICIAL gate
+│   │                             scripts VERBATIM on the tau18 ckpts (derives TAU_GABA/GNMDA from the ckpts)
+│   ├── val394_dm10_grade.py  ·  pure JSON → per-seed + ensemble GO/NO-GO grade vs the official criteria
+│   ├── run_all.sh            ·  ONE command → all 7 validations (via the shim) + grade + figures
+│   ├── measure_ens_main.py   ·  gates 1–4 (RATE / TBW / E-I / MEI) per seed          (official; imported by the shim)
+│   ├── measure_ens_cre.py    ·  gate 5 (SBW / CRE) per seed                            (official)
+│   ├── measure_ens_latency_sweep.py  ·  gate 6 (latency vs intensity)                  (official)
+│   └── run_gate7_cuerel.py   ·  gate 7 (cue-reliability); --gain_exp 1 (headline)      (official)
+│
+├── plots/                    ·  house-style figure scripts (pure: read results/ JSON → figures/, no GPU)
+│   ├── _bridge.py            ·  shared bridge (substrate env, frozen-md5 firewall, fonts)
+│   └── run_gate1_ens.py … run_gate7_ens.py
+│
+├── results/                  ·  measurement outputs the plots + grader consume (committed, JSON)
+│                                gates_main.json, gate5_cre.json, gate6_latency_sweep.json,
+│                                gate7_cuerel_g1_seed{42..51}.json, gate7_cuerel_g1_aggregate.json
+├── figures/                  ·  the 7 delivered validations (PNG + SVG)
+├── mechanism_influence/      ·  frozen-weight single-variable TBW dose-response (adaptation / GABA / NMDA)
+│   ├── tbw_point.py          ·  one-point-per-process dose driver (frozen weights, TBW raw-FWHM)
+│   ├── dose/                 ·  the 17 dose-response points (JSON)
+│   └── DEBUGGER_397_DOSERESPONSE.md   ·  the analysis writeup (method, results, verdict)
+├── records/                  ·  provenance: train_log_dm10_seed42.out, grade_dm10_ensemble.out
+└── legacy/                   ·  superseded tau10-lineage helpers (parallel_measure.py, combine_ens.py) —
+                                  NOT part of the dm10 reproduction; provenance only (see legacy/README.md)
+```
+
+> **Note — the dm10 entry point vs the quarantined helpers:** the tau10-lineage parallel helpers
+> (`parallel_measure.py` / `combine_ens.py`) hard-set `TAU_GABA=10` / `GNMDA=0.50` and resolve the
+> *tau10* checkpoints, so they FATAL on the dm10 point — they have been moved to **`legacy/`**. The dm10
+> entry point is **`measure/val394_dm10_stage2.py`** (used by `run_all.sh`), which imports the official
+> gate modules verbatim (their measurement code + frozen-md5 firewall run byte-identical) and overrides
+> `TAU_GABA/GNMDA` to the values it derives from the checkpoints themselves. The top-level scripts
+> `Training.py`, `measure_107_convergence.py`, `measure_develop_check.py`, `harden_85.py`,
+> `grade_88_noise.py`, `q5_53_scorecard.py`, and `run34.py` are **not** scratch — they are the validated
+> measurement lineage imported by that chain (verified by grep), so they remain at top level.
+
+---
+
+## 4 · Dependencies
+
+- **Python 3.13**, **PyTorch 2.x (CUDA build, cu13x)**, **NumPy**, **SciPy**, **Matplotlib**.
+- One NVIDIA GPU to **measure or train** (the ensemble was measured/trained on an RTX 5090 + RTX A6000;
+  sub-1% cross-device FP differences are far inside the across-seed spread).
+- **No GPU needed** to regenerate the figures (`plots/run_gate*_ens.py`) or to grade
+  (`measure/val394_dm10_grade.py`) — both are pure functions of the committed `results/*.json` — or to run
+  the config pre-flight (`--gate preflight`, CPU-only).
+
+---
+
+## 5 · How to run the 7 validations
+
+**Everything, one command** (per-seed config pre-flight, then all 7 gates via the shim, then grade, then
+all figures). Writes JSON → `results/`, figures → `figures/`; every gate asserts the frozen TBW/SBW md5
+**BEFORE == AFTER** and weight bit-identity.
+
+```bash
+bash measure/run_all.sh                 # default seeds 42..51
+bash measure/run_all.sh 42              # single-seed sanity
+```
+
+**Config pre-flight only** (CPU, no GPU — reads every seed's `mutable_hparams`, asserts the dm10 point):
+
+```bash
+python measure/val394_dm10_stage2.py --gate preflight --seeds 42 43 44 45 46 47 48 49 50 51
+```
+
+**Individual gates** (GPU; JSON → `results/`; one gate per process to avoid cross-gate env contamination):
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python measure/val394_dm10_stage2.py --gate main --seeds 42 43 44 45 46 47 48 49 50 51  # gates 1–4
+CUDA_VISIBLE_DEVICES=0 python measure/val394_dm10_stage2.py --gate cre  --seeds 42 … 51                        # gate 5
+CUDA_VISIBLE_DEVICES=0 python measure/val394_dm10_stage2.py --gate lat  --seeds 42 … 51                        # gate 6
+CUDA_VISIBLE_DEVICES=0 python measure/val394_dm10_stage2.py --gate g7   --seeds 42 … 51 --gain_exp 1           # gate 7
+python measure/val394_dm10_stage2.py --gate g7agg --gain_exp 1                                                 # gate 7 pool
+```
+
+**Grade** the outputs (pure JSON → per-seed + ensemble GO/NO-GO):
+
+```bash
+python measure/val394_dm10_grade.py --dir results --gain_exp 1
+```
+
+**Just regenerate the figures from the committed measurements (no GPU):**
+
+```bash
+for g in 1 2 3 4 5 6; do python plots/run_gate${g}_ens.py; done
+python plots/run_gate7_ens.py gate7_cuerel_g1
+```
+
+**Reproduce the mechanism-influence dose-response (§7)** — one frozen-weight point per process:
+
+```bash
+# see mechanism_influence/DEBUGGER_397_DOSERESPONSE.md for the full sweep; each point writes a JSON like dose/*.json
+python mechanism_influence/tbw_point.py --help
+```
+
+---
+
+## 6 · How to train
+
+Single seed, ~13 min on an RTX A6000, **one process per seed** (one CUDA-graphed net per process avoids
+the two-graph segfault). Writes `checkpoint/ckpt_ep{5,30,50,79}_seed{SEED}_bs250_delay52_tau18_dL3.pt`.
+The **only** changes vs the certified `baseline008` recipe are `ADAPT_A=0.02` and `ADAPT_DM=10`.
+
+```bash
+env CUDA_VISIBLE_DEVICES=0 RUN_DIR_OVERRIDE=/tmp/repro_dm10 \
+    ADAPT_A=0.02 ADAPT_DM=10 \
+    AFFERENT_JITTER_MS=4 SIGMA_DL_FRAMES=3 \
+    TAU_GABA=18 GNMDA=0.51 TAU_NMDA=40 G_REC=0.03 ISTDP_BASELINE=0.56 \
+    DEND_COUPLING_ALPHA=2 MG_VHALF=-48 MG_VHALF_INH=-30 MG_K=0.15 \
+    GABA_SHUNT_SURR=1 K_SHUNT_SURR=0.026 E_GABA=-70.0 G_GABA=5.56 \
+    K_DVDT=0.0 TAU_DVDT=3.0 V_THRESH_FLOOR=20.0 DVDT_CAP=50.0 \
+    python retrain5_jitter.py 42
+```
+
+Repeat for seeds 43–51. `retrain5_jitter.py` FATAL-asserts (`assert_reference`, ep0) that **every** net
+attribute equals its env var before training a single step — a mis-propagated knob aborts by name with no
+checkpoint. `RUN_DIR_OVERRIDE` writes to scratch so a retrain never clobbers the committed checkpoints;
+drop it to write straight into `checkpoint/`. The published checkpoints are seed-deterministic on a fixed
+device (cross-device FP drift is far inside the across-seed spread and does not change any verdict).
+
+---
+
+## 7 · Results — 10 models, mean ± SD across seeds 42–51
+
+Reproduced from the committed `results/` by `measure/val394_dm10_grade.py` (frozen TBW/SBW md5 asserted
+BEFORE == AFTER on every gate; weights never mutated). **Independent full-7 verdict: GO — every seed passes
+every gate.**
+
+| # | Validation | Ensemble result (mean ± SD, n = 10) | Official bar | Read it honestly |
+|---|---|---|---|---|
+| 1 | **RATE** — bimodal MSI population rate | **16.30 ± 0.53 Hz** | [12, 32] Hz | comfortably mid-band |
+| 2 | **TBW** — temporal binding window (raw half-max FWHM) | **260 ± 0 ms**; half-max crossings ≈ [−144, +123] ms | **HARD ≤ 300 ms** | the dm10 fix; V-leading asymmetry is real (asymmetric A/V delays) |
+| 3 | **E/I** balance (shunt-aware sync) | **0.953 ± 0.025**  [(E, I) = (21.1 ± 0.3, 22.4 ± 0.6)] | [0.80, 1.25] | one network-averaged sync point vs the biological references (no scatter cloud) |
+| 4 | **POP-IE** (MEI, inverse effectiveness) | MEI/I → 0.05:**2.96** · 0.1:4.79 · 0.2:**9.36** · 0.4:2.09 · 0.8:0.95 · 1.6:0.87; per-seed slope ≈ **−2.8** (<0), peak @ I=0.2 | negative slope AND MEI(0.05) > MEI(1.6) | enhancement largest for weak stimuli = inverse effectiveness |
+| 5 | **SBW** — AV cross-modal enhancement (CRE) | peak **101.4 ± 1.2 %**; zero-cross **28.0 ± 0.4°**; centre HWHM 17.4°; surround trough **−15.4 ± 1.2 %** @ 39° | 3-sign centre-surround (peak > 0, zc > 0, trough < 0) | **SBW = cross-modal enhancement (CRE), NOT P(fusion).** Negative surround lobe is real cross-modal surround suppression; see caveats |
+| 6 | **Latency** — onset facilitation | §2.7 mean **Δ = mean(L_A,L_V) − L_B = +7.52 ± 0.32 ms** @ I = 1.0 | Δ > 0 ms | low-I (I=0.05) inverse-effectiveness race benefit **+15.1 ± 0.9 ms**, collapses by I=0.1; see caveats |
+| 7 | **Cue-reliability** — MLE / inverse-variance cue integration | **gain_exp = 1 (headline): R² pooled = 0.889**, per-seed 0.860 ± 0.037 SD (**min 0.778**), MAE 0.100, RMSE 0.132, valid 100/100 | R²_pooled > 0.71 AND every seed > 0.71 | every seed clears the paper's R² = 0.71; see gain_exp note |
+
+### Caveats (read these before quoting a number)
+
+- **Gate 3 (E/I):** a single network-averaged (E, I) sync point — compared to the biological references as
+  one point, deliberately **without** a scatter cloud.
+- **Gate 5 (SBW):** the reported quantity is the **AV cross-modal enhancement / cross-modal response
+  enhancement (CRE)**, **not** a fusion probability. The spatial axis is an **RF-border-crossing proxy**,
+  not a validated degree-width — zero-cross ~28° / trough ~39° mark "cue beyond its RF border." The
+  negative surround lobe is genuine excitatory-centre / inhibitory-surround suppression (Meredith & Stein
+  1996; Kadunce et al. 1997, cat SC; Wallace et al. 1996, macaque). Our **−15 % trough is conservative**
+  vs biology (mean depression ~46 %, up to ~100 %).
+- **Gate 6 (latency):** the §2.7 gate is the **mean** advantage `Δ = mean(L_A,L_V) − L_B > 0` at
+  `INTENSITY = 1.0` (**+7.5 ms**, PASS). The race-model descriptor `min(L_A,L_V) − L_B` ties ≈ 0 at strong
+  I — reported as an **honest null**, never cherry-picked. The large latency benefit is the low-I
+  inverse-effectiveness effect (**+15 ms at I = 0.05, collapsing by I = 0.1**), consistent with the biology.
+- **Gate 7 (cue-reliability):** **`gain_exp = 1` is the paper-faithful headline** (constant-area Gaussian,
+  gain ∝ σ_ref/σ). `gain_exp = 2` (the repo's exploratory knob) scores a higher R² but only ~75/100 cells
+  are measurable (weak/wide stimuli give empty MSI profiles, honestly NaN-excluded) — it is **flattered**
+  and is **not** the headline. This dm10 bundle ships the `gain_exp = 1` results and figures only.
+
+### Deltas vs the previous `tau10` bundle
+
+Same architecture, seeds, and 7 validations; the operating point moved to **`tau_gaba = 18`, `gNMDA = 0.51`**
+and, decisively, **excitatory adaptation `aM 0.008 → 0.02`, `dM 8 → 10`**. Effect: **TBW ~258 → 260 ms**
+stays inside the HARD ≤ 300 line while the whole ensemble now passes independently; latency is reported
+under the paper's mean-Δ §2.7 gate (previously framed via the race descriptor); gate 7 ships the
+`gain_exp = 1` headline only (the `gain_exp = 2` variant is dropped from the deliverable).
+
+---
+
+## 8 · Mechanism-influence — do all three levers still move TBW on the *shipped* weights?
+
+A single-variable **dose-response on the FROZEN dm10 weights** (inference-time lesion of an existing
+mechanism — **not** a retrain, not a modelling change; 17 points, every point weight-bit-identical and
+frozen-readout md5-clean; full detail in `mechanism_influence/DEBUGGER_397_DOSERESPONSE.md`). Answer:
+**YES for all three — none was flattened or removed by the TBW fix.**
+
+- **Adaptation** (`aM,dM`) — **NON-FLAT, span 120 ms**, the shipped narrowing lever:
+  off (0/0) → **300 ms**, baseline008 (0.008/8) → **360 ms**, **dm10 (0.02/10) → 240 ms (narrowest)**.
+- **NMDA** (`gNMDA`) — **NON-FLAT, strongest, required for fusion:** `gNMDA = 0` **collapses the fusion
+  bell** (peak P(fusion) → 0, TBW degenerate 600 ms); within the viable range more NMDA → wider TBW
+  (0.255 → 220, 0.51 → 240, 0.765 → 260 ms).
+- **GABA** — moves TBW through **decay TIMING, not amplitude:** `tau_gaba` {10, 18, 40, 60} → {240, 240,
+  280, 300} ms (slower → wider, +60 ms over 18→60), while the disynaptic-PV conductance amplitude
+  `pv_gaba_scale` is **flat even at 4×** (≈ 240 ms throughout). Temporal width is set by inhibition
+  **timing**, not strength.
+
+All lesions are inference-time live-scalar overrides (no weight mutation); results replicate on a second
+seed (44). The validity gate passes (the harness *can* move TBW: adaptation-off widens 240 → 300), so the
+flat amplitude sub-knob is a real biological finding, not a harness artifact.
+
+---
+
+## 9 · Frozen-readout firewall
+
+`TBW_test.py` and `SBW_test.py` are the **frozen biological readouts** and are **md5-LOCKED**:
+
+```
+TBW_test.py = 80d33465c4bf55d6e85b5990acb92da7
+SBW_test.py = 73b7d13626964d851cc090818b728311
+```
+
+They are **run/import-only and must never be edited to pass.** Every gate (and every plot) asserts both
+md5s **BEFORE == AFTER** via `routec_net_io.assert_frozen_readouts`, and the measurement gates additionally
+assert **weight bit-identity** (the net is inference-only, never mutated). The dm10 runner
+(`val394_dm10_stage2.py`) adds three independent per-seed tripwires on the operating point: a CPU
+pre-flight over `mutable_hparams`, `load_ckpt`'s own env == ckpt assert, and a restored-net guard
+(`aM/dM/tau_gaba/gNMDA/u_stp_a`).
+
+---
+
+## 10 · Checkpoints & provenance
+
+**All 10 checkpoints are committed** (`checkpoint/`, ≈ 1.93 MB each), for exact reproduction with no
+retraining and no GPU. `md5sum -c CKPT_MD5.txt` (from the bundle root) re-verifies all 10 checkpoints **and**
+the two frozen readouts. To regenerate a model from scratch, see **§6 · How to train** (~13 min/seed on an
+A6000; seed-deterministic on a fixed device).
+
+- `records/train_log_dm10_seed42.out` — the seed-42 training log (config `[id]` header + per-epoch vitals).
+- `records/grade_dm10_ensemble.out` — the full-7 per-seed + ensemble GO scorecard.

@@ -1,0 +1,34 @@
+{
+ "tag": "s42_gaba_tau10",
+ "ckpt": "/tmp/dbg_sfa_isolate/dm10/ckpt_ep79_seed42_bs250_delay52_tau18_dL3.pt",
+ "md5": "8ee948f53a94bb3943044048f06b13c6",
+ "meas_seed": 44,
+ "effective": {
+  "aM": 0.02,
+  "dM": 10.0,
+  "pv_gaba_scale": 1.0,
+  "tau_gaba": 10.0,
+  "gNMDA": 0.51,
+  "u_stp_a": 0.2,
+  "nmda_std_scale": 0.8,
+  "g_rec": 0.03,
+  "epoch": 79
+ },
+ "tbw": [
+  260.0,
+  240.0,
+  240.0
+ ],
+ "tbw_med": 240.0,
+ "tbw_peak": [
+  1.0,
+  1.0,
+  1.0
+ ],
+ "weight_fp_before": "441571bf2de5ddb6a42106c6296ea020",
+ "weight_fp_after": "441571bf2de5ddb6a42106c6296ea020",
+ "weight_bit_identical": true,
+ "md5_TBW": "80d33465c4bf55d6e85b5990acb92da7",
+ "md5_SBW": "73b7d13626964d851cc090818b728311",
+ "firewall_ok": true
+}

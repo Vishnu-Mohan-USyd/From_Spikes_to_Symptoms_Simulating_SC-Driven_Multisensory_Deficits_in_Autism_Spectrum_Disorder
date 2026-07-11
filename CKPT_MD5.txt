@@ -1,0 +1,16 @@
+# Route-C dm10 (tau18) ensemble — checkpoint + frozen-readout md5 manifest
+# verify (from bundle root):   md5sum -c CKPT_MD5.txt
+# --- the 10 trained models (seeds 42-51, epoch 79; dm10 operating point: aM=0.02 dM=10 tau_gaba=18 gNMDA=0.51) ---
+8ee948f53a94bb3943044048f06b13c6  checkpoint/ckpt_ep79_seed42_bs250_delay52_tau18_dL3.pt
+2bb2e23e6d4f00a9f90093b926582437  checkpoint/ckpt_ep79_seed43_bs250_delay52_tau18_dL3.pt
+eeb7be5ea64d0af3169b5b6375be0a74  checkpoint/ckpt_ep79_seed44_bs250_delay52_tau18_dL3.pt
+c42bd276ebad1afeedf8c06972f70691  checkpoint/ckpt_ep79_seed45_bs250_delay52_tau18_dL3.pt
+2908bd6eab7cae6aaa9550c2c779cabd  checkpoint/ckpt_ep79_seed46_bs250_delay52_tau18_dL3.pt
+41d4d07f0bef214752d537f5d8f552f0  checkpoint/ckpt_ep79_seed47_bs250_delay52_tau18_dL3.pt
+efaed12e4d4ca8c4137ed205f023c07c  checkpoint/ckpt_ep79_seed48_bs250_delay52_tau18_dL3.pt
+87821af4acf25cfe31ab8a3ffc419730  checkpoint/ckpt_ep79_seed49_bs250_delay52_tau18_dL3.pt
+ca16087a653d087ee2c975405cc4474b  checkpoint/ckpt_ep79_seed50_bs250_delay52_tau18_dL3.pt
+2d93fd2b9d3e3c0917569a506f2744a8  checkpoint/ckpt_ep79_seed51_bs250_delay52_tau18_dL3.pt
+# --- frozen readouts (md5-LOCKED, run-only, must never change) ---
+80d33465c4bf55d6e85b5990acb92da7  TBW_test.py
+73b7d13626964d851cc090818b728311  SBW_test.py

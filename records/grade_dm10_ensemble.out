@@ -1,0 +1,102 @@
+
+================ VALIDATOR #394 dm10 GRADE — official criteria ================
+
+  seed | G1_RATE  |  G2_TBW  |  G3_EI   |  G4_IE   |  G5_SBW  |  G6_LAT  |  G7_CUE 
+  ------------------------------------------------------------------------------------
+    42 |   PASS   |   PASS   |   PASS   |   PASS   |   PASS   |   PASS   |   PASS  
+    43 |   PASS   |   PASS   |   PASS   |   PASS   |   PASS   |   PASS   |   PASS  
+    44 |   PASS   |   PASS   |   PASS   |   PASS   |   PASS   |   PASS   |   PASS  
+    45 |   PASS   |   PASS   |   PASS   |   PASS   |   PASS   |   PASS   |   PASS  
+    46 |   PASS   |   PASS   |   PASS   |   PASS   |   PASS   |   PASS   |   PASS  
+    47 |   PASS   |   PASS   |   PASS   |   PASS   |   PASS   |   PASS   |   PASS  
+    48 |   PASS   |   PASS   |   PASS   |   PASS   |   PASS   |   PASS   |   PASS  
+    49 |   PASS   |   PASS   |   PASS   |   PASS   |   PASS   |   PASS   |   PASS  
+    50 |   PASS   |   PASS   |   PASS   |   PASS   |   PASS   |   PASS   |   PASS  
+    51 |   PASS   |   PASS   |   PASS   |   PASS   |   PASS   |   PASS   |   PASS  
+
+  PER-SEED DETAIL:
+    s42 G1_RATE : PASS  15.86Hz
+    s42 G2_TBW  : PASS  260ms
+    s42 G3_EI   : PASS  0.958
+    s42 G4_IE   : PASS  slope=-2.72 MEIlo=2.77>MEIhi=0.89=True peak@0.2
+    s42 G5_SBW  : PASS  peak=102.9% zc=28.6 trough=-13.5%
+    s42 G6_LAT  : PASS  meanD@I=1.0=+7.42ms [mean(LA,LV)=41.0-LB=33.6]; race@1.0=-0.30(null-ok); loben@0.05=+15.0
+    s42 G7_CUE  : PASS  R2=0.819
+    s43 G1_RATE : PASS  16.56Hz
+    s43 G2_TBW  : PASS  260ms
+    s43 G3_EI   : PASS  0.982
+    s43 G4_IE   : PASS  slope=-2.72 MEIlo=2.97>MEIhi=0.88=True peak@0.2
+    s43 G5_SBW  : PASS  peak=101.0% zc=28.1 trough=-14.2%
+    s43 G6_LAT  : PASS  meanD@I=1.0=+7.44ms [mean(LA,LV)=40.7-LB=33.3]; race@1.0=+0.13(null-ok); loben@0.05=+15.7
+    s43 G7_CUE  : PASS  R2=0.867
+    s44 G1_RATE : PASS  15.64Hz
+    s44 G2_TBW  : PASS  260ms
+    s44 G3_EI   : PASS  0.955
+    s44 G4_IE   : PASS  slope=-2.64 MEIlo=2.81>MEIhi=0.85=True peak@0.2
+    s44 G5_SBW  : PASS  peak=103.1% zc=28.3 trough=-16.4%
+    s44 G6_LAT  : PASS  meanD@I=1.0=+6.98ms [mean(LA,LV)=41.0-LB=34.1]; race@1.0=-0.09(null-ok); loben@0.05=+13.4
+    s44 G7_CUE  : PASS  R2=0.880
+    s45 G1_RATE : PASS  16.39Hz
+    s45 G2_TBW  : PASS  260ms
+    s45 G3_EI   : PASS  0.934
+    s45 G4_IE   : PASS  slope=-2.77 MEIlo=3.03>MEIhi=0.99=True peak@0.2
+    s45 G5_SBW  : PASS  peak=101.7% zc=28.2 trough=-15.8%
+    s45 G6_LAT  : PASS  meanD@I=1.0=+7.44ms [mean(LA,LV)=41.0-LB=33.6]; race@1.0=-0.09(null-ok); loben@0.05=+16.8
+    s45 G7_CUE  : PASS  R2=0.886
+    s46 G1_RATE : PASS  17.19Hz
+    s46 G2_TBW  : PASS  260ms
+    s46 G3_EI   : PASS  0.972
+    s46 G4_IE   : PASS  slope=-2.84 MEIlo=3.08>MEIhi=0.83=True peak@0.2
+    s46 G5_SBW  : PASS  peak=99.9% zc=28.0 trough=-16.4%
+    s46 G6_LAT  : PASS  meanD@I=1.0=+7.40ms [mean(LA,LV)=41.2-LB=33.8]; race@1.0=-0.65(null-ok); loben@0.05=+15.3
+    s46 G7_CUE  : PASS  R2=0.889
+    s47 G1_RATE : PASS  15.72Hz
+    s47 G2_TBW  : PASS  260ms
+    s47 G3_EI   : PASS  0.915
+    s47 G4_IE   : PASS  slope=-2.76 MEIlo=2.80>MEIhi=0.79=True peak@0.2
+    s47 G5_SBW  : PASS  peak=101.2% zc=27.2 trough=-16.5%
+    s47 G6_LAT  : PASS  meanD@I=1.0=+7.51ms [mean(LA,LV)=41.1-LB=33.6]; race@1.0=+0.40(null-ok); loben@0.05=+14.9
+    s47 G7_CUE  : PASS  R2=0.892
+    s48 G1_RATE : PASS  16.53Hz
+    s48 G2_TBW  : PASS  260ms
+    s48 G3_EI   : PASS  0.976
+    s48 G4_IE   : PASS  slope=-2.76 MEIlo=3.11>MEIhi=0.93=True peak@0.2
+    s48 G5_SBW  : PASS  peak=101.9% zc=28.2 trough=-13.5%
+    s48 G6_LAT  : PASS  meanD@I=1.0=+7.74ms [mean(LA,LV)=41.2-LB=33.5]; race@1.0=+0.16(null-ok); loben@0.05=+15.8
+    s48 G7_CUE  : PASS  R2=0.851
+    s49 G1_RATE : PASS  16.44Hz
+    s49 G2_TBW  : PASS  260ms
+    s49 G3_EI   : PASS  0.969
+    s49 G4_IE   : PASS  slope=-2.95 MEIlo=3.32>MEIhi=0.89=True peak@0.2
+    s49 G5_SBW  : PASS  peak=101.5% zc=27.8 trough=-16.7%
+    s49 G6_LAT  : PASS  meanD@I=1.0=+7.76ms [mean(LA,LV)=40.9-LB=33.1]; race@1.0=+0.30(null-ok); loben@0.05=+14.5
+    s49 G7_CUE  : PASS  R2=0.884
+    s50 G1_RATE : PASS  15.78Hz
+    s50 G2_TBW  : PASS  260ms
+    s50 G3_EI   : PASS  0.955
+    s50 G4_IE   : PASS  slope=-2.76 MEIlo=2.90>MEIhi=0.85=True peak@0.2
+    s50 G5_SBW  : PASS  peak=99.3% zc=27.7 trough=-16.0%
+    s50 G6_LAT  : PASS  meanD@I=1.0=+7.31ms [mean(LA,LV)=40.7-LB=33.4]; race@1.0=-0.37(null-ok); loben@0.05=+15.1
+    s50 G7_CUE  : PASS  R2=0.853
+    s51 G1_RATE : PASS  16.89Hz
+    s51 G2_TBW  : PASS  260ms
+    s51 G3_EI   : PASS  0.912
+    s51 G4_IE   : PASS  slope=-2.81 MEIlo=2.77>MEIhi=0.81=True peak@0.2
+    s51 G5_SBW  : PASS  peak=101.7% zc=28.0 trough=-15.4%
+    s51 G6_LAT  : PASS  meanD@I=1.0=+8.20ms [mean(LA,LV)=41.2-LB=33.0]; race@1.0=+0.42(null-ok); loben@0.05=+14.9
+    s51 G7_CUE  : PASS  R2=0.778
+
+  ENSEMBLE (mean +/- SD across seeds):
+    G1 RATE = 16.30+/-0.53 Hz   band[12,32]
+    G2 TBW  = 260+/-0 ms    HARD<=300
+    G3 E/I  = 0.953+/-0.025     [0.80,1.25]
+    G4 MEI  = [2.96 4.79 9.36 2.09 0.95 0.87] @I=[0.05, 0.1, 0.2, 0.4, 0.8, 1.6]
+    G5 SBW  = peak 101.4+/-1.2%  zero-cross 28.0+/-0.4deg  trough -15.4+/-1.2%
+    G6 LAT  = mean Delta@I=1.0 +7.52+/-0.32 ms   (>0 gate; §2.7 onset facilitation)
+             context: low-I(I=0.05) race benefit +15.14+/-0.88 ms;  race curve [15.1, 0.7, 0.1, -0.1, 0.1, -0.0, 0.1]
+    G7 CUE  = R2 pooled 0.889  per-seed min 0.778  (n=10)  bar>0.71
+
+  ================ VERDICT ================
+  GO
+  ========================================
+

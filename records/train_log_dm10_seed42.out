@@ -1,0 +1,81 @@
+device=NVIDIA RTX A6000  5-SEED RETRAIN (common-mode ΔL fix)  seed=42  bs=250  n_seq=1000  ep0..79
+GDF=/home/vishnu/coding_proj/fsts_5/fallback_5of6_tau40/Training_graphdf_d52.py   RUN_DIR=/tmp/dbg_sfa_isolate/dm10
+single-variable change vs reference: SIGMA_DL_FRAMES=3.0 (common-mode A-V ΔL ~N(0,3.0 frames))
+schedule: g_rec=0.0 for ep<26, 0.1 for ep>=26   ckpts -> ep5/ep30/ep79
+inline kills: NaN/Inf, norm>10.0x init, ep5 GABA clampfrac>=0.05 [#106 corrected gate: snapshot-collapse <1e-03/substep kill REMOVED — mis-calibrated]; ep30 canonical-MSI + ep79 TBW/SBW/EI are POST-HOC
+Using device: cuda
+[INFO] Assigned genetic preferred loc for each unimodal neuron (A/V).
+[id] delay=52 substeps  tau_gaba=18.0  tau_nmda_inh=21.6  sigma_dL_frames=3.0  pv_gaba_scale=1.0  W_gaba_clamp=0.5  rho0=4.5
+[id] NR2A temporal: tau_nmda=40.0 (TAU_NMDA env)  g_rec_post_warmup=0.03 (G_REC env; default 0.1)
+[id] P5/C1 NMDA Mg-gate: dend_coupling_alpha=2.0 (tau_eff=10.0ms)  mg_vhalf_exc=-48.0  mg_vhalf_inh=-30.0  mg_k=0.15  gNMDA=0.51
+[id] FF-inh lever: msiInh_input_init_scale=1.0  msiInh_input_gain=1.0 (B: persistent fwd-mult)  |W_a2msiInh_AMPA|=1.4273  (interneuron-input init scaled ~1.00x reference)
+[id] STD/adapt decouple (task#104): tau_rec=400.0  u_stp_a=0.2  u_stp_v=0.2  nmda_std_scale=0.8  bM=0.2  dM=10.0  aM=0.02  (env-exposed; defaults 400/0.2/0.2/0.8/0.2/8.0/0.02 == byte-identical)
+[id] iSTDP setpoint (task#310): istdp_baseline=0.56  eta_istdp=2e-05  (ISTDP_BASELINE env; default 0.6 == byte-identical; lower baseline -> lower target rate -> settles HIGHER W_msiInh2Exc_GABA)
+[id] afferent-arrival jitter (task#327): afferent_jitter_ms=4.0  (AFFERENT_JITTER_MS env; default 0.0 == byte-identical; per-channel INDEPENDENT σ on the A/V conduction-delay ring read -> graded first-spike-latency taper)
+[id] latency #148 V->MSI NMDA fwd-scale: v2msi_nmda_scale=1.0  (V2MSI_NMDA_SCALE env; default 1.0 == byte-identical; >1 strengthens slow voltage-dependent V NMDA for sub-threshold summation room)
+[id] surround-shunt GABA: GABA_SHUNT_SURR=True  E_gaba=-70.0  k_shunt_surr=0.026  (OFF default => byte-identical subtractive surround)
+[id] OK — delay52 / tau10 / common-mode ΔL fix is LIVE on the reference build
+[init] norms: W_inA=8.9579e+00  W_inV=9.0833e+00  W_MSI_exc=9.6064e+00  W_MSI_inh=1.7933e+01  W_a2msi_AMPA=7.2022e-01  W_a2msi_NMDA=7.1900e-01  W_v2msi_AMPA=7.1554e-01  W_v2msi_NMDA=7.2286e-01  W_msiInh2Exc_GABA=1.1446e-01
+[ep 0] g_rec=0.0  train= 11.58s  cum= 0.19min
+[gate ep 0] msi_snapshot=1.8356e-02/substep (~184Hz-equiv, inflated)  n_active=0.018  gaba_clampfrac=0.0000  finite=OK
+[gate ep 0] norm/init: W_inA=0.769x  W_inV=0.766x  W_MSI_exc=1.000x  W_MSI_inh=1.000x  W_a2msi_AMPA=0.453x  W_a2msi_NMDA=1.362x  W_v2msi_AMPA=0.455x  W_v2msi_NMDA=1.352x  W_msiInh2Exc_GABA=1.000x
+[ep 1] g_rec=0.0  train=  8.46s  cum= 0.33min
+[ep 5] g_rec=0.0  train=  8.42s  cum= 0.90min
+[gate ep 5] msi_snapshot=1.8711e-02/substep (~187Hz-equiv, inflated)  n_active=0.019  gaba_clampfrac=0.0000  finite=OK
+[gate ep 5] norm/init: W_inA=0.935x  W_inV=0.925x  W_MSI_exc=1.000x  W_MSI_inh=1.000x  W_a2msi_AMPA=0.457x  W_a2msi_NMDA=1.374x  W_v2msi_AMPA=0.459x  W_v2msi_NMDA=1.364x  W_msiInh2Exc_GABA=1.000x
+[ep 5] saved checkpoint ckpt_ep5_seed42_bs250_delay52_tau18_dL3.pt
+[ep10] g_rec=0.0  train=  8.37s  cum= 1.60min
+[gate ep10] msi_snapshot=1.9822e-02/substep (~198Hz-equiv, inflated)  n_active=0.020  gaba_clampfrac=0.0000  finite=OK
+[gate ep10] norm/init: W_inA=1.073x  W_inV=1.058x  W_MSI_exc=1.000x  W_MSI_inh=1.000x  W_a2msi_AMPA=0.462x  W_a2msi_NMDA=1.388x  W_v2msi_AMPA=0.464x  W_v2msi_NMDA=1.378x  W_msiInh2Exc_GABA=1.000x
+[ep15] g_rec=0.0  train=  8.37s  cum= 2.30min
+[gate ep15] msi_snapshot=1.7000e-02/substep (~170Hz-equiv, inflated)  n_active=0.017  gaba_clampfrac=0.0000  finite=OK
+[gate ep15] norm/init: W_inA=1.188x  W_inV=1.171x  W_MSI_exc=1.000x  W_MSI_inh=1.000x  W_a2msi_AMPA=0.467x  W_a2msi_NMDA=1.402x  W_v2msi_AMPA=0.469x  W_v2msi_NMDA=1.391x  W_msiInh2Exc_GABA=1.000x
+[ep20] g_rec=0.0  train=  8.44s  cum= 3.00min
+[gate ep20] msi_snapshot=1.4778e-02/substep (~148Hz-equiv, inflated)  n_active=0.015  gaba_clampfrac=0.0000  finite=OK
+[gate ep20] norm/init: W_inA=1.283x  W_inV=1.265x  W_MSI_exc=1.000x  W_MSI_inh=1.000x  W_a2msi_AMPA=0.471x  W_a2msi_NMDA=1.416x  W_v2msi_AMPA=0.473x  W_v2msi_NMDA=1.405x  W_msiInh2Exc_GABA=1.000x
+[ep25] g_rec=0.0  train=  8.35s  cum= 3.69min
+[gate ep25] msi_snapshot=1.3044e-02/substep (~130Hz-equiv, inflated)  n_active=0.013  gaba_clampfrac=0.0000  finite=OK
+[gate ep25] norm/init: W_inA=1.354x  W_inV=1.335x  W_MSI_exc=1.000x  W_MSI_inh=1.000x  W_a2msi_AMPA=0.476x  W_a2msi_NMDA=1.429x  W_v2msi_AMPA=0.477x  W_v2msi_NMDA=1.418x  W_msiInh2Exc_GABA=1.000x
+[ep30] g_rec=0.0  train= 10.57s  cum= 4.63min
+[gate ep30] msi_snapshot=7.2667e-03/substep (~73Hz-equiv, inflated)  n_active=0.007  gaba_clampfrac=0.0000  finite=OK
+[gate ep30] norm/init: W_inA=1.404x  W_inV=1.384x  W_MSI_exc=0.983x  W_MSI_inh=1.000x  W_a2msi_AMPA=0.426x  W_a2msi_NMDA=1.280x  W_v2msi_AMPA=0.428x  W_v2msi_NMDA=1.272x  W_msiInh2Exc_GABA=34.898x
+[ep30] saved checkpoint ckpt_ep30_seed42_bs250_delay52_tau18_dL3.pt
+[ep35] g_rec=0.0  train= 10.59s  cum= 5.51min
+[gate ep35] msi_snapshot=5.5556e-03/substep (~56Hz-equiv, inflated)  n_active=0.006  gaba_clampfrac=0.0000  finite=OK
+[gate ep35] norm/init: W_inA=1.440x  W_inV=1.420x  W_MSI_exc=0.971x  W_MSI_inh=1.000x  W_a2msi_AMPA=0.403x  W_a2msi_NMDA=1.210x  W_v2msi_AMPA=0.405x  W_v2msi_NMDA=1.203x  W_msiInh2Exc_GABA=61.115x
+[ep40] g_rec=0.0  train= 10.60s  cum= 6.39min
+[gate ep40] msi_snapshot=2.5111e-03/substep (~25Hz-equiv, inflated)  n_active=0.003  gaba_clampfrac=0.0000  finite=OK
+[gate ep40] norm/init: W_inA=1.467x  W_inV=1.447x  W_MSI_exc=0.963x  W_MSI_inh=1.000x  W_a2msi_AMPA=0.397x  W_a2msi_NMDA=1.194x  W_v2msi_AMPA=0.400x  W_v2msi_NMDA=1.187x  W_msiInh2Exc_GABA=79.789x
+[ep45] g_rec=0.0  train= 10.51s  cum= 7.27min
+[gate ep45] msi_snapshot=2.0000e-03/substep (~20Hz-equiv, inflated)  n_active=0.002  gaba_clampfrac=0.0000  finite=OK
+[gate ep45] norm/init: W_inA=1.485x  W_inV=1.465x  W_MSI_exc=0.959x  W_MSI_inh=1.000x  W_a2msi_AMPA=0.396x  W_a2msi_NMDA=1.190x  W_v2msi_AMPA=0.398x  W_v2msi_NMDA=1.183x  W_msiInh2Exc_GABA=88.246x
+[ep50] g_rec=0.0  train= 10.59s  cum= 8.15min
+[gate ep50] msi_snapshot=2.2000e-03/substep (~22Hz-equiv, inflated)  n_active=0.002  gaba_clampfrac=0.0000  finite=OK
+[gate ep50] norm/init: W_inA=1.496x  W_inV=1.476x  W_MSI_exc=0.955x  W_MSI_inh=1.000x  W_a2msi_AMPA=0.395x  W_a2msi_NMDA=1.187x  W_v2msi_AMPA=0.398x  W_v2msi_NMDA=1.181x  W_msiInh2Exc_GABA=94.491x
+[ep50] saved checkpoint ckpt_ep50_seed42_bs250_delay52_tau18_dL3.pt
+[ep55] g_rec=0.0  train= 10.52s  cum= 9.02min
+[gate ep55] msi_snapshot=2.1778e-03/substep (~22Hz-equiv, inflated)  n_active=0.002  gaba_clampfrac=0.0000  finite=OK
+[gate ep55] norm/init: W_inA=1.503x  W_inV=1.481x  W_MSI_exc=0.952x  W_MSI_inh=1.000x  W_a2msi_AMPA=0.395x  W_a2msi_NMDA=1.187x  W_v2msi_AMPA=0.397x  W_v2msi_NMDA=1.180x  W_msiInh2Exc_GABA=97.840x
+[ep60] g_rec=0.0  train= 10.53s  cum= 9.90min
+[gate ep60] msi_snapshot=1.6889e-03/substep (~17Hz-equiv, inflated)  n_active=0.002  gaba_clampfrac=0.0000  finite=OK
+[gate ep60] norm/init: W_inA=1.506x  W_inV=1.484x  W_MSI_exc=0.949x  W_MSI_inh=1.000x  W_a2msi_AMPA=0.395x  W_a2msi_NMDA=1.186x  W_v2msi_AMPA=0.397x  W_v2msi_NMDA=1.180x  W_msiInh2Exc_GABA=100.644x
+[ep65] g_rec=0.0  train= 10.48s  cum=10.78min
+[gate ep65] msi_snapshot=2.3556e-03/substep (~24Hz-equiv, inflated)  n_active=0.002  gaba_clampfrac=0.0000  finite=OK
+[gate ep65] norm/init: W_inA=1.505x  W_inV=1.483x  W_MSI_exc=0.947x  W_MSI_inh=1.000x  W_a2msi_AMPA=0.395x  W_a2msi_NMDA=1.186x  W_v2msi_AMPA=0.397x  W_v2msi_NMDA=1.180x  W_msiInh2Exc_GABA=102.670x
+[ep70] g_rec=0.0  train= 10.53s  cum=11.65min
+[gate ep70] msi_snapshot=2.0222e-03/substep (~20Hz-equiv, inflated)  n_active=0.002  gaba_clampfrac=0.0000  finite=OK
+[gate ep70] norm/init: W_inA=1.505x  W_inV=1.483x  W_MSI_exc=0.944x  W_MSI_inh=1.000x  W_a2msi_AMPA=0.395x  W_a2msi_NMDA=1.186x  W_v2msi_AMPA=0.397x  W_v2msi_NMDA=1.180x  W_msiInh2Exc_GABA=104.760x
+[ep75] g_rec=0.0  train= 10.51s  cum=12.53min
+[gate ep75] msi_snapshot=2.1556e-03/substep (~22Hz-equiv, inflated)  n_active=0.002  gaba_clampfrac=0.0000  finite=OK
+[gate ep75] norm/init: W_inA=1.506x  W_inV=1.483x  W_MSI_exc=0.942x  W_MSI_inh=1.000x  W_a2msi_AMPA=0.395x  W_a2msi_NMDA=1.186x  W_v2msi_AMPA=0.397x  W_v2msi_NMDA=1.180x  W_msiInh2Exc_GABA=106.039x
+[ep79] g_rec=0.0  train= 10.53s  cum=13.23min
+[gate ep79] msi_snapshot=1.8444e-03/substep (~18Hz-equiv, inflated)  n_active=0.002  gaba_clampfrac=0.0000  finite=OK
+[gate ep79] norm/init: W_inA=1.506x  W_inV=1.485x  W_MSI_exc=0.940x  W_MSI_inh=1.000x  W_a2msi_AMPA=0.395x  W_a2msi_NMDA=1.186x  W_v2msi_AMPA=0.397x  W_v2msi_NMDA=1.180x  W_msiInh2Exc_GABA=108.036x
+[ep79] saved checkpoint ckpt_ep79_seed42_bs250_delay52_tau18_dL3.pt
+
+================================================================
+[RESULT] seed42: COMPLETE — 80 epochs
+[RESULT] wall=13.24min  end msi_rate=1.8444e-03  n_active=0.002  gaba_clampfrac=0.0000  finite=OK
+[RESULT] ckpts: {'5': '/tmp/dbg_sfa_isolate/dm10/ckpt_ep5_seed42_bs250_delay52_tau18_dL3.pt', '30': '/tmp/dbg_sfa_isolate/dm10/ckpt_ep30_seed42_bs250_delay52_tau18_dL3.pt', '50': '/tmp/dbg_sfa_isolate/dm10/ckpt_ep50_seed42_bs250_delay52_tau18_dL3.pt', '79': '/tmp/dbg_sfa_isolate/dm10/ckpt_ep79_seed42_bs250_delay52_tau18_dL3.pt'}
+[RESULT] MSI snapshot trajectory: ep0=1.836e-02  ep5=1.871e-02  ep10=1.982e-02  ep15=1.700e-02  ep20=1.478e-02  ep25=1.304e-02  ep30=7.267e-03  ep35=5.556e-03  ep40=2.511e-03  ep45=2.000e-03  ep50=2.200e-03  ep55=2.178e-03  ep60=1.689e-03  ep65=2.356e-03  ep70=2.022e-03  ep75=2.156e-03  ep79=1.844e-03
+[RESULT] gaba clampfrac trajectory: ep0=0.000  ep5=0.000  ep10=0.000  ep15=0.000  ep20=0.000  ep25=0.000  ep30=0.000  ep35=0.000  ep40=0.000  ep45=0.000  ep50=0.000  ep55=0.000  ep60=0.000  ep65=0.000  ep70=0.000  ep75=0.000  ep79=0.000
