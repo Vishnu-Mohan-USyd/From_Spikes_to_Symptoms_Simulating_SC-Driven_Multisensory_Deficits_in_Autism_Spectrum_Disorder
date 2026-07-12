@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Acquire the frozen low-intensity held-out Phase-2 confirmation matrix.
+"""Acquire the triggered low-intensity scalar-adaptation attribution matrix.
 
 This module is a narrow orchestration wrapper around
 ``mechanism_influence.race_model_measure``.  It deliberately imports the
 validated Phase-1 registry, RNG derivation, trial encoding, measurement
 kernel, checkpoint loader, state guards, readout guards, endpoint constants,
 and atomic JSON writer instead of redefining them.  One invocation acquires
-one frozen screen-selected perturbation cell for one held-out checkpoint seed.
+one frozen scalar-adaptation cell for one exploratory or held-out checkpoint.
 
 Latencies are measured in milliseconds with a 0.1-ms resolution and a
 400-ms censoring horizon.  Randomness is fixed by the shared Phase-1
@@ -35,21 +35,21 @@ from mechanism_influence import race_model_measure as phase1
 ROOT = phase1.ROOT
 MANIFEST_PATH = ROOT / "mechanism_influence" / "race_model_perturbation_manifest_v1.json"
 EXPECTED_MANIFEST_FILE_SHA256 = (
-    "a5d8e71baa883651bedb41a14050d260e0b1cce31ea05b9d9e19a910d85f7f02"
+    "dee0433d79cfe6dd69e85e5bfa6ad1b28c64251af9d58732e2d85f1816dc0ea9"
 )
 EXPECTED_MANIFEST_SEMANTIC_SHA256 = (
-    "4b4c274cae5a420086863a34d063df9d3a1f2dac027cea3379de1e7ab56b0452"
+    "dc928c70bc2e6c1a4da500d3d72f347d1c009a57412584e020102839aea7895e"
 )
-PROTOCOL_ID = "dm10-phase2-i005-heldout-exploratory-confirmation-v1"
+PROTOCOL_ID = "dm10-phase2-i005-triggered-adaptation-attribution-v1"
 RAW_SCHEMA_VERSION = "fsts-race-perturbation-trials-v1"
 MANIFEST_SCHEMA_VERSION = "fsts-race-perturbation-manifest-v1"
 CONFIRMATION_CELL_IDS = (
-    "adaptation_prior",
-    "pv_gaba_scale=0",
-    "tau_gaba=10",
-    "gNMDA=.765",
+    "aM=.008",
+    "dM=8",
 )
+EXPLORATORY_SEED = 42
 CONFIRMATION_SEEDS = tuple(range(43, 52))
+ACQUISITION_SEEDS = tuple(range(42, 52))
 
 
 @dataclass(frozen=True)
@@ -113,22 +113,24 @@ def load_manifest() -> dict[str, Any]:
         raise ValueError("perturbation protocol identity mismatch")
     if manifest.get("raw_schema_version") != RAW_SCHEMA_VERSION:
         raise ValueError("perturbation raw schema mismatch")
-    if manifest.get("status") != "exploratory_confirmation_frozen_before_acquisition":
-        raise ValueError("perturbation protocol is not the frozen exploratory confirmation")
+    if manifest.get("status") != "triggered_adaptation_attribution_frozen_before_acquisition":
+        raise ValueError("perturbation protocol is not the frozen adaptation attribution")
     confirmation = manifest.get("confirmation", {})
     acquisition = manifest.get("acquisition", {})
     if tuple(confirmation.get("selected_cell_ids", ())) != CONFIRMATION_CELL_IDS:
         raise ValueError("held-out confirmation candidate set/order mismatch")
     if tuple(confirmation.get("confirmation_checkpoint_seeds", ())) != CONFIRMATION_SEEDS:
         raise ValueError("held-out confirmation seed set/order mismatch")
-    if tuple(acquisition.get("checkpoint_seeds", ())) != CONFIRMATION_SEEDS:
+    if confirmation.get("exploratory_checkpoint_seed") != EXPLORATORY_SEED:
+        raise ValueError("exploratory attribution seed mismatch")
+    if tuple(acquisition.get("checkpoint_seeds", ())) != ACQUISITION_SEEDS:
         raise ValueError("acquisition seed set/order mismatch")
-    if confirmation.get("prohibited_screen_seed") != 42 or 42 in CONFIRMATION_SEEDS:
-        raise ValueError("seed-42 screen exclusion mismatch")
+    if confirmation.get("seed42_role") != "exploratory_continuation_gate_only_excluded_from_confirmation_inference":
+        raise ValueError("seed-42 attribution role mismatch")
     if confirmation.get("outcomes_may_change_selection") is not False:
         raise ValueError("candidate selection is not frozen")
     if confirmation.get("intensities") != [0.05] or acquisition.get("intensities") != [0.05]:
-        raise ValueError("held-out confirmation must acquire only intensity 0.05")
+        raise ValueError("adaptation attribution must acquire only intensity 0.05")
     return manifest
 
 
@@ -160,7 +162,7 @@ def _resolve_cell(
     if cell_id not in index:
         raise ValueError(f"cell_id is not in the preregistered Phase-2 matrix: {cell_id}")
     if cell_id not in tuple(str(value) for value in manifest["confirmation"]["selected_cell_ids"]):
-        raise ValueError(f"cell_id was not frozen by the seed-42 screen: {cell_id}")
+        raise ValueError(f"cell_id is not frozen for triggered adaptation attribution: {cell_id}")
     block_raw, cell_raw = index[cell_id]
     block = copy.deepcopy(dict(block_raw))
     cell = copy.deepcopy(dict(cell_raw))
@@ -319,7 +321,7 @@ def prepare_request(args: argparse.Namespace) -> PreparedRequest:
     block, cell, registry_cell = _resolve_cell(manifest, str(args.cell_id))
     seed = int(args.checkpoint_seed)
     if seed not in tuple(int(value) for value in manifest["acquisition"]["checkpoint_seeds"]):
-        raise ValueError("checkpoint seed must be one of the held-out seeds 43..51")
+        raise ValueError("checkpoint seed must be the exploratory seed 42 or held-out seed 43..51")
     if str(args.device) != manifest["device"]["requested"]:
         raise ValueError("Phase-2 acquisition requires the fixed cuda:0 device")
     if os.environ.get("CUDA_VISIBLE_DEVICES") != manifest["device"]["cuda_visible_devices"]:

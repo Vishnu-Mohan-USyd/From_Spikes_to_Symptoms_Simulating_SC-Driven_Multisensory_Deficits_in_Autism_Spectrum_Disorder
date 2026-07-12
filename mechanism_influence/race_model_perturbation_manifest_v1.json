@@ -1,28 +1,31 @@
 {
   "schema_version": "fsts-race-perturbation-manifest-v1",
   "protocol_version": 1,
-  "protocol_id": "dm10-phase2-i005-heldout-exploratory-confirmation-v1",
+  "protocol_id": "dm10-phase2-i005-triggered-adaptation-attribution-v1",
   "raw_schema_version": "fsts-race-perturbation-trials-v1",
-  "status": "exploratory_confirmation_frozen_before_acquisition",
+  "status": "triggered_adaptation_attribution_frozen_before_acquisition",
   "delta_definition": "perturbation_minus_shipped",
   "confirmation": {
-    "purpose": "held-out exploratory confirmation of the four seed-42-screen-selected perturbations",
+    "purpose": "triggered scalar attribution of the confirmed historical compound-adaptation effect",
     "selection_frozen_before_confirmation_acquisition": true,
     "selection_source": {
-      "seed": 42,
-      "analysis_path": "/home/vishnu/coding_proj/fsts_seed42_screen_run.eoMFMT/analysis/screen_analysis_seed42.json",
-      "analysis_file_sha256": "1869c467df46b7d4434c5981ea5935e11781136aeac63c12532ae1758a9eba86",
-      "analysis_csv_file_sha256": "e6f596c3ad7ee016033240f7fa1b74995d85041383b32dcbc74bde7743278c77",
-      "screen_manifest_file_sha256": "f2b786d4c8fea128119701b723c25be8061168931ef038b3b937aef6c42e00d6",
-      "screen_manifest_semantic_sha256": "3f6e15209f0e65ef5575d751d84ef729178651c3411624a6975e2db17778acae",
-      "screen_wrapper_file_sha256": "6d484ec1f59dbb441d28d62c48d68de262553431ede03a845fc4c0c1028dea4a"
+      "trigger": "historical compound adaptation passed both primary delta_G_q and secondary delta_Aplus_full families",
+      "analysis_path": "/home/vishnu/coding_proj/fsts_seed43_51_confirmation.QonZSv/analysis/confirmation_analysis.json",
+      "analysis_file_sha256": "5a3311604507a698add9494d274171d8d08269a2532b8c36d6010d06be13cac7",
+      "analysis_payload_sha256": "c058ee7655b2c65c960ae379ab200d872956341befed51d09b6b5ea307ae5a6f",
+      "acquisition_ledger_file_sha256": "dfe040ad8f853f27254302d231786cee299b15ffa30f65410f8b17c12d268bd0"
     },
     "selected_cell_ids": [
-      "adaptation_prior",
-      "pv_gaba_scale=0",
-      "tau_gaba=10",
-      "gNMDA=.765"
+      "aM=.008",
+      "dM=8"
     ],
+    "exploratory_checkpoint_seed": 42,
+    "exploratory_gpu_workers": 2,
+    "exploratory_continuation_gate": {
+      "aM_effect_required": "at least one nonzero seed-42 delta_G_q or nonzero delta_Aplus_full",
+      "dM_exact_negative_control_required": "all seed-42 A/V/AV/catch hit and latency arrays, G(q), and Aplus_full exactly equal shipped",
+      "dM_nonnull_action": "stop_and_route_to_debugger_before_confirmation_or_biological_interpretation"
+    },
     "confirmation_checkpoint_seeds": [
       43,
       44,
@@ -34,15 +37,15 @@
       50,
       51
     ],
-    "prohibited_screen_seed": 42,
+    "seed42_role": "exploratory_continuation_gate_only_excluded_from_confirmation_inference",
     "outcomes_may_change_selection": false,
     "intensities": [
       0.05
     ],
     "analysis_contract": {
       "delta_definition": "paired checkpoint perturbation_minus_shipped",
-      "primary_family": "28 delta_G_q cells: 4 selected perturbations x 7 q levels",
-      "secondary_family": "4 delta_Aplus_full cells: one per selected perturbation",
+      "primary_family": "14 delta_G_q cells: 2 scalar perturbations x 7 q levels",
+      "secondary_family": "2 delta_Aplus_full cells: one per scalar perturbation",
       "tails": "all_two_sided",
       "exact_common_checkpoint_row_sign_patterns": 512,
       "plus_one_correction": false,
@@ -57,14 +60,15 @@
     "two_sided"
   ],
   "expected_counts": {
-    "registered_blocks": 4,
-    "registered_perturbation_cells": 12,
-    "selected_confirmation_cells": 4,
-    "checkpoint_seeds": 9,
-    "cell_checkpoint_acquisitions": 36,
-    "new_trials": 144000,
-    "reused_anchor_trials": 36000,
-    "total_analysis_trials": 180000
+    "registered_blocks": 6,
+    "registered_perturbation_cells": 14,
+    "selected_confirmation_cells": 2,
+    "exploratory_checkpoint_seeds": 1,
+    "confirmation_checkpoint_seeds": 9,
+    "cell_checkpoint_acquisitions": 20,
+    "new_trials": 80000,
+    "reused_anchor_trials": 40000,
+    "total_analysis_trials": 120000
   },
   "endpoints": {
     "G_q": {
@@ -96,12 +100,9 @@
     "all_preregistered_q_reachable": true,
     "censor_encoding": "+Inf",
     "noncollapse_failure_action": "confirmatory_family_incomplete_descriptive_only",
-    "gNMDA_zero_branch": {
-      "policy": "all_or_none_selective_latency_qc",
-      "scope": "all_10_checkpoints_x_3_intensities",
-      "selection_time": "before_endpoint_statistics",
-      "partial_inclusion_allowed": false,
-      "failure_action": "control_only_no_formal_claim"
+    "dM_first_spike_negative_control": {
+      "required_seed42_result": "exact equality to shipped trial arrays and derived endpoints",
+      "failure_action": "debug_before_confirmation_or_biological_interpretation"
     }
   },
   "inference": {
@@ -127,13 +128,13 @@
     "families": {
       "delta_G_q": {
         "role": "primary_perturbation_effect",
-        "cells": 28,
+        "cells": 14,
         "tail": "two_sided",
         "transform": "abs(t)"
       },
       "delta_Aplus_full": {
         "role": "secondary_checkpoint_contrast",
-        "cells": 4,
+        "cells": 2,
         "tail": "two_sided",
         "transform": "abs(t)",
         "may_substitute_for_primary": false
@@ -173,7 +174,7 @@
     }
   },
   "scalar_adaptation_followup": {
-    "execution": "trigger_only_not_upfront",
+    "execution": "triggered",
     "trigger_if_any": [
       "historical_compound_delta_G_q_passes_primary_family",
       "historical_compound_delta_Aplus_full_passes_secondary_family",
@@ -200,13 +201,17 @@
     "dM_anchor": 10.0,
     "dM_role": "first_spike_negative_control",
     "dM_nonnull_action": "debug_before_biological_interpretation",
-    "delta_G_q_family_cells": 126,
-    "delta_Aplus_full_family_cells": 18,
+    "selected_cells": [
+      "aM=.008",
+      "dM=8"
+    ],
+    "delta_G_q_family_cells": 14,
+    "delta_Aplus_full_family_cells": 2,
     "compound_result_allows_scalar_attribution": false
   },
   "execution_policy": {
     "approved_gpu_workers": 4,
-    "gpu_parallelism": "up_to_four_independent_acquisition_processes_under_one_exclusive_approved_UUID_lease",
+    "gpu_parallelism": "seed42 exploratory P2 then, only after continuation-gate PASS, held-out confirmation P4 under one exclusive approved UUID lease",
     "acquisition_unit": "one_perturbation_cell_x_checkpoint",
     "vectorized_substream_trials": 100,
     "batch_size_change_allowed": false,
@@ -251,6 +256,7 @@
   },
   "acquisition": {
     "checkpoint_seeds": [
+      42,
       43,
       44,
       45,
@@ -575,6 +581,60 @@
             "pv_gaba_scale": 1.0,
             "tau_gaba": 18.0,
             "gNMDA": 0.765
+          },
+          "delta_tails": {
+            "0.05": "two_sided",
+            "0.2": "two_sided",
+            "1.0": "two_sided"
+          },
+          "within_cell_rmi_tail": "positive_one_sided"
+        }
+      ]
+    },
+    {
+      "block_id": "scalar_adaptation_aM_attribution",
+      "design_family": "scalar_rmi_v1",
+      "factor_id": "aM",
+      "anchor_id": "shipped",
+      "semantic_mode": "scalar_one_factor",
+      "scalar_attribution_allowed": true,
+      "cells": [
+        {
+          "cell_id": "aM=.008",
+          "role": "triggered_scalar_attribution",
+          "vector": {
+            "aM": 0.008,
+            "dM": 10.0,
+            "pv_gaba_scale": 1.0,
+            "tau_gaba": 18.0,
+            "gNMDA": 0.51
+          },
+          "delta_tails": {
+            "0.05": "two_sided",
+            "0.2": "two_sided",
+            "1.0": "two_sided"
+          },
+          "within_cell_rmi_tail": "positive_one_sided"
+        }
+      ]
+    },
+    {
+      "block_id": "scalar_adaptation_dM_negative_control",
+      "design_family": "scalar_rmi_v1",
+      "factor_id": "dM_negative_control",
+      "anchor_id": "shipped",
+      "semantic_mode": "scalar_one_factor",
+      "scalar_attribution_allowed": true,
+      "cells": [
+        {
+          "cell_id": "dM=8",
+          "role": "first_spike_negative_control",
+          "vector": {
+            "aM": 0.02,
+            "dM": 8.0,
+            "pv_gaba_scale": 1.0,
+            "tau_gaba": 18.0,
+            "gNMDA": 0.51
           },
           "delta_tails": {
             "0.05": "two_sided",
