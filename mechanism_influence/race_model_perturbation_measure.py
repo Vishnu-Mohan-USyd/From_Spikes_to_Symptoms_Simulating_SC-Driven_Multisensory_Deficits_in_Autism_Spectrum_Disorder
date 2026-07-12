@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""Acquire the frozen three-intensity Phase-2 perturbation matrix.
+"""Acquire the frozen low-intensity held-out Phase-2 confirmation matrix.
 
 This module is a narrow orchestration wrapper around
 ``mechanism_influence.race_model_measure``.  It deliberately imports the
 validated Phase-1 registry, RNG derivation, trial encoding, measurement
 kernel, checkpoint loader, state guards, readout guards, endpoint constants,
 and atomic JSON writer instead of redefining them.  One invocation acquires
-one preregistered perturbation cell for one checkpoint seed.
+one frozen screen-selected perturbation cell for one held-out checkpoint seed.
 
 Latencies are measured in milliseconds with a 0.1-ms resolution and a
 400-ms censoring horizon.  Randomness is fixed by the shared Phase-1
 ``derive_stream_seed`` function using ten independent 100-trial substreams per
-sensory condition.  The wrapper accepts no free mechanism values, intensity
-grid, trial count, or run seed.
+sensory condition.  Only intensity 0.05 is acquired.  The wrapper accepts no
+free mechanism values, intensity grid, trial count, or run seed.
 """
 
 from __future__ import annotations
@@ -35,14 +35,21 @@ from mechanism_influence import race_model_measure as phase1
 ROOT = phase1.ROOT
 MANIFEST_PATH = ROOT / "mechanism_influence" / "race_model_perturbation_manifest_v1.json"
 EXPECTED_MANIFEST_FILE_SHA256 = (
-    "f2b786d4c8fea128119701b723c25be8061168931ef038b3b937aef6c42e00d6"
+    "a5d8e71baa883651bedb41a14050d260e0b1cce31ea05b9d9e19a910d85f7f02"
 )
 EXPECTED_MANIFEST_SEMANTIC_SHA256 = (
-    "3f6e15209f0e65ef5575d751d84ef729178651c3411624a6975e2db17778acae"
+    "4b4c274cae5a420086863a34d063df9d3a1f2dac027cea3379de1e7ab56b0452"
 )
-PROTOCOL_ID = "dm10-phase2-frozen-perturbation-rmi-v1"
+PROTOCOL_ID = "dm10-phase2-i005-heldout-exploratory-confirmation-v1"
 RAW_SCHEMA_VERSION = "fsts-race-perturbation-trials-v1"
 MANIFEST_SCHEMA_VERSION = "fsts-race-perturbation-manifest-v1"
+CONFIRMATION_CELL_IDS = (
+    "adaptation_prior",
+    "pv_gaba_scale=0",
+    "tau_gaba=10",
+    "gNMDA=.765",
+)
+CONFIRMATION_SEEDS = tuple(range(43, 52))
 
 
 @dataclass(frozen=True)
@@ -106,8 +113,22 @@ def load_manifest() -> dict[str, Any]:
         raise ValueError("perturbation protocol identity mismatch")
     if manifest.get("raw_schema_version") != RAW_SCHEMA_VERSION:
         raise ValueError("perturbation raw schema mismatch")
-    if manifest.get("status") != "preregistered":
-        raise ValueError("perturbation protocol is not preregistered")
+    if manifest.get("status") != "exploratory_confirmation_frozen_before_acquisition":
+        raise ValueError("perturbation protocol is not the frozen exploratory confirmation")
+    confirmation = manifest.get("confirmation", {})
+    acquisition = manifest.get("acquisition", {})
+    if tuple(confirmation.get("selected_cell_ids", ())) != CONFIRMATION_CELL_IDS:
+        raise ValueError("held-out confirmation candidate set/order mismatch")
+    if tuple(confirmation.get("confirmation_checkpoint_seeds", ())) != CONFIRMATION_SEEDS:
+        raise ValueError("held-out confirmation seed set/order mismatch")
+    if tuple(acquisition.get("checkpoint_seeds", ())) != CONFIRMATION_SEEDS:
+        raise ValueError("acquisition seed set/order mismatch")
+    if confirmation.get("prohibited_screen_seed") != 42 or 42 in CONFIRMATION_SEEDS:
+        raise ValueError("seed-42 screen exclusion mismatch")
+    if confirmation.get("outcomes_may_change_selection") is not False:
+        raise ValueError("candidate selection is not frozen")
+    if confirmation.get("intensities") != [0.05] or acquisition.get("intensities") != [0.05]:
+        raise ValueError("held-out confirmation must acquire only intensity 0.05")
     return manifest
 
 
@@ -123,7 +144,7 @@ def _cell_index(
             if cell_id in index:
                 raise ValueError(f"duplicate perturbation cell: {cell_id}")
             index[cell_id] = (block, cell)
-    if len(index) != int(manifest["expected_counts"]["new_perturbation_cells"]):
+    if len(index) != int(manifest["expected_counts"]["registered_perturbation_cells"]):
         raise ValueError("perturbation manifest cell count mismatch")
     if str(manifest["shipped_anchor"]["source_label"]) in index:
         raise ValueError("shipped anchor must not be a Phase-2 acquisition cell")
@@ -138,9 +159,13 @@ def _resolve_cell(
     index = _cell_index(manifest)
     if cell_id not in index:
         raise ValueError(f"cell_id is not in the preregistered Phase-2 matrix: {cell_id}")
+    if cell_id not in tuple(str(value) for value in manifest["confirmation"]["selected_cell_ids"]):
+        raise ValueError(f"cell_id was not frozen by the seed-42 screen: {cell_id}")
     block_raw, cell_raw = index[cell_id]
     block = copy.deepcopy(dict(block_raw))
     cell = copy.deepcopy(dict(cell_raw))
+    if cell.get("delta_tails", {}).get("0.05") != "two_sided":
+        raise ValueError("every frozen confirmation endpoint must use a two-sided tail")
     vector = {name: float(cell["vector"][name]) for name in phase1.BASELINE_MECHANISMS}
     registry_cell = phase1.registered_mechanism_cell(vector, str(block["design_family"]))
     if registry_cell["cell_id"] != cell_id:
@@ -294,7 +319,7 @@ def prepare_request(args: argparse.Namespace) -> PreparedRequest:
     block, cell, registry_cell = _resolve_cell(manifest, str(args.cell_id))
     seed = int(args.checkpoint_seed)
     if seed not in tuple(int(value) for value in manifest["acquisition"]["checkpoint_seeds"]):
-        raise ValueError("checkpoint seed must be one of 42..51")
+        raise ValueError("checkpoint seed must be one of the held-out seeds 43..51")
     if str(args.device) != manifest["device"]["requested"]:
         raise ValueError("Phase-2 acquisition requires the fixed cuda:0 device")
     if os.environ.get("CUDA_VISIBLE_DEVICES") != manifest["device"]["cuda_visible_devices"]:
@@ -357,8 +382,8 @@ def _validate_device_provenance(
 def acquire(prepared: PreparedRequest) -> dict[str, Any]:
     """Acquire one cell/checkpoint record using only frozen Phase-1 mechanics.
 
-    The returned record contains three intensity rows in the exact order
-    ``[0.05, 0.2, 1.0]``.  Each row contains four 1000-trial condition blocks.
+    The returned record contains the single intensity row ``[0.05]``.  It
+    contains four 1000-trial condition blocks.
     No state-dict tensor, frozen readout, or plasticity setting may change.
     """
 
@@ -454,6 +479,7 @@ def acquire(prepared: PreparedRequest) -> dict[str, Any]:
         "soa_ms": float(acquisition["soa_ms"]),
         "horizon_ms": horizon_ms,
         "device": copy.deepcopy(dict(manifest["device"])),
+        "confirmation": copy.deepcopy(dict(manifest["confirmation"])),
     }
     changed_scalars = list(prepared.registry_cell["changed_scalars"])
     record: dict[str, Any] = {
@@ -466,6 +492,7 @@ def acquire(prepared: PreparedRequest) -> dict[str, Any]:
             "semantic_sha256": EXPECTED_MANIFEST_SEMANTIC_SHA256,
             "status": manifest["status"],
         },
+        "confirmation_protocol": copy.deepcopy(dict(manifest["confirmation"])),
         "condition": {
             "label": prepared.cell["cell_id"],
             "cell_id": prepared.cell["cell_id"],
@@ -546,7 +573,7 @@ def acquire(prepared: PreparedRequest) -> dict[str, Any]:
         ),
         "rows": rows,
     }
-    if record["measurement"]["intensities"] != [0.05, 0.2, 1.0]:
+    if record["measurement"]["intensities"] != [0.05]:
         raise AssertionError("Phase-2 acquisition row grid/order changed")
     if record["requested"] != _mechanism_vector(record["effective"]):
         raise AssertionError("requested mechanism projection differs from the live configuration")
@@ -591,7 +618,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     print(
         f"[phase2-race] wrote {prepared.output_path} "
         f"cell={prepared.cell['cell_id']} seed={prepared.checkpoint['seed']} "
-        "intensities=[0.05, 0.2, 1.0]",
+        "intensities=[0.05]",
         flush=True,
     )
 

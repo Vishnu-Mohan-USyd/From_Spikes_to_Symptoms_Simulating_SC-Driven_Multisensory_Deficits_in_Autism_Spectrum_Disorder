@@ -1,23 +1,70 @@
 {
   "schema_version": "fsts-race-perturbation-manifest-v1",
   "protocol_version": 1,
-  "protocol_id": "dm10-phase2-frozen-perturbation-rmi-v1",
+  "protocol_id": "dm10-phase2-i005-heldout-exploratory-confirmation-v1",
   "raw_schema_version": "fsts-race-perturbation-trials-v1",
-  "status": "preregistered",
+  "status": "exploratory_confirmation_frozen_before_acquisition",
   "delta_definition": "perturbation_minus_shipped",
+  "confirmation": {
+    "purpose": "held-out exploratory confirmation of the four seed-42-screen-selected perturbations",
+    "selection_frozen_before_confirmation_acquisition": true,
+    "selection_source": {
+      "seed": 42,
+      "analysis_path": "/home/vishnu/coding_proj/fsts_seed42_screen_run.eoMFMT/analysis/screen_analysis_seed42.json",
+      "analysis_file_sha256": "1869c467df46b7d4434c5981ea5935e11781136aeac63c12532ae1758a9eba86",
+      "analysis_csv_file_sha256": "e6f596c3ad7ee016033240f7fa1b74995d85041383b32dcbc74bde7743278c77",
+      "screen_manifest_file_sha256": "f2b786d4c8fea128119701b723c25be8061168931ef038b3b937aef6c42e00d6",
+      "screen_manifest_semantic_sha256": "3f6e15209f0e65ef5575d751d84ef729178651c3411624a6975e2db17778acae",
+      "screen_wrapper_file_sha256": "6d484ec1f59dbb441d28d62c48d68de262553431ede03a845fc4c0c1028dea4a"
+    },
+    "selected_cell_ids": [
+      "adaptation_prior",
+      "pv_gaba_scale=0",
+      "tau_gaba=10",
+      "gNMDA=.765"
+    ],
+    "confirmation_checkpoint_seeds": [
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51
+    ],
+    "prohibited_screen_seed": 42,
+    "outcomes_may_change_selection": false,
+    "intensities": [
+      0.05
+    ],
+    "analysis_contract": {
+      "delta_definition": "paired checkpoint perturbation_minus_shipped",
+      "primary_family": "28 delta_G_q cells: 4 selected perturbations x 7 q levels",
+      "secondary_family": "4 delta_Aplus_full cells: one per selected perturbation",
+      "tails": "all_two_sided",
+      "exact_common_checkpoint_row_sign_patterns": 512,
+      "plus_one_correction": false,
+      "adjusted_p_rejection_rule": "numerator/512 < 0.05; largest rejecting numerator 25",
+      "simultaneous_band": "centered-residual common-row sign-flip max-|t|; sorted index ceil(0.95*512)-1",
+      "seed42_in_analysis": false
+    }
+  },
   "tail_enum": [
     "positive_one_sided",
     "negative_one_sided",
     "two_sided"
   ],
   "expected_counts": {
-    "blocks": 4,
-    "new_perturbation_cells": 12,
-    "checkpoint_seeds": 10,
-    "cell_checkpoint_acquisitions": 120,
-    "new_trials": 1440000,
-    "reused_anchor_trials": 120000,
-    "total_analysis_trials": 1560000
+    "registered_blocks": 4,
+    "registered_perturbation_cells": 12,
+    "selected_confirmation_cells": 4,
+    "checkpoint_seeds": 9,
+    "cell_checkpoint_acquisitions": 36,
+    "new_trials": 144000,
+    "reused_anchor_trials": 36000,
+    "total_analysis_trials": 180000
   },
   "endpoints": {
     "G_q": {
@@ -59,64 +106,37 @@
   },
   "inference": {
     "unit": "checkpoint",
-    "n_checkpoints": 10,
+    "n_checkpoints": 9,
     "trials_and_substreams_nested": true,
     "trial_pooling_allowed": false,
     "exact_rowwise_sign_flip": {
-      "n_patterns": 1024,
+      "n_patterns": 512,
       "same_sign_across_entire_family_vector": true,
       "plus_one_correction": false,
-      "p_value_denominator": 1024,
-      "adjusted_p_formula": "count(null_family_max>=observed_transformed_t)/1024",
+      "p_value_denominator": 512,
+      "adjusted_p_formula": "count(null_family_max>=observed_abs_t)/512",
       "store_integer_numerator": true,
       "alpha": 0.05,
       "rejection_rule": "adjusted_p<0.05",
-      "largest_rejecting_numerator": 51,
+      "largest_rejecting_numerator": 25,
       "tie_rule": "conservative_exceeds_or_ties",
       "finite_tie_epsilon_multiplier_binary64": 64,
       "infinities_use_exact_IEEE_order": true,
       "nan_action": "fail_closed"
     },
     "families": {
-      "within_cell_RMI": {
-        "normal_cells": 231,
-        "expanded_with_viable_gNMDA_zero": 252,
-        "tail": "positive_one_sided",
-        "transform": "t"
-      },
       "delta_G_q": {
         "role": "primary_perturbation_effect",
-        "normal_cells": 231,
-        "expanded_with_viable_gNMDA_zero": 252,
-        "normal_tail_counts": {
-          "two_sided": 224,
-          "negative_one_sided": 7
-        },
-        "expanded_tail_counts": {
-          "two_sided": 238,
-          "negative_one_sided": 14
-        },
-        "transforms": {
-          "two_sided": "abs(t)",
-          "negative_one_sided": "-t"
-        }
+        "cells": 28,
+        "tail": "two_sided",
+        "transform": "abs(t)"
       },
       "delta_Aplus_full": {
         "role": "secondary_checkpoint_contrast",
-        "normal_cells": 33,
-        "expanded_with_viable_gNMDA_zero": 36,
-        "normal_tail_counts": {
-          "two_sided": 32,
-          "negative_one_sided": 1
-        },
-        "expanded_tail_counts": {
-          "two_sided": 34,
-          "negative_one_sided": 2
-        },
-        "transforms": {
-          "two_sided": "abs(t)",
-          "negative_one_sided": "-t"
-        }
+        "cells": 4,
+        "tail": "two_sided",
+        "transform": "abs(t)",
+        "may_substitute_for_primary": false
       }
     },
     "factor_specific_alpha_resets_allowed": false,
@@ -124,9 +144,8 @@
       "method": "centered_residual_rowwise_sign_flip_studentized_max_T",
       "approximate": true,
       "confidence": 0.95,
+      "critical_order_zero_based": "ceil(0.95*512)-1",
       "two_sided_interval": "mean+/-critical*SE",
-      "negative_one_sided_upper_bound": "mean+critical*SE",
-      "positive_one_sided_lower_bound": "mean-critical*SE",
       "store_achieved_discrete_coverage": true
     }
   },
@@ -186,8 +205,8 @@
     "compound_result_allows_scalar_attribution": false
   },
   "execution_policy": {
-    "approved_gpu_workers": 1,
-    "gpu_parallelism": "serial_one_process_on_one_approved_UUID",
+    "approved_gpu_workers": 4,
+    "gpu_parallelism": "up_to_four_independent_acquisition_processes_under_one_exclusive_approved_UUID_lease",
     "acquisition_unit": "one_perturbation_cell_x_checkpoint",
     "vectorized_substream_trials": 100,
     "batch_size_change_allowed": false,
@@ -203,9 +222,7 @@
     "source_raw_label": "baseline",
     "historical_alias": "adaptation_shipped",
     "selection_intensities": [
-      0.05,
-      0.2,
-      1.0
+      0.05
     ],
     "raw_relabel_allowed": false,
     "raw_rewrite_allowed": false,
@@ -234,7 +251,6 @@
   },
   "acquisition": {
     "checkpoint_seeds": [
-      42,
       43,
       44,
       45,
@@ -246,9 +262,7 @@
       51
     ],
     "intensities": [
-      0.05,
-      0.2,
-      1.0
+      0.05
     ],
     "q_levels": [
       0.05,
