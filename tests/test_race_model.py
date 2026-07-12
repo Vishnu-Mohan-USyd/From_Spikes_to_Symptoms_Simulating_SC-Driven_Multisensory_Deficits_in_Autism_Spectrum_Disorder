@@ -7,6 +7,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest import mock
@@ -444,6 +445,202 @@ class AnalyzerReleaseGateTests(unittest.TestCase):
             analysis.validate_output_path(unignored)
 
 
+class AnalysisHotfixProvenanceTests(unittest.TestCase):
+    @staticmethod
+    def _git(repository: Path, *arguments: str) -> str:
+        completed = subprocess.run(
+            ("git", *arguments),
+            cwd=repository,
+            check=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        return completed.stdout.strip()
+
+    @staticmethod
+    def _file_sha256(path: Path) -> str:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    def _hotfix_fixture(
+        self,
+        directory: str,
+        *,
+        extra_changed_path: bool = False,
+        critical_source_change: bool = False,
+        non_ancestor_head: bool = False,
+    ) -> dict:
+        repository = Path(directory) / "release"
+        analyzer_path = repository / analysis.ANALYZER_RELATIVE_PATH
+        test_path = repository / "tests/test_race_model.py"
+        driver_path = repository / "mechanism_influence/race_model_measure.py"
+        network_path = repository / "routec_net_io.py"
+        latency_path = repository / "response_latency_routec.py"
+        checkpoint_path = repository / "checkpoint/seed1.pt"
+        for path in (
+            analyzer_path,
+            test_path,
+            driver_path,
+            network_path,
+            latency_path,
+            checkpoint_path,
+        ):
+            path.parent.mkdir(parents=True, exist_ok=True)
+        analyzer_path.write_text("base analyzer\n", encoding="utf-8")
+        test_path.write_text("base tests\n", encoding="utf-8")
+        driver_path.write_text("frozen driver\n", encoding="utf-8")
+        network_path.write_text("frozen network\n", encoding="utf-8")
+        latency_path.write_text("frozen latency\n", encoding="utf-8")
+        checkpoint_path.write_bytes(b"frozen checkpoint")
+
+        self._git(repository, "init", "-q")
+        self._git(repository, "config", "user.name", "Race Test")
+        self._git(repository, "config", "user.email", "race@example.invalid")
+        self._git(repository, "add", ".")
+        self._git(repository, "commit", "-q", "-m", "initial")
+        initial_commit = self._git(repository, "rev-parse", "HEAD")
+        (repository / "acquisition-base.txt").write_text("base\n", encoding="utf-8")
+        self._git(repository, "add", "acquisition-base.txt")
+        self._git(repository, "commit", "-q", "-m", "acquisition base")
+        base_commit = self._git(repository, "rev-parse", "HEAD")
+        branch = self._git(repository, "rev-parse", "--abbrev-ref", "HEAD")
+
+        record = acquisition_record(
+            a=[20.0, 21.0, 22.0, 23.0],
+            v=[24.0, 25.0, 26.0, 27.0],
+            av=[10.0, 11.0, 12.0, 13.0],
+            git_clean=True,
+        )
+        source_paths = {
+            "driver": driver_path,
+            "network_io": network_path,
+            "latency_module": latency_path,
+        }
+        source_hashes = {
+            name: self._file_sha256(path) for name, path in source_paths.items()
+        }
+        record["code"].update(
+            {
+                "root": str(repository.resolve()),
+                **{name: str(path.resolve()) for name, path in source_paths.items()},
+                "driver_sha256": source_hashes["driver"],
+                "source_sha256": source_hashes,
+                "git": {"head": base_commit, "branch": branch, "clean": True},
+            }
+        )
+        record["checkpoint"]["path"] = str(checkpoint_path.resolve())
+        record["checkpoint"]["sha256"] = self._file_sha256(checkpoint_path)
+        rehash_raw(record)
+        derived = analysis.analyze_acquisition(record)
+
+        if non_ancestor_head:
+            self._git(repository, "checkout", "-q", "-b", "sibling", initial_commit)
+        analyzer_path.write_text("hotfix analyzer\n", encoding="utf-8")
+        test_path.write_text("hotfix tests\n", encoding="utf-8")
+        if extra_changed_path:
+            (repository / "README.md").write_text("not allowlisted\n", encoding="utf-8")
+        if critical_source_change:
+            network_path.write_text("changed network\n", encoding="utf-8")
+        self._git(repository, "add", ".")
+        self._git(repository, "commit", "-q", "-m", "analysis hotfix")
+        head_commit = self._git(repository, "rev-parse", "HEAD")
+        release_sha = self._file_sha256(analyzer_path)
+        release = {
+            "path": str(analyzer_path.resolve()),
+            "sha256": release_sha,
+            "tracked": True,
+            "head_blob_sha256": release_sha,
+            "local_matches_head": True,
+            "git": {
+                "head": head_commit,
+                "branch": self._git(repository, "rev-parse", "--abbrev-ref", "HEAD"),
+                "clean": self._git(repository, "status", "--porcelain") == "",
+            },
+        }
+        return {
+            "repository": repository,
+            "record": record,
+            "derived": derived,
+            "release": release,
+            "base_commit": base_commit,
+            "head_commit": head_commit,
+            "checkpoint_path": checkpoint_path,
+        }
+
+    def test_verified_analysis_only_hotfix_records_complete_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = self._hotfix_fixture(directory)
+            policy = analysis._analysis_release_policy(
+                [fixture["record"]],
+                [fixture["derived"]],
+                fixture["release"],
+                repository_root=fixture["repository"],
+            )
+        self.assertTrue(policy["pass"])
+        self.assertEqual(policy["mode"], "analysis_only_hotfix")
+        self.assertEqual(policy["status"], "verified")
+        self.assertEqual(policy["base_commit"], fixture["base_commit"])
+        self.assertEqual(policy["head_commit"], fixture["head_commit"])
+        self.assertEqual(
+            policy["changed_paths"], list(analysis.ANALYSIS_HOTFIX_ALLOWED_PATHS)
+        )
+        self.assertTrue(
+            all(
+                entry["preserved"]
+                for entry in policy["preserved_hashes"][
+                    "acquisition_critical_files"
+                ].values()
+            )
+        )
+        self.assertTrue(
+            next(
+                iter(policy["preserved_hashes"]["validated_raw_artifacts"].values())
+            )["exact"]
+        )
+
+    def test_hotfix_gate_rejects_disallowed_or_unpreserved_state(self) -> None:
+        cases = (
+            "extra_path",
+            "critical_source",
+            "non_ancestor",
+            "dirty_release",
+            "blob_mismatch",
+            "recorded_source_mismatch",
+            "checkpoint_mismatch",
+        )
+        for case in cases:
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
+                fixture = self._hotfix_fixture(
+                    directory,
+                    extra_changed_path=case == "extra_path",
+                    critical_source_change=case == "critical_source",
+                    non_ancestor_head=case == "non_ancestor",
+                )
+                release = copy.deepcopy(fixture["release"])
+                record = copy.deepcopy(fixture["record"])
+                derived = fixture["derived"]
+                if case == "dirty_release":
+                    release["git"]["clean"] = False
+                elif case == "blob_mismatch":
+                    release["local_matches_head"] = False
+                    release["head_blob_sha256"] = _digest("wrong analyzer blob")
+                elif case == "recorded_source_mismatch":
+                    record["code"]["source_sha256"]["network_io"] = "f" * 64
+                    rehash_raw(record)
+                    derived = analysis.analyze_acquisition(record)
+                elif case == "checkpoint_mismatch":
+                    fixture["checkpoint_path"].write_bytes(b"changed checkpoint")
+                policy = analysis._analysis_release_policy(
+                    [record],
+                    [derived],
+                    release,
+                    repository_root=fixture["repository"],
+                )
+                self.assertFalse(policy["pass"])
+                self.assertEqual(policy["status"], "rejected")
+                self.assertTrue(policy["failed_checks"])
+
+
 class QualityControlTests(unittest.TestCase):
     def test_all_censored_is_explicit_insufficient_hits_and_inference_not_run(self) -> None:
         records = [
@@ -755,6 +952,100 @@ class IntegrityAndBoundaryTests(unittest.TestCase):
 
 
 class CheckpointInferenceTests(unittest.TestCase):
+    def test_exact_ties_are_layout_invariant_and_conservative(self) -> None:
+        cell_7 = np.asarray(
+            [
+                -0.40000152587890625,
+                -0.5,
+                0.6999969482421875,
+                -0.3999977111816406,
+                0.7999992370605469,
+                0.3000030517578125,
+                0.20000076293945312,
+                0.0,
+                1.0,
+                0.7000007629394531,
+            ],
+            dtype=np.float64,
+        )
+        cell_47 = np.asarray(
+            [
+                -0.20000076293945312,
+                0.20000076293945312,
+                -0.10000038146972656,
+                -0.39999961853027344,
+                0.6000003814697266,
+                0.0,
+                -0.20000076293945312,
+                0.0,
+                -0.10000038146972656,
+                0.5999984741210938,
+            ],
+            dtype=np.float64,
+        )
+        labels = [{"cell": 7}, {"cell": 47}]
+        c_values = np.ascontiguousarray(np.column_stack((cell_7, cell_47)))
+        f_values = np.asfortranarray(c_values)
+
+        c_result = analysis.checkpoint_sign_flip_max_stat(c_values, labels)
+        f_result = analysis.checkpoint_sign_flip_max_stat(f_values, labels)
+        for result in (c_result, f_result):
+            counts = [
+                round(cell["p_one_sided_uncorrected"] * result["n_sign_patterns"])
+                for cell in result["cells"]
+            ]
+            self.assertEqual(counts, [102, 404])
+        for key in (
+            "status",
+            "n_checkpoints",
+            "n_family_cells",
+            "n_sign_patterns",
+            "exact_raw_sign_flip",
+            "global_p_one_sided_max_stat",
+        ):
+            self.assertEqual(c_result[key], f_result[key])
+        for c_cell, f_cell in zip(c_result["cells"], f_result["cells"]):
+            self.assertEqual(c_cell["cell"], f_cell["cell"])
+            self.assertEqual(
+                c_cell["p_one_sided_uncorrected"],
+                f_cell["p_one_sided_uncorrected"],
+            )
+            self.assertEqual(
+                c_cell["p_one_sided_global_max_stat"],
+                f_cell["p_one_sided_global_max_stat"],
+            )
+            np.testing.assert_allclose(
+                [
+                    c_cell["checkpoint_mean_G_ms"],
+                    c_cell["checkpoint_se_G_ms"],
+                    c_cell["checkpoint_t"],
+                    c_cell["approx_simultaneous_lower_G_ms"],
+                ],
+                [
+                    f_cell["checkpoint_mean_G_ms"],
+                    f_cell["checkpoint_se_G_ms"],
+                    f_cell["checkpoint_t"],
+                    f_cell["approx_simultaneous_lower_G_ms"],
+                ],
+                rtol=4.0 * np.finfo(np.float64).eps,
+                atol=4.0 * np.finfo(np.float64).eps,
+            )
+
+        observed = np.asarray([1.0, math.inf, -math.inf])
+        within = observed.copy()
+        within[0] -= 32.0 * np.finfo(np.float64).eps
+        outside = observed.copy()
+        outside[0] -= 128.0 * np.finfo(np.float64).eps
+        with np.errstate(invalid="raise"):
+            self.assertEqual(
+                analysis._permutation_exceeds_or_ties(within, observed).tolist(),
+                [True, True, True],
+            )
+            self.assertEqual(
+                analysis._permutation_exceeds_or_ties(outside, observed).tolist(),
+                [False, True, True],
+            )
+
     def test_zero_strong_and_mixed_max_stat_matrices_are_deterministic(self) -> None:
         labels = [{"q": 0.05}, {"q": 0.10}]
         zero = analysis.checkpoint_sign_flip_max_stat(np.zeros((10, 2)), labels)

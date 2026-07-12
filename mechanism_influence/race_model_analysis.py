@@ -47,6 +47,17 @@ TRIALS_PER_SUBSTREAM = 100
 MIN_FORMAL_HIT_RATE = 0.95
 MAX_FORMAL_HIT_IMBALANCE = 0.05
 MAX_CATCH_FALSE_POSITIVE_RATE = 0.05
+PERMUTATION_TIE_EPS_MULTIPLIER = 64.0
+ANALYZER_RELATIVE_PATH = "mechanism_influence/race_model_analysis.py"
+ANALYSIS_HOTFIX_ALLOWED_PATHS = (
+    ANALYZER_RELATIVE_PATH,
+    "tests/test_race_model.py",
+)
+ACQUISITION_CRITICAL_CODE_PATH_KEYS = (
+    "driver",
+    "network_io",
+    "latency_module",
+)
 BASELINE_MECHANISMS = {
     "aM": 0.02,
     "dM": 10.0,
@@ -264,6 +275,329 @@ def analyzer_provenance() -> dict[str, Any]:
     """Return a copy of cached analyzer release provenance."""
 
     return copy.deepcopy(_analyzer_provenance())
+
+
+def _run_git_bytes(repository_root: Path, *arguments: str) -> tuple[int, bytes]:
+    """Run one read-only Git probe, returning a fail-closed status and bytes."""
+
+    try:
+        completed = subprocess.run(
+            ("git", *arguments),
+            cwd=repository_root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except OSError:
+        return 127, b""
+    return completed.returncode, completed.stdout
+
+
+def _git_blob_sha256(
+    repository_root: Path, commit: str, relative_path: str
+) -> str | None:
+    return_code, payload = _run_git_bytes(
+        repository_root, "show", f"{commit}:{relative_path}"
+    )
+    return hashlib.sha256(payload).hexdigest() if return_code == 0 else None
+
+
+def _validated_raw_hash_manifest(
+    records: Sequence[Mapping[str, Any]],
+    analyses: Sequence[Mapping[str, Any]],
+    *,
+    verify_checkpoint_files: bool,
+) -> tuple[bool, dict[str, Any]]:
+    """Reconcile raw/config/state/readout/checkpoint hashes for release gating."""
+
+    manifest: dict[str, Any] = {}
+    all_exact = len(records) == len(analyses)
+    for record, derived in zip(records, analyses):
+        try:
+            condition = _require_mapping(record.get("condition"), "condition")
+            checkpoint = _require_mapping(record.get("checkpoint"), "checkpoint")
+            integrity = _require_mapping(record.get("integrity"), "integrity")
+            key = f"{condition['label']}|seed{int(checkpoint['seed'])}"
+            raw_hash = str(integrity["raw_payload_sha256"])
+            configuration_hash = str(record["configuration_sha256"])
+            checkpoint_hash = str(checkpoint["sha256"])
+            state_hashes = [
+                str(integrity[name])
+                for name in (
+                    "state_sha256_loaded",
+                    "state_sha256_before",
+                    "state_sha256_after",
+                )
+            ]
+            readout_before = [str(value) for value in integrity["readout_md5_before"]]
+            readout_after = [str(value) for value in integrity["readout_md5_after"]]
+            raw_exact = raw_hash == raw_payload_sha256(record)
+            configuration_exact = configuration_hash == _canonical_sha256(
+                _require_mapping(record.get("configuration"), "configuration")
+            )
+            state_exact = len(set(state_hashes)) == 1 and all(
+                _is_hex_digest(value, 64) for value in state_hashes
+            )
+            readout_exact = readout_before == readout_after and bool(readout_before) and all(
+                _is_hex_digest(value, 32)
+                for value in readout_before + readout_after
+            )
+            derived_integrity_exact = (
+                _require_mapping(derived.get("integrity"), "derived integrity").get("pass")
+                is True
+            )
+            checkpoint_actual: str | None = None
+            checkpoint_exact = _is_hex_digest(checkpoint_hash, 64)
+            if verify_checkpoint_files:
+                checkpoint_path = Path(str(checkpoint.get("path", "")))
+                checkpoint_exact = checkpoint_path.is_file()
+                if checkpoint_exact:
+                    checkpoint_actual = _sha256_file(checkpoint_path)
+                    checkpoint_exact = checkpoint_actual == checkpoint_hash
+            entry_exact = all(
+                (
+                    raw_exact,
+                    configuration_exact,
+                    state_exact,
+                    readout_exact,
+                    checkpoint_exact,
+                    derived_integrity_exact,
+                )
+            )
+            all_exact = all_exact and entry_exact
+            manifest[key] = {
+                "raw_payload_sha256": raw_hash,
+                "configuration_sha256": configuration_hash,
+                "checkpoint_sha256": checkpoint_hash,
+                "checkpoint_file_sha256": checkpoint_actual,
+                "state_sha256": state_hashes[0] if state_exact else state_hashes,
+                "readout_md5": readout_before,
+                "exact": entry_exact,
+            }
+        except (KeyError, TypeError, ValueError):
+            all_exact = False
+    return all_exact and len(manifest) == len(records), manifest
+
+
+def _acquisition_critical_source_manifest(
+    records: Sequence[Mapping[str, Any]],
+) -> tuple[bool, dict[str, dict[str, str]]]:
+    """Resolve recorded acquisition source paths to safe Git-relative paths."""
+
+    common: dict[str, dict[str, str]] | None = None
+    complete = bool(records)
+    for record in records:
+        current: dict[str, dict[str, str]] = {}
+        try:
+            code = _require_mapping(record.get("code"), "code")
+            root = Path(str(code["root"]))
+            sources = _require_mapping(code.get("source_sha256"), "code.source_sha256")
+            if not root.is_absolute():
+                raise ValueError("recorded code root must be absolute")
+            for name in ACQUISITION_CRITICAL_CODE_PATH_KEYS:
+                source_path = Path(str(code[name]))
+                if not source_path.is_absolute():
+                    raise ValueError("recorded source path must be absolute")
+                relative = source_path.relative_to(root)
+                relative_path = relative.as_posix()
+                if (
+                    not relative.parts
+                    or any(part in {"", ".", ".."} for part in relative.parts)
+                    or ":" in relative_path
+                    or "\x00" in relative_path
+                ):
+                    raise ValueError("recorded source path is unsafe")
+                expected_hash = str(sources[name])
+                if not _is_hex_digest(expected_hash, 64):
+                    raise ValueError("recorded source hash is malformed")
+                current[name] = {
+                    "relative_path": relative_path,
+                    "recorded_sha256": expected_hash,
+                }
+            if str(code.get("driver_sha256")) != current["driver"]["recorded_sha256"]:
+                raise ValueError("driver hash disagrees with source manifest")
+        except (KeyError, TypeError, ValueError):
+            complete = False
+            continue
+        if common is None:
+            common = current
+        elif current != common:
+            complete = False
+    return complete and common is not None, {} if common is None else common
+
+
+def _analysis_release_policy(
+    records: Sequence[Mapping[str, Any]],
+    analyses: Sequence[Mapping[str, Any]],
+    release: Mapping[str, Any],
+    *,
+    repository_root: Path = ROOT,
+) -> dict[str, Any]:
+    """Authorize an exact analyzer revision or a narrow analysis-only hotfix.
+
+    There is no runtime override.  A differing analyzer revision is eligible
+    only when Git proves ancestry, the complete diff is allowlisted, all
+    acquisition source blobs are byte-identical at base and head, and every
+    raw/checkpoint/state/readout/configuration hash remains reconciled.
+    """
+
+    git = _require_mapping(release.get("git"), "analyzer git")
+    acquisition_heads = {
+        str(_require_mapping(record.get("code"), "code")["git"]["head"])
+        for record in records
+    }
+    base_commit = next(iter(acquisition_heads)) if len(acquisition_heads) == 1 else None
+    head_commit = str(git.get("head", ""))
+    common_checks = {
+        "analyzer_sha256_valid": _is_hex_digest(release.get("sha256"), 64),
+        "analyzer_tracked": release.get("tracked") is True,
+        "analyzer_local_matches_head": release.get("local_matches_head") is True
+        and release.get("head_blob_sha256") == release.get("sha256"),
+        "analyzer_git_clean": git.get("clean") is True,
+        "analyzer_path_is_canonical": Path(str(release.get("path", ""))).resolve()
+        == (repository_root / ANALYZER_RELATIVE_PATH).resolve(),
+        "single_acquisition_commit": base_commit is not None
+        and _is_hex_digest(base_commit, 40),
+        "analyzer_head_valid": _is_hex_digest(head_commit, 40),
+    }
+    exact_head = base_commit is not None and base_commit == head_commit
+    raw_exact, raw_manifest = _validated_raw_hash_manifest(
+        records,
+        analyses,
+        verify_checkpoint_files=not exact_head,
+    )
+    preserved_hashes: dict[str, Any] = {
+        "acquisition_critical_files": {},
+        "validated_raw_artifacts": raw_manifest,
+    }
+    if exact_head:
+        checks = {
+            **common_checks,
+            "exact_head_match": True,
+            "raw_checkpoint_state_readout_config_hashes_exact": raw_exact,
+        }
+        passed = all(checks.values())
+        return {
+            "mode": "exact_head",
+            "status": "not_required" if passed else "rejected",
+            "pass": passed,
+            "base_commit": base_commit,
+            "head_commit": head_commit,
+            "allowed_changed_paths": list(ANALYSIS_HOTFIX_ALLOWED_PATHS),
+            "changed_paths": [],
+            "checks": checks,
+            "failed_checks": [name for name, value in checks.items() if not value],
+            "preserved_hashes": preserved_hashes,
+        }
+
+    base_valid = bool(common_checks["single_acquisition_commit"])
+    head_valid = bool(common_checks["analyzer_head_valid"])
+    base_exists = False
+    head_exists = False
+    ancestor = False
+    diff_readable = False
+    changed_paths: list[str] = []
+    if base_valid and head_valid and base_commit is not None:
+        base_exists = (
+            _run_git_bytes(repository_root, "cat-file", "-e", f"{base_commit}^{{commit}}")[0]
+            == 0
+        )
+        head_exists = (
+            _run_git_bytes(repository_root, "cat-file", "-e", f"{head_commit}^{{commit}}")[0]
+            == 0
+        )
+        if base_exists and head_exists:
+            ancestor = (
+                _run_git_bytes(
+                    repository_root,
+                    "merge-base",
+                    "--is-ancestor",
+                    base_commit,
+                    head_commit,
+                )[0]
+                == 0
+            )
+            diff_code, diff_payload = _run_git_bytes(
+                repository_root,
+                "diff",
+                "--no-renames",
+                "--name-only",
+                "-z",
+                base_commit,
+                head_commit,
+                "--",
+            )
+            if diff_code == 0:
+                try:
+                    changed_paths = sorted(
+                        path.decode("utf-8")
+                        for path in diff_payload.split(b"\x00")
+                        if path
+                    )
+                    diff_readable = True
+                except UnicodeDecodeError:
+                    diff_readable = False
+
+    sources_complete, source_specs = _acquisition_critical_source_manifest(records)
+    base_sources_match = sources_complete and base_exists and base_commit is not None
+    head_sources_match = sources_complete and head_exists
+    critical_files: dict[str, Any] = {}
+    for name, specification in source_specs.items():
+        relative_path = specification["relative_path"]
+        expected_hash = specification["recorded_sha256"]
+        base_hash = (
+            _git_blob_sha256(repository_root, base_commit, relative_path)
+            if base_commit is not None and base_exists
+            else None
+        )
+        head_hash = (
+            _git_blob_sha256(repository_root, head_commit, relative_path)
+            if head_exists
+            else None
+        )
+        base_matches = base_hash == expected_hash
+        head_matches = head_hash == expected_hash
+        base_sources_match = base_sources_match and base_matches
+        head_sources_match = head_sources_match and head_matches
+        critical_files[name] = {
+            **specification,
+            "base_commit_sha256": base_hash,
+            "head_commit_sha256": head_hash,
+            "preserved": base_matches and head_matches,
+        }
+    preserved_hashes["acquisition_critical_files"] = critical_files
+    allowed_paths = set(ANALYSIS_HOTFIX_ALLOWED_PATHS)
+    checks = {
+        **common_checks,
+        "exact_head_match": False,
+        "base_commit_exists": base_exists,
+        "head_commit_exists": head_exists,
+        "acquisition_commit_is_ancestor": ancestor,
+        "changed_paths_readable": diff_readable,
+        "changed_paths_allowlisted": diff_readable
+        and bool(changed_paths)
+        and set(changed_paths).issubset(allowed_paths),
+        "analyzer_changed_in_hotfix": ANALYZER_RELATIVE_PATH in changed_paths,
+        "acquisition_source_manifest_complete": sources_complete,
+        "acquisition_sources_match_base": base_sources_match,
+        "acquisition_sources_match_head": head_sources_match,
+        "raw_checkpoint_state_readout_config_hashes_exact": raw_exact,
+    }
+    gating_checks = {
+        name: value for name, value in checks.items() if name != "exact_head_match"
+    }
+    passed = all(gating_checks.values())
+    return {
+        "mode": "analysis_only_hotfix",
+        "status": "verified" if passed else "rejected",
+        "pass": passed,
+        "base_commit": base_commit,
+        "head_commit": head_commit,
+        "allowed_changed_paths": list(ANALYSIS_HOTFIX_ALLOWED_PATHS),
+        "changed_paths": changed_paths,
+        "checks": checks,
+        "failed_checks": [name for name, value in gating_checks.items() if not value],
+        "preserved_hashes": preserved_hashes,
+    }
 
 
 def registered_mechanism_cell(
@@ -981,6 +1315,31 @@ def _residual_studentized(values: np.ndarray) -> np.ndarray:
     return np.divide(mean, se, out=np.zeros_like(mean), where=se > 0)
 
 
+def _permutation_exceeds_or_ties(
+    null_statistic: np.ndarray | float, observed_statistic: np.ndarray | float
+) -> np.ndarray:
+    """Conservatively compare permutation statistics with stable tie handling.
+
+    Finite statistics within 64 scaled binary64 epsilons are treated as ties.
+    This tolerance is deliberately narrow: it covers last-bit differences from
+    equivalent NumPy memory layouts without changing genuinely ordered values.
+    Infinities retain exact IEEE ordering, and NaNs never count as exceedances.
+    """
+
+    null = np.asarray(null_statistic, dtype=np.float64)
+    observed = np.asarray(observed_statistic, dtype=np.float64)
+    null, observed = np.broadcast_arrays(null, observed)
+    result = np.greater_equal(null, observed)
+    finite = np.isfinite(null) & np.isfinite(observed)
+    scale = np.maximum(1.0, np.maximum(np.abs(null), np.abs(observed)))
+    tolerance = PERMUTATION_TIE_EPS_MULTIPLIER * np.finfo(np.float64).eps * scale
+    difference = np.zeros_like(scale)
+    np.subtract(null, observed, out=difference, where=finite)
+    result |= finite & (np.abs(difference) <= tolerance)
+    result &= ~np.isnan(null) & ~np.isnan(observed)
+    return result
+
+
 def _sign_patterns(n_checkpoints: int, random_seed: int, maximum: int) -> tuple[np.ndarray, bool]:
     if n_checkpoints <= 16:
         return np.asarray(list(itertools.product((-1.0, 1.0), repeat=n_checkpoints))), True
@@ -1027,15 +1386,30 @@ def checkpoint_sign_flip_max_stat(
     achieved = float(np.mean(residual_max <= critical))
     lower = means - critical * se
     observed_global = float(np.max(observed_t))
-    global_p = (int(np.count_nonzero(raw_null_max >= observed_global)) + add_one) / denominator
+    global_p = (
+        int(np.count_nonzero(_permutation_exceeds_or_ties(raw_null_max, observed_global)))
+        + add_one
+    ) / denominator
 
     cells = []
     for column, label in enumerate(cell_labels):
         uncorrected = (
-            int(np.count_nonzero(raw_null_t[:, column] >= observed_t[column])) + add_one
+            int(
+                np.count_nonzero(
+                    _permutation_exceeds_or_ties(
+                        raw_null_t[:, column], observed_t[column]
+                    )
+                )
+            )
+            + add_one
         ) / denominator
         corrected = (
-            int(np.count_nonzero(raw_null_max >= observed_t[column])) + add_one
+            int(
+                np.count_nonzero(
+                    _permutation_exceeds_or_ties(raw_null_max, observed_t[column])
+                )
+            )
+            + add_one
         ) / denominator
         cells.append(
             {
@@ -1194,17 +1568,16 @@ def analyze_family(
         intensity_sets[label] = grids[0]
 
     release = analyzer_provenance()
+    release_policy = _analysis_release_policy(records, analyses, release)
     release_checks = {
-        "analyzer_sha256_valid": _is_hex_digest(release.get("sha256"), 64),
-        "analyzer_tracked": release.get("tracked") is True,
-        "analyzer_local_matches_head": release.get("local_matches_head") is True
-        and release.get("head_blob_sha256") == release.get("sha256"),
-        "analyzer_git_clean": _require_mapping(release.get("git"), "analyzer git").get(
-            "clean"
-        )
-        is True,
-        "analyzer_revision_matches_acquisition": release["git"].get("head")
-        == records[0]["code"]["git"]["head"],
+        "analyzer_sha256_valid": release_policy["checks"]["analyzer_sha256_valid"],
+        "analyzer_tracked": release_policy["checks"]["analyzer_tracked"],
+        "analyzer_local_matches_head": release_policy["checks"][
+            "analyzer_local_matches_head"
+        ],
+        "analyzer_git_clean": release_policy["checks"]["analyzer_git_clean"],
+        "analyzer_revision_matches_acquisition": release_policy["pass"],
+        "analysis_hotfix_provenance_valid": release_policy["pass"],
     }
     common_checks = {
         "checkpoint_sets_exact_42_to_51": all(
@@ -1251,6 +1624,7 @@ def analyze_family(
         "soa_ms": 0.0,
         "horizon_ms": PRIMARY_HORIZON_MS,
         "analyzer_release": release,
+        "analysis_hotfix_provenance": release_policy,
     }
 
     condition_cells: list[dict[str, Any]] = []
@@ -1391,6 +1765,7 @@ def analyze_family(
         "condition_labels": labels,
         "checkpoint_seeds": seeds,
         "design": family_design,
+        "analysis_hotfix_provenance": release_policy,
         "condition_violation_inference": condition_inference,
         "change_from_baseline_inference": change_inference,
         "historical_replication_claim": historical_replication_claim,
@@ -1415,7 +1790,7 @@ def analyze_family(
             )
             for item in analyses
         },
-        "analyzer_provenance": analyzer_provenance(),
+        "analyzer_provenance": copy.deepcopy(release),
         "disclaimer": DISCLAIMER,
         "individual_analyses": analyses,
     }
