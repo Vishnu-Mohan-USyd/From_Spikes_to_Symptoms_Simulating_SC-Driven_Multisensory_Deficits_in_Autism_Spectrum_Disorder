@@ -1,0 +1,672 @@
+{
+  "schema_version": "fsts-race-perturbation-manifest-v1",
+  "protocol_version": 1,
+  "protocol_id": "dm10-phase2-frozen-perturbation-rmi-v1",
+  "raw_schema_version": "fsts-race-perturbation-trials-v1",
+  "status": "preregistered",
+  "delta_definition": "perturbation_minus_shipped",
+  "tail_enum": [
+    "positive_one_sided",
+    "negative_one_sided",
+    "two_sided"
+  ],
+  "expected_counts": {
+    "blocks": 4,
+    "new_perturbation_cells": 12,
+    "checkpoint_seeds": 10,
+    "cell_checkpoint_acquisitions": 120,
+    "new_trials": 1440000,
+    "reused_anchor_trials": 120000,
+    "total_analysis_trials": 1560000
+  },
+  "endpoints": {
+    "G_q": {
+      "role": "primary",
+      "definition": "G(q)=Q_bound(q)-Q_AV(q)",
+      "miller_bound": "F_bound(t)=min(F_A(t)+F_V(t),1)",
+      "units": "ms",
+      "positive_direction": "AV faster than Miller bound",
+      "delta_id": "delta_G_q",
+      "delta_definition": "G_perturbation(q)-G_shipped(q)"
+    },
+    "Aplus_full": {
+      "role": "secondary_descriptive",
+      "definition": "integral_0_400 max(F_AV(t)-min(F_A(t)+F_V(t),1),0) dt",
+      "units": "ms",
+      "delta_id": "delta_Aplus_full",
+      "delta_definition": "Aplus_full_perturbation-Aplus_full_shipped",
+      "may_substitute_for_primary": false
+    },
+    "delta_tails_apply_to": [
+      "delta_G_q",
+      "delta_Aplus_full"
+    ]
+  },
+  "quality_control": {
+    "minimum_A_V_AV_hit_rate": 0.95,
+    "maximum_A_V_AV_hit_rate_imbalance": 0.05,
+    "maximum_catch_false_positive_rate": 0.05,
+    "all_preregistered_q_reachable": true,
+    "censor_encoding": "+Inf",
+    "noncollapse_failure_action": "confirmatory_family_incomplete_descriptive_only",
+    "gNMDA_zero_branch": {
+      "policy": "all_or_none_selective_latency_qc",
+      "scope": "all_10_checkpoints_x_3_intensities",
+      "selection_time": "before_endpoint_statistics",
+      "partial_inclusion_allowed": false,
+      "failure_action": "control_only_no_formal_claim"
+    }
+  },
+  "inference": {
+    "unit": "checkpoint",
+    "n_checkpoints": 10,
+    "trials_and_substreams_nested": true,
+    "trial_pooling_allowed": false,
+    "exact_rowwise_sign_flip": {
+      "n_patterns": 1024,
+      "same_sign_across_entire_family_vector": true,
+      "plus_one_correction": false,
+      "p_value_denominator": 1024,
+      "adjusted_p_formula": "count(null_family_max>=observed_transformed_t)/1024",
+      "store_integer_numerator": true,
+      "alpha": 0.05,
+      "rejection_rule": "adjusted_p<0.05",
+      "largest_rejecting_numerator": 51,
+      "tie_rule": "conservative_exceeds_or_ties",
+      "finite_tie_epsilon_multiplier_binary64": 64,
+      "infinities_use_exact_IEEE_order": true,
+      "nan_action": "fail_closed"
+    },
+    "families": {
+      "within_cell_RMI": {
+        "normal_cells": 231,
+        "expanded_with_viable_gNMDA_zero": 252,
+        "tail": "positive_one_sided",
+        "transform": "t"
+      },
+      "delta_G_q": {
+        "role": "primary_perturbation_effect",
+        "normal_cells": 231,
+        "expanded_with_viable_gNMDA_zero": 252,
+        "normal_tail_counts": {
+          "two_sided": 224,
+          "negative_one_sided": 7
+        },
+        "expanded_tail_counts": {
+          "two_sided": 238,
+          "negative_one_sided": 14
+        },
+        "transforms": {
+          "two_sided": "abs(t)",
+          "negative_one_sided": "-t"
+        }
+      },
+      "delta_Aplus_full": {
+        "role": "secondary_checkpoint_contrast",
+        "normal_cells": 33,
+        "expanded_with_viable_gNMDA_zero": 36,
+        "normal_tail_counts": {
+          "two_sided": 32,
+          "negative_one_sided": 1
+        },
+        "expanded_tail_counts": {
+          "two_sided": 34,
+          "negative_one_sided": 2
+        },
+        "transforms": {
+          "two_sided": "abs(t)",
+          "negative_one_sided": "-t"
+        }
+      }
+    },
+    "factor_specific_alpha_resets_allowed": false,
+    "simultaneous_band": {
+      "method": "centered_residual_rowwise_sign_flip_studentized_max_T",
+      "approximate": true,
+      "confidence": 0.95,
+      "two_sided_interval": "mean+/-critical*SE",
+      "negative_one_sided_upper_bound": "mean+critical*SE",
+      "positive_one_sided_lower_bound": "mean-critical*SE",
+      "store_achieved_discrete_coverage": true
+    }
+  },
+  "claim_semantics": {
+    "within_cell_RMI_question": "whether a perturbation condition itself has G(q)>0",
+    "perturbation_effect_question": "whether paired delta_G_q differs from zero",
+    "difference_of_significance_is_perturbation_evidence": false,
+    "significant_negative_delta_G_q_may_coexist_with_within_cell_RMI": true,
+    "ASD_like_reduction": {
+      "label": "ASD-like reduction in model low-intensity multisensory integration",
+      "eligible_intensity": 0.05,
+      "required_conjunction": [
+        "shipped_phase1_formal_RMI_at_same_q",
+        "perturbation_selective_latency_QC_pass_all_checkpoints",
+        "delta_G_q_negative",
+        "delta_G_q_familywise_adjusted_p_below_0.05",
+        "delta_G_q_simultaneous_upper_bound_below_0",
+        "design_integrity_provenance_and_family_completeness_pass"
+      ],
+      "Aplus_full_role": "convergent_secondary_not_required_and_cannot_rescue_delta_G_q",
+      "within_cell_RMI_loss_required": false,
+      "detection_collapse_eligible": false,
+      "effects_only_at_0.2_or_1.0_eligible": false,
+      "interpretation": "model endpoint phenotype only; not a clinical ASD diagnosis or unique mechanism"
+    }
+  },
+  "scalar_adaptation_followup": {
+    "execution": "trigger_only_not_upfront",
+    "trigger_if_any": [
+      "historical_compound_delta_G_q_passes_primary_family",
+      "historical_compound_delta_Aplus_full_passes_secondary_family",
+      "adjusted_discordant_adaptation_off_vs_prior_pattern",
+      "scalar_adaptation_attribution_is_requested"
+    ],
+    "do_not_trigger_on": [
+      "unadjusted_trend",
+      "within_cell_RMI_significance_alone"
+    ],
+    "aM_values": [
+      0.0,
+      0.008,
+      0.02,
+      0.04
+    ],
+    "aM_anchor": 0.02,
+    "dM_values": [
+      0.0,
+      8.0,
+      10.0,
+      16.0
+    ],
+    "dM_anchor": 10.0,
+    "dM_role": "first_spike_negative_control",
+    "dM_nonnull_action": "debug_before_biological_interpretation",
+    "delta_G_q_family_cells": 126,
+    "delta_Aplus_full_family_cells": 18,
+    "compound_result_allows_scalar_attribution": false
+  },
+  "execution_policy": {
+    "approved_gpu_workers": 1,
+    "gpu_parallelism": "serial_one_process_on_one_approved_UUID",
+    "acquisition_unit": "one_perturbation_cell_x_checkpoint",
+    "vectorized_substream_trials": 100,
+    "batch_size_change_allowed": false,
+    "atomic_output_required": true,
+    "overwrite_verified_raw_allowed": false,
+    "verified_output_skip_rule": "exact_manifest_source_checkpoint_configuration_and_raw_hash_match",
+    "partial_temporary_action": "delete_and_rerun_whole_unit",
+    "cpu_validator_max_workers": 1,
+    "cpu_validator_may_read_only_completed_files": true
+  },
+  "anchor_alias_policy": {
+    "anchor_id": "shipped",
+    "source_raw_label": "baseline",
+    "historical_alias": "adaptation_shipped",
+    "selection_intensities": [
+      0.05,
+      0.2,
+      1.0
+    ],
+    "raw_relabel_allowed": false,
+    "raw_rewrite_allowed": false,
+    "reacquisition_allowed": false,
+    "identity_requires_exact_vector_artifact_raw_checkpoint_and_source_pins": true
+  },
+  "hash_policy": {
+    "algorithm": "sha256",
+    "manifest_self_hash_embedded": false,
+    "canonical_semantic_encoding": {
+      "encoding": "UTF-8",
+      "sort_keys": true,
+      "separators": [
+        ",",
+        ":"
+      ],
+      "ensure_ascii": true,
+      "allow_nan": false
+    },
+    "semantic_sha_location": "pinned_in_wrapper_and_tests_and_recorded_in_every_raw",
+    "literal_file_sha_location": "pinned_in_wrapper_and_tests_and_recorded_in_every_raw",
+    "both_hashes_required": true,
+    "semantic_change_requires_new_protocol_id_or_version": true,
+    "whitespace_only_change_requires_new_literal_file_sha": true,
+    "mutation_after_first_acquisition_allowed": false
+  },
+  "acquisition": {
+    "checkpoint_seeds": [
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51
+    ],
+    "intensities": [
+      0.05,
+      0.2,
+      1.0
+    ],
+    "q_levels": [
+      0.05,
+      0.1,
+      0.15,
+      0.2,
+      0.25,
+      0.3,
+      0.35
+    ],
+    "condition_order": [
+      "A",
+      "V",
+      "AV",
+      "catch"
+    ],
+    "n_trials_per_condition": 1000,
+    "substream_count": 10,
+    "trials_per_substream": 100,
+    "run_seed": 20260712,
+    "soa_ms": 0.0,
+    "horizon_ms": 400.0,
+    "dt_ms": 0.1,
+    "endpoint": {
+      "response_rule_id": "first_msi_population_spike_v1",
+      "response_rule": "first substep with MSI population spike count > 0",
+      "threshold": "MSI population spike count > 0",
+      "latency_formula": "(_first_spike_substep + 1) * dt_ms",
+      "latency_domain_ms": "0 < latency <= 400",
+      "resolution_ms": 0.1,
+      "interpretation": "model neural first-spike latency surrogate; not human reaction time",
+      "sensitivity_horizons_ms": [
+        300.0,
+        350.0,
+        400.0
+      ]
+    },
+    "rng_algorithm": "torch global RNG; ten preregistered vectorized substreams",
+    "stream_seed_derivation": "sha256(run_seed:checkpoint_seed:float17_intensity:sensory_condition_label:substream_index)"
+  },
+  "device": {
+    "requested": "cuda:0",
+    "type": "cuda",
+    "visible_index": 0,
+    "name": "NVIDIA GeForce RTX 5090",
+    "capability": "12.0",
+    "total_memory_bytes": 33645330432,
+    "uuid": "c6b8df49-a222-338c-bc8a-02e4e43833c3",
+    "cuda_visible_devices": "GPU-c6b8df49-a222-338c-bc8a-02e4e43833c3",
+    "torch": "2.10.0+cu130",
+    "torch_cuda": "13.0"
+  },
+  "shipped_anchor": {
+    "anchor_id": "shipped",
+    "source_label": "baseline",
+    "historical_alias": "adaptation_shipped",
+    "acquired_in_phase2": false,
+    "vector": {
+      "aM": 0.02,
+      "dM": 10.0,
+      "pv_gaba_scale": 1.0,
+      "tau_gaba": 18.0,
+      "gNMDA": 0.51
+    },
+    "validated_family_artifact": {
+      "filename": "family_analysis.json",
+      "file_sha256": "aaa253392285ca0725d9353d2eed918e24cfbc84b41d9ab413b0277c13b9c60b",
+      "payload_sha256": "43905ff28511722569014e5138a82560f648bd7ad3ead93edabfec96a6f9b3a6",
+      "analysis_head": "7cbe8d8e5d845b50c37cb77d3f4887c910155925",
+      "acquisition_head": "4da0644b03a39f094fc2e9f80a7ec682b8a49df3"
+    }
+  },
+  "blocks": [
+    {
+      "block_id": "historical_compound_adaptation",
+      "design_family": "historical_adaptation_v1",
+      "factor_id": "compound_adaptation_replication",
+      "anchor_id": "shipped",
+      "semantic_mode": "exact_compound_adaptation",
+      "scalar_attribution_allowed": false,
+      "cells": [
+        {
+          "cell_id": "adaptation_off",
+          "role": "confirmatory_perturbation",
+          "vector": {
+            "aM": 0.0,
+            "dM": 0.0,
+            "pv_gaba_scale": 1.0,
+            "tau_gaba": 18.0,
+            "gNMDA": 0.51
+          },
+          "delta_tails": {
+            "0.05": "two_sided",
+            "0.2": "two_sided",
+            "1.0": "two_sided"
+          },
+          "within_cell_rmi_tail": "positive_one_sided"
+        },
+        {
+          "cell_id": "adaptation_prior",
+          "role": "confirmatory_perturbation",
+          "vector": {
+            "aM": 0.008,
+            "dM": 8.0,
+            "pv_gaba_scale": 1.0,
+            "tau_gaba": 18.0,
+            "gNMDA": 0.51
+          },
+          "delta_tails": {
+            "0.05": "two_sided",
+            "0.2": "two_sided",
+            "1.0": "two_sided"
+          },
+          "within_cell_rmi_tail": "positive_one_sided"
+        }
+      ]
+    },
+    {
+      "block_id": "msi_inhibitory_gaba_scale",
+      "design_family": "scalar_rmi_v1",
+      "factor_id": "MSI-inhibitory_GABA_scale",
+      "anchor_id": "shipped",
+      "semantic_mode": "scalar_one_factor",
+      "scalar_attribution_allowed": true,
+      "cells": [
+        {
+          "cell_id": "pv_gaba_scale=0",
+          "role": "confirmatory_perturbation",
+          "vector": {
+            "aM": 0.02,
+            "dM": 10.0,
+            "pv_gaba_scale": 0.0,
+            "tau_gaba": 18.0,
+            "gNMDA": 0.51
+          },
+          "delta_tails": {
+            "0.05": "two_sided",
+            "0.2": "two_sided",
+            "1.0": "two_sided"
+          },
+          "within_cell_rmi_tail": "positive_one_sided"
+        },
+        {
+          "cell_id": "pv_gaba_scale=.5",
+          "role": "confirmatory_perturbation",
+          "vector": {
+            "aM": 0.02,
+            "dM": 10.0,
+            "pv_gaba_scale": 0.5,
+            "tau_gaba": 18.0,
+            "gNMDA": 0.51
+          },
+          "delta_tails": {
+            "0.05": "two_sided",
+            "0.2": "two_sided",
+            "1.0": "two_sided"
+          },
+          "within_cell_rmi_tail": "positive_one_sided"
+        },
+        {
+          "cell_id": "pv_gaba_scale=1.5",
+          "role": "confirmatory_perturbation",
+          "vector": {
+            "aM": 0.02,
+            "dM": 10.0,
+            "pv_gaba_scale": 1.5,
+            "tau_gaba": 18.0,
+            "gNMDA": 0.51
+          },
+          "delta_tails": {
+            "0.05": "two_sided",
+            "0.2": "two_sided",
+            "1.0": "two_sided"
+          },
+          "within_cell_rmi_tail": "positive_one_sided"
+        },
+        {
+          "cell_id": "pv_gaba_scale=4",
+          "role": "confirmatory_perturbation",
+          "vector": {
+            "aM": 0.02,
+            "dM": 10.0,
+            "pv_gaba_scale": 4.0,
+            "tau_gaba": 18.0,
+            "gNMDA": 0.51
+          },
+          "delta_tails": {
+            "0.05": "two_sided",
+            "0.2": "two_sided",
+            "1.0": "two_sided"
+          },
+          "within_cell_rmi_tail": "positive_one_sided"
+        }
+      ]
+    },
+    {
+      "block_id": "tau_gaba",
+      "design_family": "scalar_rmi_v1",
+      "factor_id": "tau_gaba",
+      "anchor_id": "shipped",
+      "semantic_mode": "scalar_one_factor",
+      "scalar_attribution_allowed": true,
+      "cells": [
+        {
+          "cell_id": "tau_gaba=10",
+          "role": "confirmatory_perturbation",
+          "vector": {
+            "aM": 0.02,
+            "dM": 10.0,
+            "pv_gaba_scale": 1.0,
+            "tau_gaba": 10.0,
+            "gNMDA": 0.51
+          },
+          "delta_tails": {
+            "0.05": "two_sided",
+            "0.2": "two_sided",
+            "1.0": "two_sided"
+          },
+          "within_cell_rmi_tail": "positive_one_sided"
+        },
+        {
+          "cell_id": "tau_gaba=40",
+          "role": "confirmatory_perturbation",
+          "vector": {
+            "aM": 0.02,
+            "dM": 10.0,
+            "pv_gaba_scale": 1.0,
+            "tau_gaba": 40.0,
+            "gNMDA": 0.51
+          },
+          "delta_tails": {
+            "0.05": "two_sided",
+            "0.2": "two_sided",
+            "1.0": "two_sided"
+          },
+          "within_cell_rmi_tail": "positive_one_sided"
+        },
+        {
+          "cell_id": "tau_gaba=60",
+          "role": "confirmatory_perturbation",
+          "vector": {
+            "aM": 0.02,
+            "dM": 10.0,
+            "pv_gaba_scale": 1.0,
+            "tau_gaba": 60.0,
+            "gNMDA": 0.51
+          },
+          "delta_tails": {
+            "0.05": "two_sided",
+            "0.2": "two_sided",
+            "1.0": "two_sided"
+          },
+          "within_cell_rmi_tail": "positive_one_sided"
+        }
+      ]
+    },
+    {
+      "block_id": "gNMDA",
+      "design_family": "scalar_rmi_v1",
+      "factor_id": "gNMDA",
+      "anchor_id": "shipped",
+      "semantic_mode": "scalar_one_factor",
+      "scalar_attribution_allowed": true,
+      "cells": [
+        {
+          "cell_id": "gNMDA=0",
+          "role": "response_collapse_control",
+          "response_collapse_policy": {
+            "policy": "all_or_none_selective_latency_qc",
+            "partial_inclusion_allowed": false,
+            "failure_action": "control_only_no_formal_claim"
+          },
+          "vector": {
+            "aM": 0.02,
+            "dM": 10.0,
+            "pv_gaba_scale": 1.0,
+            "tau_gaba": 18.0,
+            "gNMDA": 0.0
+          },
+          "delta_tails": {
+            "0.05": "negative_one_sided",
+            "0.2": "two_sided",
+            "1.0": "two_sided"
+          },
+          "within_cell_rmi_tail": "positive_one_sided"
+        },
+        {
+          "cell_id": "gNMDA=.255",
+          "role": "confirmatory_perturbation",
+          "vector": {
+            "aM": 0.02,
+            "dM": 10.0,
+            "pv_gaba_scale": 1.0,
+            "tau_gaba": 18.0,
+            "gNMDA": 0.255
+          },
+          "delta_tails": {
+            "0.05": "negative_one_sided",
+            "0.2": "two_sided",
+            "1.0": "two_sided"
+          },
+          "within_cell_rmi_tail": "positive_one_sided"
+        },
+        {
+          "cell_id": "gNMDA=.765",
+          "role": "confirmatory_perturbation",
+          "vector": {
+            "aM": 0.02,
+            "dM": 10.0,
+            "pv_gaba_scale": 1.0,
+            "tau_gaba": 18.0,
+            "gNMDA": 0.765
+          },
+          "delta_tails": {
+            "0.05": "two_sided",
+            "0.2": "two_sided",
+            "1.0": "two_sided"
+          },
+          "within_cell_rmi_tail": "positive_one_sided"
+        }
+      ]
+    }
+  ],
+  "frozen_phase1_sources": {
+    "shared_acquisition_kernel_sha256": "b047c142c3627857bf28b6a6e8bf246b16980d92d89535d3c43bd0abea913388",
+    "network_io_sha256": "afb91212c40de1bc45be5bb7a8408a218dca03194d38f1e43520525bf60a29aa",
+    "latency_module_sha256": "171efa9cbdbc78c215ec58e56b490ae66f13bd52d3944a86e387846edc8808bd"
+  },
+  "validated_anchor_acquisitions": [
+    {
+      "seed": 42,
+      "checkpoint_name": "ckpt_ep79_seed42_bs250_delay52_tau18_dL3.pt",
+      "checkpoint_md5": "8ee948f53a94bb3943044048f06b13c6",
+      "checkpoint_sha256": "471a6fb0f428c40038d911ceb27ae512ea52345436f5ab200501e73818d50461",
+      "raw_filename": "baseline_seed42.json",
+      "raw_file_sha256": "cab7736402e0cd76dd1aa1038ad5ad17410106ba223e66cc1fbe970d68bc5a13",
+      "raw_payload_sha256": "1b1aef4390b301c03deb6861ac54a5b83fa15145d1ec05cee572381f71b4556d"
+    },
+    {
+      "seed": 43,
+      "checkpoint_name": "ckpt_ep79_seed43_bs250_delay52_tau18_dL3.pt",
+      "checkpoint_md5": "2bb2e23e6d4f00a9f90093b926582437",
+      "checkpoint_sha256": "e5ae99aba8e3fd549b3326bc57f1e01469c2a27906f4687c80ea2b43baca3309",
+      "raw_filename": "baseline_seed43.json",
+      "raw_file_sha256": "9b4a1e83f17a342961c1e9a8fb7ead6162186cf3d7c4a44f245e4d30579c16cb",
+      "raw_payload_sha256": "bc91e1be6ce9aafc5aac7543dd1b78b5bbafa83b0e8ab7268733fd6823150e93"
+    },
+    {
+      "seed": 44,
+      "checkpoint_name": "ckpt_ep79_seed44_bs250_delay52_tau18_dL3.pt",
+      "checkpoint_md5": "eeb7be5ea64d0af3169b5b6375be0a74",
+      "checkpoint_sha256": "a264e84f021d2bf27860580d232ef16cfaf5064343bfcf5f8d0d114c92cfd709",
+      "raw_filename": "baseline_seed44.json",
+      "raw_file_sha256": "011629a50bd270813fb8b5dc083fc1d80700dc44db1f0b2249d10f5770264de2",
+      "raw_payload_sha256": "3d8ecaea71b7908864c7a7672578790b5310edc90ea36b011e484decfe6ab22d"
+    },
+    {
+      "seed": 45,
+      "checkpoint_name": "ckpt_ep79_seed45_bs250_delay52_tau18_dL3.pt",
+      "checkpoint_md5": "c42bd276ebad1afeedf8c06972f70691",
+      "checkpoint_sha256": "5152566e55234134b5ee29bcd54a69ceef92979f9f219122bf0d485a63e28af6",
+      "raw_filename": "baseline_seed45.json",
+      "raw_file_sha256": "69f9d6d32acac1e38d4a62ca0e9f0964aa1b590e55ea76695c6662ff6e9c22bd",
+      "raw_payload_sha256": "62057ec5a59cf3d228952c8ce5eb9bbf48821c86650b54f7866599950d41b26e"
+    },
+    {
+      "seed": 46,
+      "checkpoint_name": "ckpt_ep79_seed46_bs250_delay52_tau18_dL3.pt",
+      "checkpoint_md5": "2908bd6eab7cae6aaa9550c2c779cabd",
+      "checkpoint_sha256": "ca9a911665fbbbb32ac4c4ef7590d8728660a0c0ba32e914f512cdf296fc4ae0",
+      "raw_filename": "baseline_seed46.json",
+      "raw_file_sha256": "1f68cb9a98896e5c0b02590a0dc2771762e6e9335fe9eb69c0a670067cc4a98f",
+      "raw_payload_sha256": "80fc4c39bef88b41d54ebc3ac914504cfa227a65307a8a17ecc1249cb39d8f60"
+    },
+    {
+      "seed": 47,
+      "checkpoint_name": "ckpt_ep79_seed47_bs250_delay52_tau18_dL3.pt",
+      "checkpoint_md5": "41d4d07f0bef214752d537f5d8f552f0",
+      "checkpoint_sha256": "7505d53b08ce8e070698b5bda063da689c4b0303da4ed3b2806382bb368c8cfb",
+      "raw_filename": "baseline_seed47.json",
+      "raw_file_sha256": "121bde97fa0e237295dbf72a6ec8856a4d74b4c9bc754f68597dbe09dedd8063",
+      "raw_payload_sha256": "f928f57ceac6529c9f77bcfd64c4c938769b270f19c3456018f208ca02ae31b3"
+    },
+    {
+      "seed": 48,
+      "checkpoint_name": "ckpt_ep79_seed48_bs250_delay52_tau18_dL3.pt",
+      "checkpoint_md5": "efaed12e4d4ca8c4137ed205f023c07c",
+      "checkpoint_sha256": "14f81c73f03991aefdc8707275a59551a198eb06ed671b515546037facb93b92",
+      "raw_filename": "baseline_seed48.json",
+      "raw_file_sha256": "75b65c036e35ecb474555a65e4bde5ec6bf045074e9993346d9ddf818636a164",
+      "raw_payload_sha256": "b6a4bb15207b0218f644b91ce6985172aeac48c8237786b81e8298edc831f70c"
+    },
+    {
+      "seed": 49,
+      "checkpoint_name": "ckpt_ep79_seed49_bs250_delay52_tau18_dL3.pt",
+      "checkpoint_md5": "87821af4acf25cfe31ab8a3ffc419730",
+      "checkpoint_sha256": "4f301b31041c0f55fa093bc64d6205827d89d2b2bdb898c53eef36d4d9a0f2a6",
+      "raw_filename": "baseline_seed49.json",
+      "raw_file_sha256": "026aeab59262d8d07b1b792b084c2272b98be7af61c3037a6d0e35bfd636f62b",
+      "raw_payload_sha256": "cd3563f3f821c7ba6b66c129a8f0fdac9eb9c998d03fc4b65fce8163760d926f"
+    },
+    {
+      "seed": 50,
+      "checkpoint_name": "ckpt_ep79_seed50_bs250_delay52_tau18_dL3.pt",
+      "checkpoint_md5": "ca16087a653d087ee2c975405cc4474b",
+      "checkpoint_sha256": "9ca6b68ee4bd20516cdfe40ae576ca4fce7da23841e3726ef7a51979f7dadbb4",
+      "raw_filename": "baseline_seed50.json",
+      "raw_file_sha256": "90b9ad08273ab53e8df70f1bdd66259fbd90b4d71cda59ef5b3751642adb8190",
+      "raw_payload_sha256": "2a85d6eaa25f61e1cf21c4b04b51cbf09f46a9ecc17c6f789941f561b63e445a"
+    },
+    {
+      "seed": 51,
+      "checkpoint_name": "ckpt_ep79_seed51_bs250_delay52_tau18_dL3.pt",
+      "checkpoint_md5": "2d93fd2b9d3e3c0917569a506f2744a8",
+      "checkpoint_sha256": "6bcbd8cda9ecb8cc97521601d42c9c54772b382dcb0d76d76d131679996b20ef",
+      "raw_filename": "baseline_seed51.json",
+      "raw_file_sha256": "3d58fadb132bf39ac188e6add0213327e6771bb203169e8c20b29749fd682d36",
+      "raw_payload_sha256": "8d7d6d7e89b274190ab152e794a13716be9a2a23b59eb382673bc7ad204243fe"
+    }
+  ]
+}
