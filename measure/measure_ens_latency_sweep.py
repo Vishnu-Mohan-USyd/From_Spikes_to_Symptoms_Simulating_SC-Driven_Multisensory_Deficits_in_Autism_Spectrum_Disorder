@@ -3,11 +3,12 @@
 
 USER CHANGE (relayed by lead): show the latency benefit at LOW intensity, on the inverse-effectiveness
 principle (multisensory benefits are largest for weak stimuli). REPLACES the single full-intensity
-A/V/B bars (which sit at the race-model bound = honest null).
+A/V/B bars (which sit at a zero descriptive mean-latency benefit).
 
 Per seed, measure first-spike latency L_A, L_V, L_B (bimodal, simultaneous onset) across the gate4/IE
-intensity grid [0.05 .. 1.6]; compute the RACE-MODEL benefit = min(L_A, L_V) - L_B per intensity
-(positive = bimodal first spike FASTER than the fastest unimodal = a true MSI latency facilitation).
+intensity grid [0.05 .. 1.6]; compute the descriptive fastest-unisensory condition-mean benefit
+= min(mean L_A, mean L_V) - mean L_B per intensity. This is not a Miller RMI test.
+(Positive means the bimodal condition mean is faster than both unisensory condition means.)
 Aggregate mean/SD/SEM across the ensemble. Inverse effectiveness predicts the benefit is LARGEST at LOW
 intensity; if it is NULL even at low intensity, that is reported AS NULL (never cherry-picked).
 

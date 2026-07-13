@@ -8,9 +8,9 @@ Official criteria (NOT the aM014 #372 bands):
   G3 E/I       : per-seed shunt-aware sync in [0.80,1.25] (biological balance ~1.0)
   G4 POP-IE    : per-seed NEGATIVE MEI-vs-log(I) slope AND MEI_lo(0.05) > MEI_hi(1.6)  [inverse effectiveness]
   G5 SBW       : per-seed 3-sign centre-surround: peak_cre>0 AND zero_cross>0 AND surr_min<0
-  G6 LATENCY   : §2.7 mean Delta = mean(L_A,L_V)-L_B > 0 at INTENSITY=1.0 (onset facilitation). The race
-                 descriptor min(L_A,L_V)-L_B tying ~0 at strong I is the honest null, NOT a fail. Low-I
-                 inverse-effectiveness race benefit is reported as honest CONTEXT, not the gate.
+  G6 LATENCY   : §2.7 mean Delta = mean(L_A,L_V)-L_B > 0 at INTENSITY=1.0 (onset facilitation). The
+                 descriptive fastest-unisensory condition-mean difference tying ~0 at strong I is an
+                 honest null, NOT a fail. It is context, not the gate and not a formal Miller RMI test.
   G7 CUE-REL   : R2_pooled > 0.71 AND every per-seed R2 > 0.71 (gain_exp=1 headline)
 
 Usage: python val394_dm10_grade.py [--dir /tmp/val394_dm10] [--gain_exp 1]
@@ -86,12 +86,12 @@ if lat:
         la = float(r["L_A"][j1]); lv = float(r["L_V"][j1]); lb = float(r["L_B"][j1])
         mean_uni = 0.5 * (la + lv)
         delta = mean_uni - lb                          # §2.7 onset-facilitation mean Delta (the GATE)
-        race = min(la, lv) - lb                         # race descriptor (tie ~0 at strong I = honest null)
-        loben = float(r["benefit"][jlo])                # low-I inverse-effectiveness race benefit (context)
+        race = min(la, lv) - lb                         # legacy variable: descriptive condition-mean difference
+        loben = float(r["benefit"][jlo])                # low-I fastest-unisensory mean descriptor (context)
         ok = (delta == delta) and delta > 0
         mark(s, "G6_LAT", ok,
              f"meanD@I=1.0={delta:+.2f}ms [mean(LA,LV)={mean_uni:.1f}-LB={lb:.1f}]; "
-             f"race@1.0={race:+.2f}(null-ok); loben@{INTL[jlo]:g}={loben:+.1f}")
+             f"fastest-mean@1.0={race:+.2f}(null-ok); loben@{INTL[jlo]:g}={loben:+.1f}")
 
 # ---------- G7: per-seed R2 from per-seed JSONs (aggregate carries only pooled + mean/sem) ----------
 import glob as _glob
@@ -154,8 +154,8 @@ if lat:
     print(f"    G6 LAT  = mean Delta@I=1.0 {dm_:+.2f}+/-{ds_:.2f} ms   (>0 gate; §2.7 onset facilitation)")
     bpi = lat.get("benefit_per_intensity")
     if bpi:
-        print(f"             context: low-I(I={INTL[jlo]:g}) race benefit "
-              f"{bpi[jlo]['mean']:+.2f}+/-{bpi[jlo]['sd']:.2f} ms;  race curve {[round(b['mean'],1) for b in bpi]}")
+        print(f"             context: low-I(I={INTL[jlo]:g}) fastest-unisensory mean descriptor "
+              f"{bpi[jlo]['mean']:+.2f}+/-{bpi[jlo]['sd']:.2f} ms;  descriptor curve {[round(b['mean'],1) for b in bpi]}")
 if g7_line:
     r2p, r2min, ok7, n7 = g7_line
     print(f"    G7 CUE  = R2 pooled {r2p:.3f}  per-seed min {r2min:.3f}  (n={n7})  bar>0.71")

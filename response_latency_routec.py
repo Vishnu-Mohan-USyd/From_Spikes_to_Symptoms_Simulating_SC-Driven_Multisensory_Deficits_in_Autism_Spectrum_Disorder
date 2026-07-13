@@ -2,7 +2,8 @@
 """TEST 4 — Response latency (multisensory facilitation) on route-C dL3-ep79 (SPEC §TEST 4).
 
 Biology: bimodal first-spike latency is SHORTER than the mean unisensory latency
-(Δlatency = (L_A+L_V)/2 − L_B > 0). Manuscript context: L_A=56±5.2, L_V=54±1.6, L_B=36±1.6 ms;
+(descriptive Δlatency = (L_A+L_V)/2 − L_B > 0; not a formal Miller test).
+Manuscript context: L_A=56±5.2, L_V=54±1.6, L_B=36±1.6 ms;
 Δ≈19 ms ≈35% acceleration.
 
 Method (distilled VERBATIM from response_latency_test.py: `measure_latency` :613 + `latency_profile_for_model`
@@ -96,11 +97,16 @@ def measure_latency(net, sigma_in, n_trials, device, soa_lead_frames=0):
 
 @torch.no_grad()
 def measure_latency_coincidence(net, sigma_in, n_trials, device, soa_max_frames=3):
-    """task#133 §B2 — read the race-model violation at the COINCIDENCE-OPTIMAL SOA, not simultaneous onset.
+    """Measure a coincidence-optimized descriptive condition-mean latency benefit.
+
+    This is not Miller's distributional race-model inequality. The legacy
+    ``delta_race_ms`` result key is retained for schema compatibility.
+
     L_A/L_V are unimodal (SOA-independent, measured once in the base). For the BIMODAL, scan V-lead SOA =
     0..soa_max frames (A delayed; V leads, compensating A's 25ms vs V's 40ms conduction so they arrive together
     at the MSI ~15ms V-lead) and pin the coincidence-optimal = argmin L_B (max facilitation). B_fastest is scored
-    there, identically for both arms (single-variable in k). Δ_race = min(L_A,L_V) - L_B_opt. The full L_B(SOA)
+    there, identically for both arms (single-variable in k). The descriptor is
+    min(mean L_A, mean L_V) - mean L_B_opt. The full L_B(SOA)
     curve is reported so the bracket of the ~15ms (1.5-frame, between SOA 10 and 20ms) optimum is visible."""
     frame_ms = float(net.dt) * int(net.n_substeps)
     base = measure_latency(net, sigma_in, n_trials, device, soa_lead_frames=0)
@@ -114,6 +120,7 @@ def measure_latency_coincidence(net, sigma_in, n_trials, device, soa_max_frames=
     L_B_opt = lb_by_soa[s_opt]
     uni_min = min(L_A, L_V) if (L_A == L_A and L_V == L_V) else float("nan")
     b_fastest = bool((L_B_opt == L_B_opt) and (uni_min == uni_min) and (L_B_opt < L_A) and (L_B_opt < L_V))
+    # Legacy schema name: descriptive condition-mean difference, not formal RMI.
     delta_race = (uni_min - L_B_opt) if (uni_min == uni_min and L_B_opt == L_B_opt) else float("nan")
     return dict(L_A_coin_ms=L_A, L_V_coin_ms=L_V, L_B_coincidence_ms=L_B_opt,
                 soa_opt_frames=int(s_opt), soa_opt_ms=float(s_opt * frame_ms),
@@ -166,7 +173,7 @@ def run_seed(args):
         curve = "  ".join(f"{k:.0f}ms:{v:.1f}" for k, v in sorted(coin['L_B_by_soa_ms'].items()))
         print(f"  [COINCIDENCE §B2] L_B(V-lead SOA): {curve}")
         print(f"  coincidence-opt SOA={coin['soa_opt_ms']:.0f}ms  L_B*={coin['L_B_coincidence_ms']:.1f}  "
-              f"min(L_A,L_V)={coin['uni_min_ms']:.1f}  Δ_race={coin['delta_race_ms']:+.1f}ms  "
+              f"min(mean L_A,mean L_V)={coin['uni_min_ms']:.1f}  fastest-mean benefit={coin['delta_race_ms']:+.1f}ms  "
               f"B_fastest_coincidence={coin['B_fastest_coincidence']}")
     print(f"  -> wrote {out_json}", flush=True)
     return rec

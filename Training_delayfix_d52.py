@@ -8,16 +8,17 @@ Network architecture (see ``MultiBatchAudVisMSINetworkTime`` for details)
 ------------------------------------------------------------------------
 Layers: A (auditory), V (visual), MSI excit, MSI inh, Readout.
 Dynamics:
-  - Conductance-based LIF with explicit AMPA + NMDA split on every
-    excitatory projection (A->MSI, V->MSI, A->MSI_inh, V->MSI_inh).
+  - Izhikevich spiking units receiving conductance-derived currents, with an
+    explicit AMPA + NMDA split on A->MSI, V->MSI, A->MSI_inh and V->MSI_inh.
   - Tsodyks-Markram short-term depression on AMPA synapses.
   - Disynaptic inhibition only: unimodal -> MSI_inh interneurons ->
     MSI_exc GABA (task#192 Phase A removed the direct A/V -> MSI_exc
     feed-forward inhibitory shortcut as biologically unjustified).
   - Lateral / surround inhibition in MSI_exc (Mexican-hat geometry).
-  - Conduction delays on A->MSI, V->MSI, MSI->Readout (default 5 substeps).
+  - Executable shipped delays: A/V->MSI 25/40 ms, A/V->MSI_inh 27/42 ms,
+    MSI_inh->MSI 5.2 ms additional, MSI recurrence 10 ms, readout 0.5 ms.
   - STDP plasticity on early layers (toggle via ``plasticity_enabled``).
-  - Supervised readout training.
+  - A downstream readout projection; first-spike RMI is measured at MSI.
 
 Substep timing
 --------------
@@ -29,7 +30,8 @@ Key hyper-parameters of MultiBatchAudVisMSINetworkTime
 ------------------------------------------------------
   - ``pv_nmda``  (default 5.0)  — PV-cell NMDA scaling.
   - ``gNMDA``                   — global NMDA conductance gain.
-  - ``g_GABA``                  — MSI_inh -> MSI_exc GABA conductance.
+  - ``g_GABA``                  — lateral/surround MSI GABA scale.
+  - ``pv_gaba_scale``           — disynaptic MSI_inh -> MSI_exc GABA scale.
   - ``input_scaling`` (150.0)   — input current scaling.
   - Note: ``g_FFinh`` is retained as an orphan attribute (init still sets
     a value; SBW/TBW probes save/restore it) but the direct FF-inh
@@ -1187,10 +1189,10 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
     (Audio, Visual, MSI excitatory, MSI inhibitory, and Readout) with:
       - A->MSI & V->MSI split into AMPA/NMDA (both excitatory).
       - A->MSI_inh & V->MSI_inh also split into AMPA/NMDA (excitatory).
-      - Dedicated MSI_inh -> MSI_exc GABA projection.
-      - Dedicated inhibitory projection from unimodal layers (A_inh, V_inh) directly to MSI excit.
+      - Feed-forward inhibition is exclusively disynaptic:
+        A/V -> MSI_inh -> MSI_exc, with no direct unimodal inhibitory shortcut.
       - Tsodyks-Markram short-term depression on AMPA synapses.
-      - Conduction delays, STDP for early layers, supervised readout training.
+      - Conduction delays and STDP on the declared plastic edges.
       - Lateral (surround) inhibition in MSI excit.
     """
 
@@ -1545,15 +1547,15 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self._latest_sOut = torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device)
 
         # ------------- Synaptic currents --------------
-        # task #192 Phase B (sci_inhibition_functional_role.md §5.2): SPLIT
-        # tau_syn into tau_ampa (2.5 ms, fast glutamate — unchanged) and
-        # tau_gaba (50 ms — biology IPSC weighted tau_w, Sergeeva 2006 mouse
-        # SC median, midway between fast cortical 22 ms and slow EGFP+ 132 ms).
+        # task #192 Phase B (sci_inhibition_functional_role.md §5.2): split
+        # tau_syn into tau_ampa (2.5 ms, fast glutamate) and a live tau_gaba.
+        # The constructor fallback is 50 ms; the shipped dm10 checkpoints restore
+        # tau_gaba=18 ms before measurement.
         # tau_syn kept as alias = tau_ampa for legacy code paths (ckpt save,
         # decay_factor in update_all_layers_batch).
         self.tau_ampa = 2.5    # ms
         self.tau_gaba = float(os.environ.get('TAU_GABA', '50.0'))   # ms — task#P6 env override (mirrors trainer so measurement matches the trained value; read live into gaba_decay)
-        self.pv_gaba_scale = float(os.environ.get('PV_GABA_SCALE', '1.0'))  # ASD lever: disynaptic PV(MSI_inh)->MSI_exc GABA conductance scale; 1.0 = NT byte-identical. MEASURE mirrors trainer; val36.load_ckpt restores the trained value from the ckpt so measurement matches training.
+        self.pv_gaba_scale = float(os.environ.get('PV_GABA_SCALE', '1.0'))  # frozen disynaptic MSI_inh->MSI_exc GABA scale; val36.load_ckpt restores the trained value before measurement.
         # surround-shunt GABA (revised IE spec): convert ONLY the lateral surround to a divisive/shunting conductance; OFF default => byte-identical
         self.E_gaba = float(os.environ.get('E_GABA', '-70.0'))                  # mV, GABA-A reversal on the Izhikevich scale
         self.k_shunt_surr = float(os.environ.get('K_SHUNT_SURR', '0.0'))        # 1/mV conductance->current scale (charge-matched; debugger supplies)
@@ -1578,16 +1580,9 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self.I_ampa_filtered = torch.zeros((self.batch_size, self.n), device=self.device)
 
         # ------------- Conduction delay buffers --------------
-        # task #192 Phase C (sci_inhibition_functional_role.md §5.3):
-        # OVERRIDE the constructor kwargs `conduction_delay_a2msi` /
-        # `_v2msi` with biology-anchored values. Whyland-Bickford 2018
-        # mouse iSC: EPSC ~4 ms, disynaptic IPSC ~9.25 ms (+5.2 ms over EPSC).
-        # At dt=0.1 ms: 4 ms = 40 substeps, 5.2 ms over = 52 substeps.
-        # The previous legacy values (250 / 400 substeps = 25 / 40 ms)
-        # over-stated cat/mouse SC conduction by 6-10x; the §5.3 anchor
-        # tightens this to in-vivo measured values.
-        # The kwargs are retained in the signature for backward compat with
-        # callers but their numeric value is OVERRIDDEN here.
+        # Executable route-C delays at dt=0.1 ms. Constructor kwargs remain in
+        # the signature for compatibility but A/V->MSI are set here to the
+        # shipped 25/40 ms asymmetric operating point.
         _ = conduction_delay_a2msi  # kwarg silenced
         _ = conduction_delay_v2msi  # kwarg silenced
         self.conduction_delay_a2msi = 250   # 25.0 ms auditory (task#47 restore pre-f92d04a; cat-SC defensible per #45)
@@ -1602,14 +1597,13 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         # task #192 Phase A: REMOVED conduction_delay_inA_inh / _inV_inh
         # (paired with the direct FF-inh shortcut rip in __init__ above).
 
-        # unimodal->MSI_inh excit:
-        # task #192 Phase C: 4 ms (same as exc; one EPSC leg onto interneuron).
+        # Unimodal->MSI_inh excitation arrives at 27/42 ms, 2 ms after the
+        # corresponding direct MSI-excitatory projection.
         self.conduction_delay_a2msi_inh = 270   # = a2msi + 20 (2.0 ms exc leg onto interneuron)
         self.conduction_delay_v2msi_inh = self.conduction_delay_v2msi + 20   # = v2msi + 20 (2.0ms disynaptic exc leg onto interneuron); TRACKS the V-advance lever to preserve the V exc/inh disynaptic offset
 
-        # MSI_inh->MSI_exc
-        # task #192 Phase C: 5.2 ms over the exc->inh leg, totalling
-        # disynaptic ~9.2 ms (Whyland-Bickford 2018 IPSC).
+        # MSI_inh->MSI_exc adds a local 5.2 ms conduction delay after an
+        # inhibitory-population spike.
         self.conduction_delay_msi_inh2exc = 52   # task TBW-delay-fix: local disynaptic IPSC ~5.2ms (Whyland-Bickford 2018); MEASUREMENT build matching the delay52 ckpt (was 450=45ms)
 
         # task #27: physical-time conduction delays (ms). Captured at construction
@@ -2801,7 +2795,8 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
               f"  A={rA_hz:6.2f} Hz"
               f"  V={rV_hz:6.2f} Hz"
               f"  MSI={rM_hz:6.2f} Hz")
-              # task #188: REMOVED (target=rho0*hz_fact) — no iSTDP setpoint
+              # Obsolete direct-path target print removed; the active
+              # MSI_inh->MSI_exc iSTDP target is maintained separately.
 
         # task#21/E1: stash rates for the panel BEFORE the reset zeroes them (P5/S1)
         self._last_rates_hz = dict(A=rA_hz, V=rV_hz, MSI=rM_hz, MSI_inh=rMi_hz)
@@ -2852,7 +2847,7 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         nmda_decay = 1.0 - self.dt / self.tau_nmda
         nmda_decay_v = 1.0 - self.dt / self.tau_nmda_v   # latency #153: V-specific FF-NMDA decay (default == nmda_decay)
         nmda_decay_inh = 1.0 - self.dt / self.tau_nmda_inh  # task#51 route-c (interneuron NMDA decay)
-        # task #192 Phase B: separate slow GABA decay (tau_gaba=50ms biology).
+        # Separate live GABA decay; shipped dm10 restores tau_gaba=18 ms.
         gaba_decay = 1.0 - self.dt / self.tau_gaba
         # Per-step source-onto-decaying-state scale (task #16/#121/#123/#135).
         #   dt_linear_scale: linear `dt / 0.1` applied uniformly to AMPA and NMDA
@@ -2865,7 +2860,8 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         #     broke paper output on legacy ckpts).
         dt_linear_scale = self.dt / 0.1
         input_step_scale = 1.0 / float(self.n_substeps)
-        # task #188: REMOVED istdp_decay precomputation (no iSTDP rule).
+        # Obsolete direct-path iSTDP decay is absent; the active inhibitory-edge
+        # traces compute their own pre/post decays below.
         rate_alpha = self.dt / self.rate_avg_tau
         dt_s = self.dt / 1000.0
         spike_threshold = 30.0
@@ -3199,8 +3195,8 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             # task #125: REVERTED task #123 FIX 3 (`* dt_linear_scale`). Same
             # rationale as FIX 2 revert above — debugger #124 found GABA recurrent
             # source-scaling also breaks the natural homeostatic balance.
-            # task #192 Phase B: route disynaptic GABA into I_M_gaba (tau_gaba
-            # decay = 50ms biology) instead of fast I_M (tau_ampa = 2.5ms).
+            # Route disynaptic GABA into I_M_gaba (live tau_gaba; 18 ms in the
+            # shipped dm10 checkpoints) instead of fast I_M (tau_ampa=2.5 ms).
             # Magnitude is added as positive; subtracted from I_M at integration.
             self.I_M_gaba.add_(self.pv_gaba_scale * I_M_inh2exc)   # PV_GABA_SCALE lever (default 1.0 => x1.0 bit-exact; ASD ckpt restores <1 to measure under reduced PV feed-forward inhibition)
 
@@ -3239,7 +3235,7 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             # task #192 Phase B: net current is (I_M - I_M_gaba) where I_M
             # holds AMPA/NMDA-driven fast excitation (decays at tau_ampa=2.5ms)
             # and I_M_gaba holds tonic + disynaptic + surround GABAergic
-            # inhibition magnitude (decays at tau_gaba=50ms slow IPSC biology).
+            # inhibition magnitude (live tau_gaba; shipped dm10=18 ms).
             I_surr_shunt = self.k_shunt_surr * self.I_M_gaba_surr_sh * (self.E_gaba - self.v_msi)   # <=0 divisive surround; identically 0 when OFF
             self._last_I_surr_shunt = I_surr_shunt.detach()   # task #55: expose exact pre-spike-reset surround current for shunt-aware E/I (val36 ei_probe_route_c); ==0 when OFF
             dVM = (0.04 * self.v_msi.pow(2) + 5.0 * self.v_msi + 140.0
@@ -3282,8 +3278,8 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             # (A) compute surround inhibition current
             I_latM = torch.mm(new_sM, self.W_MSI_inh)  # shape (B, n)
             # (B) apply it
-            # task #192 Phase B: route Mexican-hat lateral GABA into I_M_gaba
-            # (tau_gaba decay = 50ms biology) instead of fast I_M. Magnitude
+            # Route Mexican-hat lateral GABA into the live-tau_gaba state
+            # (shipped dm10=18 ms) instead of fast I_M. Magnitude
             # is added as positive; subtracted from I_M at integration.
             if self.gaba_shunt_surr:
                 self.I_M_gaba_surr_sh.add_(self.g_GABA * I_latM)   # surround -> shunting accumulator (divisive form)
@@ -3385,7 +3381,8 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             if return_spike_sum:  # ****
                 sum_sM += new_sM  # ****
 
-            # task #188: REMOVED iSTDP post_i_trace decay+update (no iSTDP rule).
+            # The obsolete direct-path post_i_trace update is absent. Active
+            # MSI_inh->MSI_exc iSTDP runs after spike publication below.
 
             self.post_rate_avg.mul_(1.0 - rate_alpha).add_(rate_alpha * new_sM)
 
@@ -3409,11 +3406,6 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             new_sO = spike_mask_O.float()
             self.v_out.masked_fill_(spike_mask_O, self.cO)
             self.u_out[spike_mask_O] += self.dO
-
-            # task #188 (simple-pathway §4.1): REMOVED iSTDP Vogels-Abbott block.
-            # Inhibitory weights W_inA_inh / W_inV_inh are now FIXED at init (2.0)
-            # per spec §3.1. No plasticity on inh side — biology-defensible at FSTS
-            # scope per Sooksawate 2011, Mize 1988, Carrasco-Razak 2011 timescale.
 
             if valid_mask is not None:
                 mask_sub = valid_mask.view(-1, 1)
@@ -4993,4 +4985,3 @@ if __name__ == "__main__":
     print("\nAll replicas finished:")
     for p in saved:
         print("  •", p)
-

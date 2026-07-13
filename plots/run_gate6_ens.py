@@ -2,11 +2,11 @@
 effectiveness), repo house style, across-seed error bars.
 
 USER CHANGE (lead relay): show the latency benefit at LOW intensity (multisensory benefits are largest
-for weak stimuli). REPLACES the single full-intensity A/V/B bars (race-model bound = honest null).
+for weak stimuli). REPLACES the single full-intensity A/V/B bars (zero mean-latency benefit).
 
-LEFT panel  = race-model benefit min(L_A,L_V) - L_B (ms) vs stimulus intensity (log-x), mean ± SD over
-the ensemble; >0 (shaded) = bimodal first spike faster than the fastest unimodal = true MSI latency
-facilitation; the 0 line is the race-model bound. Inverse effectiveness => benefit largest at low I.
+LEFT panel = descriptive min(mean L_A, mean L_V) - mean L_B (ms) vs stimulus intensity (log-x),
+mean ± SD over the ensemble. It compares condition means and is not a formal Miller RMI test.
+The 0 line is the zero-benefit reference. Inverse effectiveness predicts the largest benefit at low I.
 RIGHT panel = A/V/B first-spike latency bars at the low (inverse-effectiveness) intensity, A<V asymmetry
 visible. HONEST: the curve is drawn AS MEASURED; if the benefit is null across intensities the flat ~0
 curve says so (no cherry-picking). Pure plot from gate6_latency_sweep.json; frozen md5 before==after.
@@ -44,9 +44,9 @@ I_bar = I[jbar]
 # honest low/high summary
 jlo = int(np.argmin(I)); jhi = int(np.argmax(I))
 lo_b, hi_b, mx_b = bmean[jlo], bmean[jhi], np.nanmax(bmean)
-verdict = ("inverse-effectiveness benefit, confined to the weakest\nnear-threshold intensity (collapses by I=0.1)"
+verdict = ("descriptive inverse-effectiveness benefit, confined to the weakest\nnear-threshold intensity (near zero by I=0.1)"
            if real_benefit else
-           "NULL across intensities — race-model bound holds (B not faster than fastest unimodal)")
+           "NULL across intensities — no fastest-unisensory mean-latency benefit")
 print(f"[gate6-ens] n={n} seeds {J['seeds']}", flush=True)
 for j, ii in enumerate(I):
     print(f"    I={ii:<5g} benefit={bmean[j]:+.2f}±{bsd[j]:.2f}  L_A={LA_m[j]:.1f} L_V={LV_m[j]:.1f} L_B={LB_m[j]:.1f}", flush=True)
@@ -66,19 +66,19 @@ gs = gridspec.GridSpec(1, 2, width_ratios=[2.25, 1.0], wspace=0.28)
 # ---------------- LEFT: benefit vs intensity (inverse effectiveness) ----------------
 ax0 = fig.add_subplot(gs[0])
 fin = np.isfinite(bmean)
-ax0.axhline(0.0, ls="--", color="0.45", lw=3, zorder=1, label="race-model bound (no facilitation)")
+ax0.axhline(0.0, ls="--", color="0.45", lw=3, zorder=1, label="zero condition-mean benefit (not Miller RMI)")
 ax0.fill_between(I[fin], 0.0, bmean[fin], where=(bmean[fin] > 0), color="C2", alpha=0.16, zorder=1)
 ax0.errorbar(I[fin], bmean[fin], yerr=bsd[fin], fmt="o-", color="C2", lw=4.5, markersize=15,
              capsize=8, elinewidth=3, capthick=2.4, markeredgecolor="k", markeredgewidth=1.0,
-             label=f"latency benefit  min(A,V) − B,  mean ± SD (n={n})", zorder=3)
+             label=f"descriptive latency benefit, condition means ± SD (n={n})", zorder=3)
 ax0.set_xscale("log")
 ax0.set_xticks(I); ax0.set_xticklabels([f"{x:g}" for x in I])
 ax0.minorticks_off()
 ax0.axvline(I_bar, ls=":", color="C3", lw=2.5, alpha=0.7, zorder=0)
 ax0.set(xlabel="Stimulus intensity  (gate-4/IE grid; weak to strong)",
-        ylabel="Latency benefit  min(A,V) − B  (ms)",
-        title="Multisensory latency benefit vs intensity (inverse effectiveness)")
-# honest verdict box (placed over the flat race-bound region, right-centre, to avoid the low-I annotation)
+        ylabel="min(mean A, mean V) − mean AV latency  (ms)",
+        title="Descriptive multisensory latency benefit vs intensity")
+# Honest verdict box (placed over the flat zero-benefit region, away from the low-I annotation).
 ax0.text(0.62, 0.60, verdict, transform=ax0.transAxes, ha="center", va="center", fontsize=30,
          color=("C2" if real_benefit else "firebrick"),
          bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="0.6", alpha=0.9))
@@ -111,7 +111,7 @@ for sp in ("top", "right"):
 ax1.spines["left"].set_position(("outward", 6)); ax1.spines["bottom"].set_position(("outward", 6))
 ax1.tick_params(axis='both', which='major', length=16, width=2)
 
-fig.suptitle("Gate 6 — multisensory latency facilitation (route-C dL3 ep79 ensemble)",
+fig.suptitle("Gate 6 — descriptive multisensory latency facilitation (route-C dL3 ep79 ensemble)",
              fontsize=44, y=1.02)
 plt.tight_layout()
 svg = os.path.join(OUTENS, "gate6_latency_ens.svg"); png = os.path.join(OUTENS, "gate6_latency_ens.png")

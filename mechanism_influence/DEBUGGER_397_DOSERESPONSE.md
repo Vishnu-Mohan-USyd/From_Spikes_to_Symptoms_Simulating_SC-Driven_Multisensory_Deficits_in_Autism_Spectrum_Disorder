@@ -1,5 +1,11 @@
 # DEBUGGER #397 — dm10 FROZEN-weight single-variable TBW dose-response (adaptation / GABA / NMDA)
 
+> **Endpoint scope:** this is the historical frozen-weight **TBW** dose response.
+> TBW is the SOA half-maximum width of a later fused response and is distinct
+> from the first-spike formal Miller RMI endpoint. See the
+> [scientific overview](../docs/SCIENTIFIC_OVERVIEW.md). The investigation below
+> is otherwise preserved as its original historical record.
+
 ## QUESTION (from lead/user)
 On the FINAL shipped dm10 model, do adaptation, inhibition(GABA), and NMDA EACH still causally move TBW,
 or did the TBW fix flatten/remove any of them? Answer = clean single-variable dose-response on FROZEN dm10
