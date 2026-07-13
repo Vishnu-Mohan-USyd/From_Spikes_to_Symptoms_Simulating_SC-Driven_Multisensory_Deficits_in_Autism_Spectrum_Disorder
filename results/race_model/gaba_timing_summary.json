@@ -1,0 +1,141 @@
+{
+  "archive": {
+    "archive_id": "race_model_2026-07-13",
+    "sha256_manifest": {
+      "entries": 96,
+      "file_sha256": "20615a2d710da58c875ea3259011096670fa5f5255a9460658d7e163e417b0df",
+      "filename": "SHA256SUMS"
+    },
+    "source_artifacts": [
+      {
+        "path": "timing/gaba_timing_trace_seed42.json",
+        "schema_version": "fsts-gaba-null-causal-timing-trace-v1",
+        "sha256": "0358f94007e1aa41b0dcdd3ebd0903c7936e772dff19b42d2dd7ee4b706483e4"
+      },
+      {
+        "path": "timing/gaba_recruitment_probe_seed42.json",
+        "schema_version": "fsts-gaba-recruitment-control-v1",
+        "sha256": "c966d6277d648893728f4a34b9c8a20e128408cc6d176cdf7e0de050632698e7"
+      }
+    ]
+  },
+  "checkpoint": {
+    "seed": 42,
+    "sha256": "471a6fb0f428c40038d911ceb27ae512ea52345436f5ab200501e73818d50461"
+  },
+  "hardware": {
+    "cuda_runtime_version": "13.0",
+    "device_name": "NVIDIA GeForce RTX 5090",
+    "torch_version": "2.10.0+cu130"
+  },
+  "limitations": "These are seed-42, single-100-trial-substream, reset-state first-spike diagnostics at I=.05/.2/1 on the recorded RTX 5090 revision. They establish causal ordering for this model endpoint, not across-checkpoint inference, later-response/TBW timing, other intensities, or biological irrelevance.",
+  "low_intensity_trace": {
+    "all_12_first_spike_vectors_match_validated_raw_substream_0": true,
+    "all_12_rows": {
+      "first_gaba_state_n": 0,
+      "first_inhibitory_spike_n": 0,
+      "first_raw_gaba_input_n": 0,
+      "first_scaled_gaba_input_n": 0,
+      "responders": 100
+    },
+    "batch_trials": 100,
+    "conditions": [
+      "A",
+      "V",
+      "AV"
+    ],
+    "intensity": 0.05,
+    "run_seed": 20260712,
+    "shipped_first_excitatory_spike_median_ms": {
+      "A": 68.15,
+      "AV": 53.7,
+      "V": 77.6
+    },
+    "substream_index": 0,
+    "variants": [
+      "shipped",
+      "pv0",
+      "tau10",
+      "tau60"
+    ]
+  },
+  "recruitment_control": {
+    "all_6_first_spike_vectors_match_validated_baseline_raw": true,
+    "batch_trials": 100,
+    "conditions": [
+      "A",
+      "V",
+      "AV"
+    ],
+    "dt_ms": 0.1,
+    "first_inhibitory_spike_and_gaba_input_n_at_intensity_0p2": {
+      "A": 0,
+      "AV": 0,
+      "V": 0
+    },
+    "horizon_ms": 400.0,
+    "intensities": [
+      0.2,
+      1.0
+    ],
+    "n_frames": 40,
+    "ordering_at_intensity_1p0": [
+      {
+        "condition": "A",
+        "first_disynaptic_gaba_input_ms": 57.7,
+        "first_inhibitory_spike_ms": 52.5,
+        "inhibitory_to_gaba_delay_ms": 5.2,
+        "latest_excitatory_first_spike_ms": 42.9,
+        "minimum_excitatory_to_inhibitory_gap_ms": 9.6
+      },
+      {
+        "condition": "V",
+        "first_disynaptic_gaba_input_ms": 72.0,
+        "first_inhibitory_spike_ms": 66.8,
+        "inhibitory_to_gaba_delay_ms": 5.2,
+        "latest_excitatory_first_spike_ms": 57.1,
+        "minimum_excitatory_to_inhibitory_gap_ms": 9.7
+      },
+      {
+        "condition": "AV",
+        "first_disynaptic_gaba_input_ms": 56.5,
+        "first_inhibitory_spike_ms": 51.3,
+        "inhibitory_to_gaba_delay_ms": 5.2,
+        "latest_excitatory_first_spike_ms": 41.3,
+        "minimum_excitatory_to_inhibitory_gap_ms": 10.0
+      }
+    ],
+    "ordering_checks_all_100_trials_per_condition": {
+      "gaba_or_surround_current_at_or_before_first_excitatory_spike": 0,
+      "inhibitory_spike_at_or_before_first_excitatory_spike": 0,
+      "surround_state_created_same_substep_after_first_excitatory_spike": 100,
+      "surround_state_strictly_before_first_excitatory_spike": 0
+    },
+    "substeps_per_frame": 100,
+    "surround_current_first_applied_next_substep_ms": 0.1,
+    "variant": "shipped"
+  },
+  "schema_version": "fsts-gaba-timing-summary-v1",
+  "source_revision": {
+    "git_clean": true,
+    "git_head": "dbcf447346bbbd948aea6c95b4324b14340a22d8",
+    "historical_runner_sha256": {
+      "recruitment_runner.py": "69ce154ee998de903f2455d356d10bc43a91e37e930d62f7dfd182fcb94a7330",
+      "run_recruitment_rtx5090.sh": "61b867b633651ae320a8b2c5461005ef1311fe15345f35a44e12079f6bd64f58",
+      "trace_runner.py": "a7dcda096c2a267ab326ac58c75ed5c84977cd1f8e0034f7ac7c956ea9cd064c"
+    },
+    "source_sha256": {
+      "Training_delayfix_d52.py": "801acd19a6e9f5f105e5ffd57bac12c6df36c5a7d917ae528f8c20ebdb877077",
+      "mechanism_influence/race_model_measure.py": "b047c142c3627857bf28b6a6e8bf246b16980d92d89535d3c43bd0abea913388",
+      "response_latency_routec.py": "171efa9cbdbc78c215ec58e56b490ae66f13bd52d3944a86e387846edc8808bd",
+      "routec_net_io.py": "afb91212c40de1bc45be5bb7a8408a218dca03194d38f1e43520525bf60a29aa"
+    }
+  },
+  "status": {
+    "historical_checksummed_diagnostics": true,
+    "part_of_portable_cpu_completed_protocol_reanalysis": false,
+    "portable_trace_acquisition_runner_available": false,
+    "runner_provenance": "The archived source artifacts record the bespoke historical runner and source hashes; no semantically reviewed path-independent trace-acquisition runner is available."
+  },
+  "summary_payload_sha256": "e761c5e8a0de973cb6bfed22da2b5192aace7592acf171d0c31c61fa4ebef474"
+}

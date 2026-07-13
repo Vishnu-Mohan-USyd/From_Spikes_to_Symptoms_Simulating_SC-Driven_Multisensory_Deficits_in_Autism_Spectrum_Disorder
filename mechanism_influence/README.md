@@ -18,11 +18,20 @@ affecting the other; see the [scientific overview](../docs/SCIENTIFIC_OVERVIEW.m
 | `race_model_perturbation_manifest_v1.json` | Declared screen/confirmation design and scalar cells |
 | `race_model_perturbation_measure.py` | Isolated perturbation acquisition and ledger utilities |
 | `race_model_completed_analysis.py` | Portable CPU-only held-out and adaptation reanalysis |
+| [`../results/race_model/gaba_timing_summary.json`](../results/race_model/gaba_timing_summary.json) | Path-independent summary of the archived seed-42 GABA timing diagnostics |
 | [`../results/race_model/`](../results/race_model/) | Compact held-out/adaptation summaries, endpoint tables and provenance checksums |
 
 No trial-level race records are committed. They live in the external archive
 with ID `race_model_2026-07-13`; its committed description is
-[`archive_manifest.json`](../results/race_model/archive_manifest.json).
+[`archive_manifest.json`](../results/race_model/archive_manifest.json). The
+archive has 96 checksummed entries; the two full timing diagnostics are
+`timing/gaba_timing_trace_seed42.json` and
+`timing/gaba_recruitment_probe_seed42.json`.
+
+The frozen historical protocol manifest intentionally retains its original
+`selection_source.analysis_path`; that path is acquisition provenance, not a
+portable command. The completed analyzer instead accepts every archive input
+as an explicit path and writes the compact outputs linked above.
 
 ## Baseline acquisition and analysis
 
@@ -66,6 +75,23 @@ python -m mechanism_influence.race_model_analysis \
 The acquisition is GPU work. The analysis command is CPU-only. The archived
 reference baseline was acquired at revision `4da0644` and analyzed with the
 tie-corrected revision `7cbe8d8`.
+
+## Archived GABA timing diagnostics
+
+The [compact timing summary](../results/race_model/gaba_timing_summary.json)
+records the exact low-intensity non-recruitment result, the stronger-intensity
+ordering table, hardware, scope, source hashes and limitations. These are
+historical, checksummed RTX 5090 diagnostics, not part of the portable CPU
+completed-protocol reanalysis. No semantically reviewed path-independent
+trace-acquisition runner exists: the archived JSONs retain the bespoke runner
+hashes, while those runners depended on historical absolute paths, an exact
+GPU UUID and exact source-text instrumentation points. Do not treat this as a
+fresh in-repository acquisition recipe.
+
+The evidence is limited to seed 42, one 100-trial substream, reset-state
+first-spike measurements at `I=.05`, `.2` and `1`. It establishes causal event
+ordering for that endpoint, not across-checkpoint inference, later/TBW timing,
+other intensities or biological irrelevance.
 
 ## Reanalyze the completed held-out protocol
 

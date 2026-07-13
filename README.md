@@ -72,13 +72,15 @@ to 240 ms; the ensemble gate width is **260 ± 0 ms** (vs the ~388 ms baseline t
 Crucially, the other six validations remain in-spec (see §7).
 
 The fix is **trained in**: both the CUDA-graphed TRAIN build and the eager MEASURE build read `aM/dM`
-(and every other knob) from the environment at net-build time, save them to the checkpoint's
-`mutable_hparams`, and restore them at measure time — so training and measurement share one operating point.
+at net-build time, and the checkpoint loader restores the trained values at measurement.
 
 ### dm10 substrate (as-trained operating point)
 
-Authoritative source = each checkpoint's `mutable_hparams` (verified uniform across all 10 seeds by the
-pre-flight in `measure/val394_dm10_stage2.py`).
+The checkpoint-metadata pre-flight in `measure/val394_dm10_stage2.py` verifies exactly `aM`, `dM`,
+`tau_gaba`, `gNMDA` and `u_stp_a` across all 10 seeds. Other operating-point values below—including
+`mg_vhalf_inh`, `k_shunt_surr`, `E_gaba`, `GABA_SHUNT_SURR`, `g_rec` and `sigma_dL_frames`—come from
+versioned constructor, environment and build defaults; they are not all serialized. The route-C
+integration test and runtime assertions verify the complete loaded operating point.
 
 - **Adaptation (the fix):** `aM = 0.02`, `dM = 10`  · interneuron SFA `aMi = 0.1`, `dMi = 2.0` (default).
 - **NMDA:** `tau_nmda = 40 ms`, `gNMDA = 0.51`; dendritic Mg-gate `dend_coupling_alpha = 2`,
@@ -359,11 +361,13 @@ frozen-readout md5-clean; full detail in `mechanism_influence/DEBUGGER_397_DOSER
   280, 300} ms (slower → wider, +60 ms over 18→60), while the disynaptic-PV conductance amplitude
   `pv_gaba_scale` is **flat even at 4×** (≈ 240 ms throughout).
 
-All lesions are inference-time live-scalar overrides (no weight mutation); results replicate on a second
-seed (44). The validity gate passes (the harness *can* move TBW: adaptation-off widens 240 → 300), so the
-flat amplitude sub-knob is a reproducible model-TBW result, not a harness artifact. For the separate
-low-intensity first-spike RMI endpoint, the inhibitory path arrives after the measured first spike and
-both GABA perturbations are exactly null; see the [timing analysis](docs/SCIENTIFIC_OVERVIEW.md#why-gaba-affects-tbw-but-not-the-low-intensity-rmi-endpoint).
+All lesions are inference-time live-scalar overrides (no weight mutation). Seed-44 spot checks cover only
+the shipped anchor, `adaptation_off`, `pv_gaba_scale=0` and `gNMDA=0`; the full dose and `tau_gaba` series
+are seed-42 exploratory results. The adaptation-off check confirms that the harness can move TBW
+(240 → 300 ms). Separately, formal held-out first-spike confirmation uses checkpoints 43–51 only for four
+frozen candidates: prior compound adaptation, `pv_gaba_scale=0`, `tau_gaba=10` and `gNMDA=.765`. For that
+endpoint, the inhibitory path arrives after the measured first spike and both GABA candidates are exactly
+null; see the [timing analysis](docs/SCIENTIFIC_OVERVIEW.md#why-gaba-affects-tbw-but-not-the-low-intensity-rmi-endpoint).
 
 ---
 

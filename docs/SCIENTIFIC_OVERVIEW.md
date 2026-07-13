@@ -163,6 +163,22 @@ first spike in this reset-state protocol. Both can still shape subsequent
 firing, response duration and the TBW. The RMI null is consequently a timing
 result, not evidence that GABA is biologically irrelevant.
 
+The exact table, protocol scope and source hashes are preserved in the
+[compact timing summary](../results/race_model/gaba_timing_summary.json). The
+two full historical RTX 5090 traces are checksummed archive members at
+`timing/gaba_timing_trace_seed42.json` and
+`timing/gaba_recruitment_probe_seed42.json`; they are not part of the portable
+CPU completed-protocol reanalysis. No semantically reviewed path-independent
+trace-acquisition runner exists: the source artifacts record hashes for the
+bespoke runners, which depended on historical absolute paths, an exact GPU UUID
+and exact source-text instrumentation points.
+
+These diagnostics use seed 42, one 100-trial substream, reset state and the
+first-spike endpoint at `I=.05`, `.2` and `1` on the recorded RTX 5090
+revision. They establish causal ordering for this endpoint, not
+across-checkpoint inference, later-response or TBW timing, other intensities,
+or biological irrelevance.
+
 ## Biological comparison and limits
 
 - The concentration of formal RMI at weak intensity qualitatively resembles
@@ -196,13 +212,14 @@ summaries, endpoint tables, and checksums:
   and [endpoint table](../results/race_model/heldout_confirmation_endpoints.csv)
 - [Adaptation attribution summary](../results/race_model/adaptation_attribution_summary.json)
   and [endpoint table](../results/race_model/adaptation_attribution_endpoints.csv)
+- [GABA timing summary](../results/race_model/gaba_timing_summary.json)
 - [Committed artifact checksums](../results/race_model/artifact_manifest.sha256)
 - [External archive manifest](../results/race_model/archive_manifest.json)
 
 Raw trial records are deliberately not committed. The external, non-Git
-archive has the stable ID `race_model_2026-07-13`, contains 94 entries plus
+archive has the stable ID `race_model_2026-07-13`, contains 96 entries plus
 `SHA256SUMS`, and has manifest SHA-256
-`a261138fa8864cf6548d26ffbe0c5226d72f4be7a3e3bfe42d9432ecba42780b`.
+`20615a2d710da58c875ea3259011096670fa5f5255a9460658d7e163e417b0df`.
 Set `RACE_MODEL_ARCHIVE` to that directory, then verify it with:
 
 ```bash

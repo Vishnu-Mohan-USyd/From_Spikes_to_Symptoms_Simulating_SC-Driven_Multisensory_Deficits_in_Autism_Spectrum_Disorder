@@ -1,11 +1,11 @@
 {
   "archive_id": "race_model_2026-07-13",
   "archive_sha256_manifest": {
-    "entries": 94,
-    "file_sha256": "a261138fa8864cf6548d26ffbe0c5226d72f4be7a3e3bfe42d9432ecba42780b",
+    "entries": 96,
+    "file_sha256": "20615a2d710da58c875ea3259011096670fa5f5255a9460658d7e163e417b0df",
     "filename": "SHA256SUMS"
   },
-  "payload_sha256": "5e20bb3a2518cb76a19971b63682deaf0033cae5afaa456c2745b7c5245da34f",
+  "payload_sha256": "260abbe2b801abe4c205024a9e9fe65eaf8a2fe14c1161933ca4f9bbb551f43d",
   "raw_sets": [
     {
       "count": 10,
