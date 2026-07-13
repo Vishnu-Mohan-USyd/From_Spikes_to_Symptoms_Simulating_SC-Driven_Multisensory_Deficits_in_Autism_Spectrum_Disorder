@@ -69,7 +69,7 @@ Stronger, faster excitatory SFA makes each MSI unit's response to a late-arrivin
 the **fused-response window closes sooner in time** → the temporal binding window narrows. Measured on
 frozen weights (§7), turning adaptation from `baseline008` to `dm10` moves the raw-FWHM TBW from ~360 ms
 to 240 ms; the ensemble gate width is **260 ± 0 ms** (vs the ~388 ms baseline the fix was chosen to cure).
-Crucially, the other six validations remain in-spec (see §6).
+Crucially, the other six validations remain in-spec (see §7).
 
 The fix is **trained in**: both the CUDA-graphed TRAIN build and the eager MEASURE build read `aM/dM`
 (and every other knob) from the environment at net-build time, save them to the checkpoint's
