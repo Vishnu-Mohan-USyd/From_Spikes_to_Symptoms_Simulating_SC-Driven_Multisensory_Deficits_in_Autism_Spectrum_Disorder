@@ -1,0 +1,32 @@
+{
+  "archive_id": "race_model_2026-07-13",
+  "archive_sha256_manifest": {
+    "entries": 94,
+    "file_sha256": "a261138fa8864cf6548d26ffbe0c5226d72f4be7a3e3bfe42d9432ecba42780b",
+    "filename": "SHA256SUMS"
+  },
+  "payload_sha256": "5e20bb3a2518cb76a19971b63682deaf0033cae5afaa456c2745b7c5245da34f",
+  "raw_sets": [
+    {
+      "count": 10,
+      "id": "immutable_baseline_anchors"
+    },
+    {
+      "count": 12,
+      "id": "seed42_selection_screen"
+    },
+    {
+      "count": 36,
+      "id": "heldout_confirmation_seeds43_51"
+    },
+    {
+      "count": 18,
+      "id": "adaptation_confirmation_seeds43_51"
+    },
+    {
+      "count": 2,
+      "id": "adaptation_exploratory_seed42"
+    }
+  ],
+  "schema_version": "fsts-race-artifact-archive-manifest-v1"
+}

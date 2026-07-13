@@ -1,0 +1,17 @@
+workflow,protocol_id,endpoint,units,cell_id,q,n_checkpoints,mean_delta,standard_error,t,unadjusted_p_numerator,adjusted_p_numerator,p_denominator,adjusted_p,simultaneous_lower,simultaneous_upper,qc_pass_all_checkpoints,confirmatory_gate
+adaptation_attribution,dm10-phase2-i005-triggered-adaptation-attribution-v1,delta_G_q,ms,aM=.008,0.05,9,23.64444308810764,0.4045269298887615,58.44961445362732,2,2,512,0.00390625,22.599233431566667,24.689652744648612,True,True
+adaptation_attribution,dm10-phase2-i005-triggered-adaptation-attribution-v1,delta_G_q,ms,aM=.008,0.1,9,23.744444105360245,0.377532543421965,62.89376775347622,2,2,512,0.00390625,22.768982075794945,24.719906134925544,True,True
+adaptation_attribution,dm10-phase2-i005-triggered-adaptation-attribution-v1,delta_G_q,ms,aM=.008,0.15,9,23.744442409939236,0.3496464085285549,67.90987074589121,2,2,512,0.00390625,22.841032091448426,24.647852728430045,True,True
+adaptation_attribution,dm10-phase2-i005-triggered-adaptation-attribution-v1,delta_G_q,ms,aM=.008,0.2,9,23.77777820163303,0.33984368452340435,69.96680910807245,2,2,512,0.00390625,22.899695991195266,24.655860412070794,True,True
+adaptation_attribution,dm10-phase2-i005-triggered-adaptation-attribution-v1,delta_G_q,ms,aM=.008,0.25,9,23.744444529215496,0.3436371376771376,69.09743425788996,2,2,512,0.00390625,22.856560860395202,24.63232819803579,True,True
+adaptation_attribution,dm10-phase2-i005-triggered-adaptation-attribution-v1,delta_G_q,ms,aM=.008,0.3,9,23.666667938232422,0.33082407633522287,71.5385294819083,2,2,512,0.00390625,22.8118904347992,24.521445441665644,True,True
+adaptation_attribution,dm10-phase2-i005-triggered-adaptation-attribution-v1,delta_G_q,ms,aM=.008,0.35,9,23.566668616400825,0.3261727543196195,72.25210660393677,2,2,512,0.00390625,22.723909118017914,24.409428114783736,True,True
+adaptation_attribution,dm10-phase2-i005-triggered-adaptation-attribution-v1,delta_G_q,ms,dM=8,0.05,9,0.0,0.0,0.0,512,512,512,1.0,0.0,0.0,True,False
+adaptation_attribution,dm10-phase2-i005-triggered-adaptation-attribution-v1,delta_G_q,ms,dM=8,0.1,9,0.0,0.0,0.0,512,512,512,1.0,0.0,0.0,True,False
+adaptation_attribution,dm10-phase2-i005-triggered-adaptation-attribution-v1,delta_G_q,ms,dM=8,0.15,9,0.0,0.0,0.0,512,512,512,1.0,0.0,0.0,True,False
+adaptation_attribution,dm10-phase2-i005-triggered-adaptation-attribution-v1,delta_G_q,ms,dM=8,0.2,9,0.0,0.0,0.0,512,512,512,1.0,0.0,0.0,True,False
+adaptation_attribution,dm10-phase2-i005-triggered-adaptation-attribution-v1,delta_G_q,ms,dM=8,0.25,9,0.0,0.0,0.0,512,512,512,1.0,0.0,0.0,True,False
+adaptation_attribution,dm10-phase2-i005-triggered-adaptation-attribution-v1,delta_G_q,ms,dM=8,0.3,9,0.0,0.0,0.0,512,512,512,1.0,0.0,0.0,True,False
+adaptation_attribution,dm10-phase2-i005-triggered-adaptation-attribution-v1,delta_G_q,ms,dM=8,0.35,9,0.0,0.0,0.0,512,512,512,1.0,0.0,0.0,True,False
+adaptation_attribution,dm10-phase2-i005-triggered-adaptation-attribution-v1,delta_Aplus_full,ms,aM=.008,,9,23.26461110221016,0.3127588285575446,74.38514592699882,2,2,512,0.00390625,22.50757839341446,24.021643811005863,True,False
+adaptation_attribution,dm10-phase2-i005-triggered-adaptation-attribution-v1,delta_Aplus_full,ms,dM=8,,9,0.0,0.0,0.0,512,512,512,1.0,0.0,0.0,True,False
