@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
-"""Thin shared-utils wrapper for the 5 route-C validation tests (task #8/#10).
+"""Thin shared-utils wrapper for the route-C validation and analysis scripts.
 
 Per VALIDATION_SPEC.md §1 + lead correction (2026-06-25): this is a THIN wrapper that
 `import val36_traj_d52 as V` — the idiomatic flat-repo reuse, exactly what
 `measure_107_convergence.py`, `measure_develop_check.py`, `diag_136b_cre_5seed.py` already do.
 It does NOT re-implement `build_net`/`load_ckpt`; it re-exports `V.build_net` / `V.load_ckpt` /
-`V.T` and adds only the firewall + plotting helpers the 5 fresh tests share.
+`V.T` and adds only the shared checkpoint, firewall, and plotting helpers.
 
-Re-exported from val36 (the recipe that TRAINED the dL3-ep79 ckpts, so the measuring build is
-byte-faithful to the training build):
+Re-exported from val36 (the recipe that TRAINED the dL3-ep79 checkpoints, so the measuring build is
+faithful to the training build):
   build_net = V.build_net      load_ckpt = V.load_ckpt      T = V.T   (delayfix Training module)
-`V.load_ckpt` forces `tau_nmda_inh=21.6`, reads `tau_gaba` (=10) from the ckpt, sets `g_rec=0.1`@ep79.
+The public default is the ten-checkpoint dm10/tau18 ensemble. Its constructor-only operating-point
+values are installed before importing val36; `V.load_ckpt` then restores checkpointed values and
+sets the post-warmup `g_rec=0.03`. Explicit environments remain authoritative, including legacy
+tau10 callers, which retain the tau10 checkpoint path and val36's `g_rec=0.1` ep79 fallback.
 Importing val36 also loads the TBW/SBW apparatus (harmless — we use none of its classifiers; it
 provides `V.md5` for the firewall and `V.T.*` primitives).
 
 Firewall helpers:
-  - assert_frozen_readouts(): V.md5-assert the TWO stage_flat frozen readouts (TBW 80d33465 /
+  - assert_frozen_readouts(): V.md5-assert the TWO frozen readouts (TBW 80d33465 /
     SBW 73b7d136), unchanged before+after each run. Never imported as templates, never edited.
   - snapshot_weights()/assert_weights_unchanged()/weight_fingerprint(): prove pure inference —
     every state_dict tensor bit-identical before == after.
@@ -27,7 +30,25 @@ import torch
 
 # ── idiomatic flat-repo reuse (spec §1) ──
 os.environ.setdefault("VAL36_BUILD", "delayfix")      # faithful eager build (default anyway)
-os.environ.setdefault("TAU_GABA", "10")               # optional; ckpt value (10) wins regardless
+os.environ.setdefault("TAU_GABA", "18")
+_effective_tau_gaba = float(os.environ["TAU_GABA"])
+_tau_gaba_tag = f"{_effective_tau_gaba:g}"
+
+# These constructor-only settings must exist before val36 imports the network definition.  Use
+# setdefault throughout so an explicit experiment/caller configuration remains authoritative.
+if _effective_tau_gaba == 18.0:
+    for _key, _value in {
+        "DEND_COUPLING_ALPHA": "2",
+        "MG_VHALF": "-48",
+        "MG_VHALF_INH": "-30",
+        "GABA_SHUNT_SURR": "1",
+        "K_SHUNT_SURR": "0.026",
+        "ISTDP_BASELINE": "0.56",
+        "SIGMA_DL_FRAMES": "3",
+        "G_REC": "0.03",
+    }.items():
+        os.environ.setdefault(_key, _value)
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)                               # flat: siblings importable
 import val36_traj_d52 as V        # -> V.build_net, V.load_ckpt, V.md5, V.T, V.TBW_DIR, V.SBW_DIR, V.BUILD
@@ -42,8 +63,11 @@ BUILD = V.BUILD
 CKPT_DIR  = os.path.join(HERE, "checkpoint")
 OUT_DIR   = os.path.join(HERE, "out")
 FONT_PATH = os.path.join(HERE, "fonts", "Roboto-Regular.ttf")
-CKPT_TMPL = "ckpt_ep79_seed{seed}_bs250_delay52_tau10_dL3.pt"
-SEEDS = [42, 43, 44, 45, 46]
+CKPT_TMPL = os.environ.get(
+    "ROUTEC_CKPT_TMPL",
+    f"ckpt_ep79_seed{{seed}}_bs250_delay52_tau{_tau_gaba_tag}_dL3.pt",
+)
+SEEDS = list(range(42, 52))
 
 TBW_PATH = os.path.join(V.TBW_DIR, "TBW_test.py")
 SBW_PATH = os.path.join(V.SBW_DIR, "SBW_test.py")
