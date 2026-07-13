@@ -243,9 +243,9 @@ python measure/val394_dm10_stage2.py --gate preflight --seeds 42 43 44 45 46 47 
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 python measure/val394_dm10_stage2.py --gate main --seeds 42 43 44 45 46 47 48 49 50 51  # gates 1–4
-CUDA_VISIBLE_DEVICES=0 python measure/val394_dm10_stage2.py --gate cre  --seeds 42 … 51                        # gate 5
-CUDA_VISIBLE_DEVICES=0 python measure/val394_dm10_stage2.py --gate lat  --seeds 42 … 51                        # gate 6
-CUDA_VISIBLE_DEVICES=0 python measure/val394_dm10_stage2.py --gate g7   --seeds 42 … 51 --gain_exp 1           # gate 7
+CUDA_VISIBLE_DEVICES=0 python measure/val394_dm10_stage2.py --gate cre  --seeds 42 43 44 45 46 47 48 49 50 51  # gate 5
+CUDA_VISIBLE_DEVICES=0 python measure/val394_dm10_stage2.py --gate lat  --seeds 42 43 44 45 46 47 48 49 50 51  # gate 6
+CUDA_VISIBLE_DEVICES=0 python measure/val394_dm10_stage2.py --gate g7   --seeds 42 43 44 45 46 47 48 49 50 51 --gain_exp 1  # gate 7
 python measure/val394_dm10_stage2.py --gate g7agg --gain_exp 1                                                 # gate 7 pool
 ```
 
