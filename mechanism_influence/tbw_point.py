@@ -27,7 +27,7 @@ ap.add_argument("--out", default="")
 ap.add_argument("--device", default="cuda:0")
 A = ap.parse_args()
 
-BUNDLE = "/home/vishnu/coding_proj/fsts_5/fallback_5of6_tau40"
+BUNDLE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXPECT = {"TBW_test.py": "80d33465c4bf55d6e85b5990acb92da7", "SBW_test.py": "73b7d13626964d851cc090818b728311"}
 MEAS_SEED = int(A.meas_seed)
 
