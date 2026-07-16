@@ -31,6 +31,10 @@ import torch
 import faulthandler; faulthandler.enable()
 import panelgraph as PG
 
+# This training lineage is the corrected conductance model. Keep the setting
+# explicit at the driver boundary and fail the preflight below if a caller
+# attempts to launch it under the legacy checkpoint-regression equation.
+os.environ.setdefault("LOCAL_GABA_MODE", "conductance")
 GDF = importlib.import_module("Training_graphdf_d52")   # delay-corrected fast graphed build (reference lineage)
 
 SEED      = int(sys.argv[1]) if len(sys.argv) > 1 else 42
@@ -89,13 +93,21 @@ def build_net(seed):
 def assert_reference(net, log):
     d_sub = int(getattr(net, "conduction_delay_msi_inh2exc"))
     assert d_sub == 52, f"FATAL: delay substeps={d_sub}, expected 52"
+    assert net.local_gaba_mode == GDF.LOCAL_GABA_MODE_CONDUCTANCE, \
+        f"FATAL: local_gaba_mode={net.local_gaba_mode!r}, expected conductance for new training"
+    assert float(net.local_gaba_conductance_per_mv) == GDF.LOCAL_GABA_CONDUCTANCE_PER_MV, \
+        "FATAL: local GABA conductance differs from the fixed active-voltage calibration"
+    assert float(net.local_gaba_reversal_mv) == GDF.LOCAL_GABA_REVERSAL_MV, \
+        "FATAL: local GABA reversal differs from -70 mV"
     assert abs(net.tau_gaba - TAU_GABA) < 1e-9, f"FATAL: tau_gaba={net.tau_gaba}, expected {TAU_GABA}"
     assert abs(float(net.sigma_dL_frames) - SIGMA_DL) < 1e-9, \
         f"FATAL: sigma_dL_frames={net.sigma_dL_frames}, expected {SIGMA_DL} (SIGMA_DL_FRAMES env not propagated)"
     _PV = float(os.environ.get('PV_GABA_SCALE', '1.0'))
     assert abs(float(net.pv_gaba_scale) - _PV) < 1e-9, \
         f"FATAL: pv_gaba_scale={net.pv_gaba_scale}, expected {_PV} (PV_GABA_SCALE env not propagated)"
-    P(log, f"[id] delay={d_sub} substeps  tau_gaba={net.tau_gaba}  tau_nmda_inh={net.tau_nmda_inh}  "
+    P(log, f"[id] delay={d_sub} substeps  local_gaba={net.local_gaba_mode} "
+           f"g_local={net.local_gaba_conductance_per_mv}/mV E_local={net.local_gaba_reversal_mv}mV  "
+           f"tau_gaba={net.tau_gaba}  tau_nmda_inh={net.tau_nmda_inh}  "
            f"sigma_dL_frames={net.sigma_dL_frames}  pv_gaba_scale={net.pv_gaba_scale}  W_gaba_clamp={net.W_gaba_clamp}  rho0={net.rho0}")
     EXP_DCA = float(os.environ.get("DEND_COUPLING_ALPHA", 0.1))
     EXP_MGV = float(os.environ.get("MG_VHALF", -35.0))

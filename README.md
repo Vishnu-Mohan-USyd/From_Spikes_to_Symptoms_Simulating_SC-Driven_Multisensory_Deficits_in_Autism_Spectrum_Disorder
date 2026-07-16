@@ -113,8 +113,9 @@ test narrowly defined model endpoints; they do not constitute a whole-condition 
   independently across the 10-seed ensemble — verdict GO**, every seed × every gate.
 - The temporal-binding-window fix (excitatory adaptation `aM/dM`) is **baked into training** and
   validated (TBW 260 ± 0 ms, inside the HARD ≤ 300 ms line).
-- Frozen-weight mechanism-influence (§8; `mechanism_influence/DEBUGGER_397_DOSERESPONSE.md`) confirms
-  adaptation, NMDA, and GABA decay timing each move the model TBW over the tested doses.
+- The corrected-v2 temporal-fusion workflow (§8) prevents suppression from
+  masquerading as fusion. Its current single-checkpoint perturbations remain
+  exploratory and do not show a large TBW expansion.
 - Formal Miller RMI is large at `I = 0.05`, small at later quantiles at `I = 0.1`, and absent at
   stronger intensities. A held-out checkpoints-43–51 analysis finds reduced first-spike RMI under
   `gNMDA = 0.765`; see the [scientific overview](docs/SCIENTIFIC_OVERVIEW.md),
@@ -185,18 +186,22 @@ fallback_5of6_tau40/                 (directory name is historical; the models a
 ├── results/                  ·  measurement outputs the plots + grader consume (committed, JSON)
 │                                gates_main.json, gate5_cre.json, gate6_latency_sweep.json,
 │                                gate7_cuerel_g1_seed{42..51}.json, gate7_cuerel_g1_aggregate.json
-│   └── race_model/           ·  compact held-out/adaptation summaries + provenance manifests
-├── figures/                  ·  the 7 delivered validations (PNG + SVG)
+│   ├── race_model/           ·  compact held-out/adaptation summaries + provenance manifests
+│   └── tbw_conductance_seed42/ · corrected-v2 exploratory P(fusion) curves + sentinels
+├── figures/                  ·  the 7 delivered validations plus exploratory corrected-v2 TBW panel
 ├── mechanism_influence/      ·  frozen-weight TBW and formal first-spike RMI workflows
 │   ├── README.md             ·  file map + exact acquisition/reanalysis commands
 │   ├── tbw_point.py          ·  one-point-per-process dose driver (frozen weights, TBW raw-FWHM)
 │   ├── dose/                 ·  the 17 dose-response points (JSON)
 │   ├── race_model_measure.py / race_model_analysis.py
 │   ├── race_model_completed_analysis.py
-│   └── DEBUGGER_397_DOSERESPONSE.md   ·  historical TBW analysis writeup
+│   ├── tbw_temporal_fusion_observer.py / capture_tbw_perturbation_curve.py
+│   ├── response_gain_perturbation.py / response_gain_analysis.py
+│   └── DEBUGGER_397_DOSERESPONSE.md   ·  historical v1 TBW analysis writeup
+├── repro_dm10_conductance_seed42/ · experimental final checkpoint + compact training provenance
 ├── records/                  ·  provenance: train_log_dm10_seed42.out, grade_dm10_ensemble.out
-└── legacy/                   ·  superseded tau10-lineage helpers (parallel_measure.py, combine_ens.py) —
-                                  NOT part of the dm10 reproduction; provenance only (see legacy/README.md)
+└── legacy/                   ·  superseded tau10 helpers and max-normalised TBW-v1 lineage;
+                                  NOT current biological evidence (see legacy/README.md)
 ```
 
 > **Note — the dm10 entry point vs the quarantined helpers:** the tau10-lineage parallel helpers
@@ -260,6 +265,7 @@ python measure/val394_dm10_grade.py --dir results --gain_exp 1
 ```bash
 for g in 1 2 3 4 5 6; do python plots/run_gate${g}_ens.py; done
 python plots/run_gate7_ens.py gate7_cuerel_g1
+python plots/run_tbw_perturbations.py    # exploratory corrected-v2 panel
 ```
 
 **Reproduce the mechanism-influence workflows (§8)** — one frozen-weight TBW point per process, or use
@@ -344,30 +350,52 @@ under the paper's mean-Δ §2.7 gate (previously framed via the race descriptor)
 
 ---
 
-## 8 · Mechanism-influence — do all three levers still move TBW on the *shipped* weights?
+## 8 · Corrected P(fusion) TBW perturbations
 
-A single-variable **dose-response on the FROZEN dm10 weights** (inference-time lesion of an existing
-mechanism — **not** a retrain, not a modelling change; 17 points, every point weight-bit-identical and
-frozen-readout md5-clean; full detail in `mechanism_influence/DEBUGGER_397_DOSERESPONSE.md`). Answer:
-**Within the model TBW endpoint, all three mechanism families remain active over the tested doses.**
+TBW in this workflow is the sampled half-peak width of the **P(fusion)** curve
+over audiovisual SOA; it is not the spatial binding window (SBW). The
+corrected-v2 observer operates on raw 60-frame MSI spike-count profiles with a
+fixed sham-derived absolute response floor and latency geometry. Silent and
+suppressed trials stay in the denominator, so a weak surviving single peak is
+not automatically called fusion.
 
-- **Adaptation** (`aM,dM`) — **NON-FLAT, span 120 ms**, the shipped narrowing lever:
-  off (0/0) → **300 ms**, baseline008 (0.008/8) → **360 ms**, **dm10 (0.02/10) → 240 ms (narrowest)**.
-- **NMDA** (`gNMDA`) — **NON-FLAT and strongest in this model-TBW sweep:** `gNMDA = 0` **collapses the fusion
-  bell** (peak P(fusion) → 0, TBW degenerate 600 ms); within the viable range more NMDA → wider TBW
-  (0.255 → 220, 0.51 → 240, 0.765 → 260 ms).
-- **GABA** — moves model TBW through **decay timing over this tested range, not the tested amplitude doses:**
-  `tau_gaba` {10, 18, 40, 60} → {240, 240,
-  280, 300} ms (slower → wider, +60 ms over 18→60), while the disynaptic-PV conductance amplitude
-  `pv_gaba_scale` is **flat even at 4×** (≈ 240 ms throughout).
+The current panel uses one **experimental seed-42 conductance-retrain**
+checkpoint. Local disynaptic GABA is represented as
+`g * s * (V - E_GABA)` with `E_GABA=-70 mV`; frozen lesions change one declared
+setting after loading. This checkpoint passed only the committed Gate-1 rate
+and Gate-3 E/I sentinels. It is not part of the canonical ten-checkpoint dm10
+ensemble and has not passed the full seven-gate validation.
 
-All lesions are inference-time live-scalar overrides (no weight mutation). Seed-44 spot checks cover only
-the shipped anchor, `adaptation_off`, `pv_gaba_scale=0` and `gNMDA=0`; the full dose and `tau_gaba` series
-are seed-42 exploratory results. The adaptation-off check confirms that the harness can move TBW
-(240 → 300 ms). Separately, formal held-out first-spike confirmation uses checkpoints 43–51 only for four
-frozen candidates: prior compound adaptation, `pv_gaba_scale=0`, `tau_gaba=10` and `gNMDA=.765`. For that
-endpoint, the inhibitory path arrives after the measured first spike and both GABA candidates are exactly
-null; see the [timing analysis](docs/SCIENTIFIC_OVERVIEW.md#why-gaba-affects-tbw-but-not-the-low-intensity-rmi-endpoint).
+| Frozen setting | Three run widths (ms) | Median | Change from control |
+|---|---:|---:|---:|
+| conductance-retrain control (seed 42) | `220, 240, 240` | `240 ms` | — |
+| adaptation `aM=.012, dM=6` | `240, 240, 240` | `240 ms` | `0 ms` |
+| local `tau_gaba=40 ms` | `240, 240, 240` | `240 ms` | `0 ms` |
+| reduced `gNMDA=.383` | `220, 240, 220` | `220 ms` | `-20 ms` |
+
+Additional captured checks are local `tau_gaba=10 ms` (`240-ms` median) and
+`pv_gaba_scale=.5` (`220-ms` median). These are three repeat streams within one
+checkpoint, not independent checkpoint replicates. The result therefore does
+**not** establish a robust or approximately twofold TBW expansion: adaptation
+and local-GABA timing are unchanged at this 20-ms SOA-grid resolution, while
+reduced NMDA and PV magnitude move the median one grid step in the narrowing
+direction. No cross-checkpoint inference has been run.
+
+Regenerate the committed exploratory panel without a GPU:
+
+```bash
+python plots/run_tbw_perturbations.py
+```
+
+Exact RTX-5090 curve-acquisition commands and observer definitions are in the
+[mechanism-influence guide](mechanism_influence/README.md#corrected-v2-temporal-fusion-perturbations).
+The earlier `+60/+60/+20 ms` panel and records used a max-normalised v1 observer.
+They are retained under `legacy/tbw_max_normalised_observer_v1/` as superseded
+lineage only and must not be presented as current biological evidence.
+
+The repository also includes tested Gate-4/Gate-5 response-gain acquisition and
+analysis code. No response-gain result bundle was acquired, so no SBW/MEI/CRE
+perturbation result is claimed from that infrastructure.
 
 ---
 

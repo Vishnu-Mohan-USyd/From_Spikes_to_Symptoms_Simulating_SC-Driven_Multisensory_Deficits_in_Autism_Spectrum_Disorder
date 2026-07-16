@@ -1,0 +1,78 @@
+{
+  "protocol": "conductance-seed42-gate1-gate3-sentinels-v1",
+    "checkpoint": "repro_dm10_conductance_seed42/ckpt_ep79_seed42_bs250_delay52_tau18_dL3.pt",
+  "checkpoint_sha256": "994380ee24dba1bdde22a2cc2c8e336e749e86ec62521c0ecd7e6179c0a9cb19",
+  "gpu": {
+    "name": "NVIDIA GeForce RTX 5090",
+    "cuda_visible_devices": "0"
+  },
+  "expected": {
+    "rate_band_hz": [
+      12.0,
+      32.0
+    ],
+    "ei_sync_band": [
+      0.8,
+      1.25
+    ],
+    "local_gaba_mode": "conductance",
+    "local_gaba_conductance_per_mv": 0.0461574,
+    "local_gaba_reversal_mv": -70.0,
+    "g_rec": 0.03
+  },
+  "checkpoint_comment": "retrain5 dL3 bs=250 seed42",
+  "loaded": {
+    "epoch": 79,
+    "local_gaba_mode": "conductance",
+    "local_gaba_conductance_per_mv": 0.0461574,
+    "local_gaba_reversal_mv": -70.0,
+    "g_rec": 0.03,
+    "plasticity_enabled": false
+  },
+  "gate1_rate": {
+    "msi_hz": 15.583333333333334,
+    "band_hz": [
+      12.0,
+      32.0
+    ],
+    "finite": true,
+    "pass": true,
+    "all_rates_hz": {
+      "A": 21.805555555555557,
+      "V": 22.61111111111111,
+      "MSI": 15.583333333333334
+    }
+  },
+  "gate3_ei": {
+    "stock_sync": 2.023091234103666,
+    "stock_off": 1.9873514723629007,
+    "shunt_sync": 1.0361652333286848,
+    "shunt_off": 1.0196900180735575,
+    "exc_off": 12.936531125860554,
+    "inh_stock_off": 6.55731220969132,
+    "inh_shunt_off": 12.69468232010092,
+    "E_sync": 22.47052445113659,
+    "I_stock_sync": 10.934948627650737,
+    "I_shunt_sync": 22.473459370434284,
+    "band": [
+      0.8,
+      1.25
+    ],
+    "finite": true,
+    "pass": true
+  },
+  "firewalls": {
+    "readouts_before": [
+      "80d33465c4bf55d6e85b5990acb92da7",
+      "73b7d13626964d851cc090818b728311"
+    ],
+    "readouts_after": [
+      "80d33465c4bf55d6e85b5990acb92da7",
+      "73b7d13626964d851cc090818b728311"
+    ],
+    "readouts_unchanged": true,
+    "weights_unchanged_gate1": true,
+    "weights_unchanged_gate3": true
+  },
+  "status": "PASS"
+}

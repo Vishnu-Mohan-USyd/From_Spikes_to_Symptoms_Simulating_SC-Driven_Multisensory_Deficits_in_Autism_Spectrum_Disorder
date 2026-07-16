@@ -66,6 +66,45 @@ from torch import nn
 from torch.nn.utils import parametrize
 
 
+LOCAL_GABA_MODE_LEGACY = "legacy_current"
+LOCAL_GABA_MODE_CONDUCTANCE = "conductance"
+LOCAL_GABA_CONDUCTANCE_PER_MV = 0.0461574
+LOCAL_GABA_REVERSAL_MV = -70.0
+LOCAL_GABA_HPARAM_KEYS = (
+    "local_gaba_mode",
+    "local_gaba_conductance_per_mv",
+    "local_gaba_reversal_mv",
+)
+
+
+def compute_local_gaba_current(
+        gaba_state: torch.Tensor,
+        membrane_voltage: torch.Tensor,
+        *,
+        mode: str,
+        conductance_per_mv: float = LOCAL_GABA_CONDUCTANCE_PER_MV,
+        reversal_mv: float = LOCAL_GABA_REVERSAL_MV,
+) -> torch.Tensor:
+    """Return the local MSI-inh -> MSI-exc GABA current magnitude.
+
+    ``gaba_state`` is the decaying synaptic activation.  Conductance mode
+    applies the GABA-A driving force, ``g * s * (V - E_GABA)``; callers
+    subtract the returned current from the excitatory membrane drive.
+    ``legacy_current`` returns the state object unchanged so old checkpoints
+    retain their original current-based arithmetic exactly.
+    """
+    if mode == LOCAL_GABA_MODE_LEGACY:
+        return gaba_state
+    if mode != LOCAL_GABA_MODE_CONDUCTANCE:
+        raise ValueError(
+            f"local GABA mode must be {LOCAL_GABA_MODE_LEGACY!r} or "
+            f"{LOCAL_GABA_MODE_CONDUCTANCE!r}; got {mode!r}"
+        )
+    return float(conductance_per_mv) * gaba_state * (
+        membrane_voltage - float(reversal_mv)
+    )
+
+
 class Positive(nn.Module):
     def forward(self, θ):
         return F.softplus(θ) - math.log(2.0)
@@ -1682,6 +1721,12 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self.tau_ampa = 2.5    # ms
         self.tau_gaba = float(os.environ.get('TAU_GABA', '50.0'))   # ms — task#P6 env override (default 50 = biology baseline; read live into gaba_decay each substep)
         self.pv_gaba_scale = float(os.environ.get('PV_GABA_SCALE', '1.0'))  # ASD lever: multiplicative scale on the disynaptic PV(MSI_inh)->MSI_exc GABA conductance. 1.0 = NT byte-identical (x1.0 exact); <1 = reduced PV feed-forward inhibition, BAKED into training + saved to mutable_hparams so val36.load_ckpt restores it => measurement matches training.
+        # New training uses the calibrated GABA-A conductance equation. The
+        # legacy current equation remains selectable only for old-checkpoint
+        # regression and is recorded explicitly in every new checkpoint.
+        self.set_local_gaba_configuration(
+            os.environ.get('LOCAL_GABA_MODE', LOCAL_GABA_MODE_CONDUCTANCE)
+        )
         # surround-shunt GABA (revised IE spec): convert ONLY the lateral surround to a divisive/shunting conductance; OFF default => byte-identical
         self.E_gaba = float(os.environ.get('E_GABA', '-70.0'))                  # mV, GABA-A reversal on the Izhikevich scale
         self.k_shunt_surr = float(os.environ.get('K_SHUNT_SURR', '0.0'))        # 1/mV conductance->current scale (charge-matched; debugger supplies)
@@ -1691,12 +1736,14 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self.I_V = torch.zeros((self.batch_size, self.n), device=self.device)
         self.I_M = torch.zeros((self.batch_size, self.n), device=self.device)
         # task #192 Phase B: NEW separate GABAergic current state for MSI exc.
-        # Accumulates tonic-GABA + disynaptic-GABA (MSI_inh->MSI_exc) +
-        # surround-GABA (Mexican-hat lateral) injections, decays at tau_gaba.
-        # Subtracted from I_M at the Izhikevich integration step so the slow
-        # IPSC time-course is represented faithfully without mixing into the
-        # fast AMPA/NMDA-driven I_M.
+        # Accumulates local disynaptic GABA activation (MSI_inh->MSI_exc).
+        # Conductance mode converts it to g*s*(V-E_GABA) at integration.
+        # Legacy mode continues to share this state with subtractive surround.
         self.I_M_gaba = torch.zeros((self.batch_size, self.n), device=self.device)
+        # Conductance-mode local GABA cannot share a state with the unchanged
+        # current-based lateral surround; this accumulator keeps the mechanisms
+        # separate without changing surround inhibition itself.
+        self.I_M_gaba_surr_sub = torch.zeros((self.batch_size, self.n), device=self.device)
         # surround-shunt: separate accumulator for the lateral-surround GABA when GABA_SHUNT_SURR=1; stays 0 when OFF => byte-identical
         self.I_M_gaba_surr_sh = torch.zeros((self.batch_size, self.n), device=self.device)
         self.I_M_inh = torch.zeros((self.batch_size, self.n_inh), device=self.device)
@@ -2273,6 +2320,64 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             if _k in _own and _k not in translated:
                 translated[_k] = _own[_k].clone()
         return super().load_state_dict(translated, strict=strict, assign=assign)
+
+    def set_local_gaba_configuration(
+            self,
+            mode: str,
+            conductance_per_mv: float = LOCAL_GABA_CONDUCTANCE_PER_MV,
+            reversal_mv: float = LOCAL_GABA_REVERSAL_MV,
+    ) -> None:
+        """Install the calibrated local GABA equation without partial state."""
+        if mode not in (LOCAL_GABA_MODE_LEGACY, LOCAL_GABA_MODE_CONDUCTANCE):
+            raise ValueError(
+                f"local GABA mode must be {LOCAL_GABA_MODE_LEGACY!r} or "
+                f"{LOCAL_GABA_MODE_CONDUCTANCE!r}; got {mode!r}"
+            )
+        conductance_per_mv = float(conductance_per_mv)
+        reversal_mv = float(reversal_mv)
+        if not np.isfinite(conductance_per_mv) or conductance_per_mv < 0.0:
+            raise ValueError("local GABA conductance must be finite and nonnegative")
+        if not np.isfinite(reversal_mv):
+            raise ValueError("local GABA reversal must be finite")
+        if conductance_per_mv != LOCAL_GABA_CONDUCTANCE_PER_MV:
+            raise ValueError(
+                "local GABA conductance is fixed by the active-voltage "
+                f"calibration at {LOCAL_GABA_CONDUCTANCE_PER_MV}/mV"
+            )
+        if reversal_mv != LOCAL_GABA_REVERSAL_MV:
+            raise ValueError(
+                f"local GABA reversal is fixed at {LOCAL_GABA_REVERSAL_MV} mV"
+            )
+        self.local_gaba_mode = mode
+        self.local_gaba_conductance_per_mv = conductance_per_mv
+        self.local_gaba_reversal_mv = reversal_mv
+
+    def restore_local_gaba_hparams(self, mutable_hparams: dict) -> bool:
+        """Restore an atomic local-GABA checkpoint triplet.
+
+        Returns ``False`` for a legacy checkpoint with no triplet, in which
+        case the original current equation is selected.  A partial triplet is
+        rejected because it cannot identify the equation used during training.
+        """
+        present = [key in mutable_hparams for key in LOCAL_GABA_HPARAM_KEYS]
+        if not any(present):
+            self.set_local_gaba_configuration(LOCAL_GABA_MODE_LEGACY)
+            return False
+        if not all(present):
+            missing = [
+                key for key, is_present in zip(LOCAL_GABA_HPARAM_KEYS, present)
+                if not is_present
+            ]
+            raise ValueError(
+                "checkpoint has a partial local-GABA configuration; missing "
+                + ", ".join(missing)
+            )
+        self.set_local_gaba_configuration(
+            str(mutable_hparams["local_gaba_mode"]),
+            float(mutable_hparams["local_gaba_conductance_per_mv"]),
+            float(mutable_hparams["local_gaba_reversal_mv"]),
+        )
+        return True
 
     def _probe_spike_sum(self, *, stim_peak: float = 1.0, probe_frames: int = 15) -> float:
         """
@@ -2875,6 +2980,7 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self.I_M = torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device)
         # task #192 Phase B: also reset I_M_gaba (slow-decaying GABA state).
         self.I_M_gaba = torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device)
+        self.I_M_gaba_surr_sub = torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device)
         self.I_M_gaba_surr_sh = torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device)
         self.I_M_inh = torch.zeros((self.batch_size, self.n_inh), dtype=torch.float32, device=self.device)
         self.I_O = torch.zeros((self.batch_size, self.n), dtype=torch.float32, device=self.device)
@@ -3084,6 +3190,10 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         nmda_decay_inh = 1.0 - self.dt / self.tau_nmda_inh  # task#51 route-c (interneuron NMDA decay)
         # task #192 Phase B: separate slow GABA decay (tau_gaba=50ms biology).
         gaba_decay = 1.0 - self.dt / self.tau_gaba
+        separate_subtractive_surround = bool(
+            not self.gaba_shunt_surr
+            and self.local_gaba_mode == LOCAL_GABA_MODE_CONDUCTANCE
+        )
         # Per-step source-onto-decaying-state scale (task #16/#121/#123/#135).
         #   dt_linear_scale: linear `dt / 0.1` applied uniformly to AMPA and NMDA
         #     injection sites (and the AGC/FF-inh AMPA path). At canonical dt=0.1
@@ -3201,7 +3311,10 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             self.I_V.mul_(decay_factor)
             self.I_M.mul_(decay_factor)
             self.I_M_gaba.mul_(gaba_decay)
-            if self.gaba_shunt_surr: self.I_M_gaba_surr_sh.mul_(gaba_decay)
+            if self.gaba_shunt_surr:
+                self.I_M_gaba_surr_sh.mul_(gaba_decay)
+            elif separate_subtractive_surround:
+                self.I_M_gaba_surr_sub.mul_(gaba_decay)
             self.I_M_inh.mul_(decay_factor)
             self.I_O.mul_(decay_factor)
 
@@ -3511,13 +3624,23 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
                 self.u_uniV[spike_mask_V] += self.dV
 
             # MSI excit
-            # task #192 Phase B: net current is (I_M - I_M_gaba) where I_M
-            # holds AMPA/NMDA-driven fast excitation (decays at tau_ampa=2.5ms)
-            # and I_M_gaba holds tonic + disynaptic + surround GABAergic
-            # inhibition magnitude (decays at tau_gaba=50ms slow IPSC biology).
+            # Local MSI_inh->MSI_exc inhibition uses the checkpoint-declared
+            # equation. Conductance mode applies the GABA-A driving force;
+            # lateral surround remains on its pre-existing current/shunt path.
+            I_local_gaba = compute_local_gaba_current(
+                self.I_M_gaba,
+                self.v_msi,
+                mode=self.local_gaba_mode,
+                conductance_per_mv=self.local_gaba_conductance_per_mv,
+                reversal_mv=self.local_gaba_reversal_mv,
+            )
             I_surr_shunt = self.k_shunt_surr * self.I_M_gaba_surr_sh * (self.E_gaba - self.v_msi)   # <=0 divisive surround; identically 0 when OFF
+            I_gaba_subtractive = (
+                I_local_gaba + self.I_M_gaba_surr_sub
+                if separate_subtractive_surround else I_local_gaba
+            )
             dVM = (0.04 * self.v_msi.pow(2) + 5.0 * self.v_msi + 140.0
-                   - self.u_msi + (self.I_M - self.I_M_gaba + I_surr_shunt))
+                   - self.u_msi + (self.I_M - I_gaba_subtractive + I_surr_shunt))
             # task#130 Form-A: dVm/dt-ADAPTIVE spike threshold (Azouz & Gray 2000) — the missing cellular
             # substrate for multisensory ONSET-latency facilitation (#106/#125). dVM IS the instantaneous
             # dv_msi/dt (mV/ms), read here PRE-Euler/PRE-reset so the -65mV reset never pollutes the trace.
@@ -3548,6 +3671,8 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             # is added as positive; subtracted from I_M at integration.
             if self.gaba_shunt_surr:
                 self.I_M_gaba_surr_sh.add_(self.g_GABA * I_latM)   # surround -> shunting accumulator (divisive form)
+            elif separate_subtractive_surround:
+                self.I_M_gaba_surr_sub.add_(self.g_GABA * I_latM)  # unchanged subtractive surround, separate from local conductance
             else:
                 self.I_M_gaba.add_(self.g_GABA * I_latM)           # subtractive (byte-identical default)
 
@@ -3621,9 +3746,9 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
                 # i.e. fast (AMPA + NMDA + tonic stays-in-I_M dropped) minus
                 # slow GABA state. Mirrors what Izhikevich actually integrates.
                 if self.gaba_shunt_surr:
-                    I_total = (self.I_M - self.I_M_gaba + I_surr_shunt).detach()
+                    I_total = (self.I_M - I_gaba_subtractive + I_surr_shunt).detach()
                 else:
-                    I_total = (self.I_M - self.I_M_gaba).detach()
+                    I_total = (self.I_M - I_gaba_subtractive).detach()
                 Q_exc = torch.clamp(I_total, min=0) * dt_s
                 Q_inh = -torch.clamp(I_total, max=0) * dt_s
                 self._probe.log_EI(Q_exc, Q_inh)  # add two extra slots
@@ -4935,6 +5060,12 @@ def make_checkpoint(net,
         # task #192 Phase B: explicit AMPA / GABA tau split.
         tau_ampa=net.tau_ampa,
         tau_gaba=net.tau_gaba,
+        # Atomic equation identity for local MSI_inh->MSI_exc GABA. These
+        # values are restored before inference; absence identifies a legacy
+        # current-based checkpoint.
+        local_gaba_mode=net.local_gaba_mode,
+        local_gaba_conductance_per_mv=net.local_gaba_conductance_per_mv,
+        local_gaba_reversal_mv=net.local_gaba_reversal_mv,
         # task#385 SOM/Martinotti facilitation-in-time; ckpt = source of truth (val36 restores -> MEASURE honors training)
         facil_gaba_on=net.facil_gaba_on, tau_facil_gaba=net.tau_facil_gaba, U_facil_gaba=net.U_facil_gaba,
         tau_nmda=net.tau_nmda,
@@ -5690,8 +5821,11 @@ def run_training(
     ckpt = torch.load(ckpt_path, map_location="cpu")
     net = MultiBatchAudVisMSINetworkTime(**ckpt["constructor_hparams"])
     net.load_state_dict(ckpt["model_state"])
-    for k, v in ckpt["mutable_hparams"].items():
-        setattr(net, k, v)
+    _mh = ckpt.get("mutable_hparams", {})
+    net.restore_local_gaba_hparams(_mh)
+    for k, v in _mh.items():
+        if k not in LOCAL_GABA_HPARAM_KEYS:
+            setattr(net, k, v)
     if "torch_cpu" in ckpt:
         torch.set_rng_state(ckpt["torch_cpu"])
     if "torch_cuda" in ckpt and ckpt["torch_cuda"] is not None:
@@ -5784,4 +5918,3 @@ if __name__ == "__main__":
     print("\nAll replicas finished:")
     for p in saved:
         print("  •", p)
-

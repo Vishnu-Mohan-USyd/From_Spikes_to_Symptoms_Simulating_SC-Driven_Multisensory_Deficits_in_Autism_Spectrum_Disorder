@@ -116,6 +116,20 @@ def load_ckpt(ckpt_path, seed, B, device):
     # into mutable_hparams, so the CKPT is the source of truth -> measurement matches training no matter
     # the env. Legacy/raw-state_dict ckpts (no mutable_hparams) keep the build default with a WARN.
     mh = ck.get("mutable_hparams", {})
+    # Local MSI_inh->MSI_exc GABA equation is an atomic checkpoint identity.
+    # New checkpoints carry mode, calibrated conductance, and reversal; old
+    # checkpoints carry none and must run the exact legacy current equation.
+    # Rejecting partial metadata prevents inference from silently mixing the
+    # training and measurement equations.
+    _has_local_gaba_hparams = net.restore_local_gaba_hparams(mh)
+    if not _has_local_gaba_hparams:
+        print("[load_ckpt] WARN: ckpt predates local-GABA equation metadata -> "
+              "using exact legacy_current dynamics", flush=True)
+    _env_local_gaba_mode = os.environ.get("LOCAL_GABA_MODE")
+    if _env_local_gaba_mode is not None:
+        assert str(net.local_gaba_mode) == str(_env_local_gaba_mode), \
+            f"FATAL: ckpt local_gaba_mode={net.local_gaba_mode!r} != " \
+            f"LOCAL_GABA_MODE env {_env_local_gaba_mode!r}"
     if "tau_gaba" in mh:
         net.tau_gaba = float(mh["tau_gaba"])
     else:

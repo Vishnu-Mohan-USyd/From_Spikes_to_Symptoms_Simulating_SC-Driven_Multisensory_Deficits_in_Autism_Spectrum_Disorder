@@ -15,6 +15,19 @@ results/*.log
 results/*.png
 results/*.svg
 
+# Nested scientific-run logs are retained locally when useful but are not
+# portable result artifacts.  The corresponding JSON records carry hardware,
+# source hashes and checkpoint provenance.
+results/**/*.log
+repro_dm10_conductance_seed42/*.log
+repro_dm10_conductance_seed42/console.log
+
+# The experimental conductance retrain keeps only its final epoch-79 checkpoint
+# in the handoff.  Earlier scheduled checkpoints are reproducible intermediates.
+repro_dm10_conductance_seed42/ckpt_ep5_*.pt
+repro_dm10_conductance_seed42/ckpt_ep30_*.pt
+repro_dm10_conductance_seed42/ckpt_ep50_*.pt
+
 # ------------------------------------------------------------------------------------------------------
 # The COMMITTED deliverable KEEPS (none of the above patterns match these):
 #   all *.py, README.md, CKPT_MD5.txt, .gitignore

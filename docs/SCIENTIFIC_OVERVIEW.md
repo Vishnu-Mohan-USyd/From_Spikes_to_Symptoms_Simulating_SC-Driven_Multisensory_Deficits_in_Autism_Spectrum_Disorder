@@ -40,6 +40,12 @@ claim that every biological SC parvalbumin-positive neuron is inhibitory.
 scales post-spike lateral/surround inhibition within MSI. The shipped checkpoint
 restores `tau_gaba = 18 ms`.
 
+The canonical dm10 checkpoints predate the explicit local-GABA conductance
+triplet and therefore retain their exact legacy current-based local inhibitory
+equation. The separate experimental seed-42 checkpoint stores the calibrated
+conductance form `g * s * (V - E_GABA)` with `E_GABA=-70 mV`. The loader
+selects these modes from checkpoint metadata; they are distinct substrates.
+
 ## Training and frozen inference
 
 Training uses synthetic audiovisual event sequences. Excitatory feed-forward
@@ -48,10 +54,12 @@ trained after its warm-up stage, and the MSI-inhibitory → MSI-excitatory edge
 receives inhibitory STDP. Checkpoints store the learned state and mutable
 operating-point parameters.
 
-All results below are frozen-checkpoint measurements: plasticity is disabled,
-the readouts are hash-checked, and every perturbation changes only a declared
-live scalar after the checkpoint loader has restored the trained operating
-point. No reported perturbation is a retraining result.
+All perturbation comparisons below are frozen-checkpoint measurements:
+plasticity is disabled, the readouts are hash-checked, and every perturbation
+changes only a declared live scalar after the checkpoint loader has restored
+the trained operating point. The corrected-v2 TBW experiment uses a separately
+retrained conductance-form checkpoint, but its control/lesion comparisons are
+still inference-time interventions with unchanged weights.
 
 Two jitter terms must not be conflated. `sigma_dL_frames = 3` belongs to the
 training and TBW event-sequence generators. The formal RMI trials instead use
@@ -77,6 +85,49 @@ The formal endpoint is the first 0.1 ms substep at which the MSI-excitatory
 population contains at least one spike. The readout population is not involved.
 Silence is retained as logical `+Inf` with a finite censoring horizon rather
 than being dropped.
+
+## Validation strata and corrected P(fusion) TBW
+
+The repository contains two validation strata that must not be combined:
+
+| Substrate | Scope | Status |
+|---|---|---|
+| canonical dm10 checkpoints 42–51 | seven declared gates | all ten checkpoints pass all seven gates (`GO`) |
+| experimental conductance-form checkpoint 42 | corrected-v2 TBW perturbations | only Gate-1 rate and Gate-3 E/I sentinels have been run |
+
+The corrected-v2 TBW observer preserves the established endpoint: the
+half-peak width of **P(fusion)** across audiovisual SOA. It does not calculate
+the spatial binding window. It analyzes raw 60-frame MSI spike-count rasters
+without per-condition amplitude normalization. Two-peak responses retain the
+valley criterion; one-peak responses must cross one fixed sham-derived absolute
+floor and match the predicted auditory/visual latency geometry. Silent,
+suppressed and ambiguous trials remain in the P(fusion) denominator.
+
+For the experimental seed-42 conductance checkpoint, the control run widths
+were `220, 240, 240 ms` (median `240 ms`). Adaptation at
+`aM=.012, dM=6` and slower local GABA at `tau_gaba=40 ms` both retained a
+`240-ms` median. Reduced `gNMDA=.383` and `pv_gaba_scale=.5` each produced a
+`220-ms` median. Faster local GABA at `10 ms` retained a `240-ms` median. These
+three repeat streams quantify within-checkpoint simulation variation, not
+between-checkpoint biological replication. No large or approximately twofold
+TBW expansion was demonstrated, and no cross-checkpoint inference was run.
+
+The earlier v1 panel that reported `+60/+60/+20 ms` used a max-normalised
+observer whose one-peak rule could classify suppression as fusion. It is
+preserved only as superseded lineage under
+`legacy/tbw_max_normalised_observer_v1/`, not as current biological evidence.
+
+Regenerate the corrected-v2 panel from committed JSON:
+
+```bash
+python plots/run_tbw_perturbations.py
+```
+
+The exact RTX-5090 acquisition command is in the
+[mechanism-influence guide](../mechanism_influence/README.md#corrected-v2-temporal-fusion-perturbations).
+Gate-4/Gate-5 response-gain acquisition and analysis code is present and
+CPU-tested, but no acquired response-gain bundle is committed; consequently no
+new SBW/MEI/CRE perturbation result is claimed.
 
 ## Formal baseline RMI
 

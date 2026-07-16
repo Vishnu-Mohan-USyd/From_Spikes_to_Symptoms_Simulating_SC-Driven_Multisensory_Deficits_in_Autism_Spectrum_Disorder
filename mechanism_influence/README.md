@@ -1,10 +1,11 @@
 # Mechanism-influence analyses
 
-This directory contains two distinct frozen-checkpoint workflows. The original
-TBW dose response measures the SOA half-maximum width of a later fused response.
-The formal race workflow measures the first MSI-excitatory population spike and
-tests Miller's distributional bound. A scalar can affect one endpoint without
-affecting the other; see the [scientific overview](../docs/SCIENTIFIC_OVERVIEW.md).
+This directory contains separate frozen-checkpoint workflows for temporal
+fusion, formal Miller race-model analysis and Gate-4/Gate-5 response gain. A
+scalar can affect one endpoint without affecting another; see the
+[scientific overview](../docs/SCIENTIFIC_OVERVIEW.md). The canonical ten-seed,
+seven-gate result remains separate from the single-seed experimental
+conductance retrain described below.
 
 ## File map
 
@@ -13,6 +14,12 @@ affecting the other; see the [scientific overview](../docs/SCIENTIFIC_OVERVIEW.m
 | `tbw_point.py` | One frozen-checkpoint TBW dose point per process |
 | `dose/` | Committed seed-42/44 TBW dose-point JSON |
 | `DEBUGGER_397_DOSERESPONSE.md` | Historical TBW dose-response report |
+| `tbw_temporal_fusion_observer.py` | Corrected absolute, sham-calibrated P(fusion) observer |
+| `capture_tbw_perturbation_curve.py` | RTX-5090 acquisition of one corrected-v2 curve |
+| `verify_tbw_temporal_fusion_cache.py` | Offline verifier for an external immutable raster cache |
+| [`../results/tbw_conductance_seed42/`](../results/tbw_conductance_seed42/) | Corrected-v2 single-checkpoint curves and Gate-1/Gate-3 sentinels |
+| `response_gain_perturbation.py` | Tested Gate-4/Gate-5 perturbation-acquisition infrastructure |
+| `response_gain_analysis.py` | Tested checkpoint-level response-gain analysis infrastructure |
 | `race_model_measure.py` | Frozen trial-level A/V/AV/catch first-spike acquisition |
 | `race_model_analysis.py` | Formal baseline RMI analysis; one record or a checkpoint family |
 | `race_model_perturbation_manifest_v1.json` | Declared screen/confirmation design and scalar cells |
@@ -32,6 +39,77 @@ The frozen historical protocol manifest intentionally retains its original
 `selection_source.analysis_path`; that path is acquisition provenance, not a
 portable command. The completed analyzer instead accepts every archive input
 as an explicit path and writes the compact outputs linked above.
+
+## Corrected-v2 temporal-fusion perturbations
+
+TBW here is the sampled half-peak width of the Gate-2-style **P(fusion)** curve
+over audiovisual SOA. The corrected observer consumes the raw 60-frame MSI
+population raster without per-trial or per-condition amplitude normalization.
+A one-peak response counts as fusion only when it clears one fixed sham-derived
+absolute amplitude floor and is compatible with the expected A/V latency
+geometry. Suppressed, ambiguous and silent trials remain in the denominator.
+
+The current bundle uses one experimental seed-42 checkpoint retrained with
+local GABA represented as the conductance `g * s * (V - E_GABA)`. It is not one
+of the canonical ten dm10 checkpoints and has passed only the committed Gate-1
+rate and Gate-3 E/I sentinels. It has not been certified against all seven
+gates. Three repeat streams estimate Monte Carlo variation within this
+checkpoint; they are not independent checkpoint replicates.
+
+| Frozen setting | Run widths (ms) | Median (ms) | Delta from control |
+|---|---:|---:|---:|
+| conductance-retrain control | `220, 240, 240` | `240` | — |
+| adaptation `aM=.012, dM=6` | `240, 240, 240` | `240` | `0` |
+| local `tau_gaba=10 ms` | `220, 240, 240` | `240` | `0` |
+| local `tau_gaba=40 ms` | `240, 240, 240` | `240` | `0` |
+| `pv_gaba_scale=.5` | `220, 240, 220` | `220` | `-20 ms` |
+| `gNMDA=.383` | `220, 240, 220` | `220` | `-20 ms` |
+
+These exploratory data do **not** demonstrate the requested large TBW
+expansion: adaptation and local-GABA timing are unchanged at the sampled-width
+resolution, while PV magnitude and reduced NMDA shift the median by one 20-ms
+SOA grid step. No cross-checkpoint inference was run.
+
+Regenerate the current figure from committed JSON without a GPU:
+
+```bash
+python plots/run_tbw_perturbations.py
+```
+
+Acquire one curve on the RTX 5090 (one process per condition):
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python -m mechanism_influence.capture_tbw_perturbation_curve \
+  --condition shipped \
+  --ckpt repro_dm10_conductance_seed42/ckpt_ep79_seed42_bs250_delay52_tau18_dL3.pt \
+  --out results/tbw_conductance_seed42/shipped_control.json \
+  --require-conductance-gaba
+```
+
+Replace `shipped` and the output name with one of `adaptation_0p6`,
+`pv_gaba_0p5`, `tau_gaba_local_10`, `tau_gaba_local_40` or `gnmda_0p383`.
+The historical v1 records and panel are preserved under
+[`../legacy/tbw_max_normalised_observer_v1/`](../legacy/tbw_max_normalised_observer_v1/)
+as superseded lineage only; their max-normalised one-peak rule can label a
+suppressed survivor as fusion and must not be used as current biological
+evidence.
+
+## Response-gain infrastructure status
+
+`response_gain_perturbation.py` reuses the official Gate-4 and Gate-5 kernels,
+records absolute A/V/AV responses, and rejects normalized inference after
+response collapse. `response_gain_analysis.py` performs paired checkpoint-level
+analysis. The code and CPU tests are included, but **no acquired response-gain
+result bundle is included**, so the repository makes no perturbation-effect
+claim for SBW/MEI/CRE from this workflow.
+
+The intended RTX-5090 acquisition and CPU analysis commands are:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python -m mechanism_influence.response_gain_perturbation launch \
+  --run-dir response_gain_run --workers 1 --gate5-chunk-size 1
+python -m mechanism_influence.response_gain_analysis --run-dir response_gain_run
+```
 
 ## Baseline acquisition and analysis
 
