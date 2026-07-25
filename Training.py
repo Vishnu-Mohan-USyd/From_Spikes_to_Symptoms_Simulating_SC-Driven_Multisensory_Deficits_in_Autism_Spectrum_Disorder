@@ -2000,15 +2000,20 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         ampa_decay = 1.0 - self.dt / self.tau_ampa_lp
         nmda_decay = 1.0 - self.dt / self.tau_nmda
         # Per-step source-onto-decaying-state scale (task #16/#121/#123/#135).
-        #   dt_linear_scale: linear `dt / 0.1` applied uniformly to AMPA and NMDA
-        #     injection sites (and the AGC/FF-inh AMPA path). At canonical dt=0.1
-        #     this is 1.0 (byte-identical to bare add → legacy ckpts produce
-        #     paper biology unchanged). At other dt it scales per-substep
-        #     injection so total per-ms injection is preserved → dt-invariant.
-        #     Task #135 unified NMDA onto this same scaling (previously used
-        #     exp-Euler Form 2 `1 - exp(-dt/tau_syn)` ≈ 0.0392 at dt=0.1, which
-        #     broke paper output on legacy ckpts).
+        #   dt_linear_scale: linear `dt / 0.1` applied to the AMPA and AGC/FF-inh
+        #     AMPA injection paths. At canonical dt=0.1 this is 1.0 (byte-identical
+        #     to bare add → legacy ckpts produce paper biology unchanged). At other
+        #     dt it scales per-substep injection so total per-ms injection is
+        #     preserved → dt-invariant.
+        #   task #147: the NMDA->I_M injection was REVERTED off dt_linear_scale back
+        #     to the exp-Euler form below. task #135's ×1.0 NMDA scaling was a ~25×
+        #     over-drive at the forced gNMDA=1.30 operating point (paper-tuned drive
+        #     is 1.30 × 0.0392 ≈ 0.05), which flipped MS enhancement negative and
+        #     over-widened TBW. See scratchpad/06_regression_diagnosis.md.
         dt_linear_scale = self.dt / 0.1
+        # Per-step NMDA->I_M source scale for the exp-Euler step-source form (task #16).
+        # Only used when self.dt_correct_nmda is True.
+        nmda_source_scale = 1.0 - math.exp(-self.dt / self.tau_syn)
         input_step_scale = 1.0 / float(self.n_substeps)
         istdp_decay = torch.exp(torch.tensor(-self.dt / self.tau_post_i,
                                              device=self.device, dtype=torch.float32))
@@ -2175,14 +2180,14 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             I_nmda_step = self.gNMDA * inc_m_exc * (mg_A + mg_V) * (self.Erev_nmda - self.v_msi)
             I_nmda_lp = self.gNMDA * self.nmda_m * (mg_A + mg_V) * (self.Erev_nmda - self.v_msi)
 
-            # task #135: unified linear dt-scaling (matches AMPA's existing fix).
-            # `dt_linear_scale = dt / 0.1` precomputed at L1997. At canonical
-            # dt=0.1 this is 1.0 → byte-identical to bare `add_(I_nmda)` → legacy
-            # ckpts produce paper biology unchanged. At other dt, per-substep
-            # injection scales linearly so total per-ms injection is preserved.
-            # Replaces task #121's exp-Euler Form 2 (`1 - exp(-dt/tau_syn)`),
-            # which was ≈0.0392 at dt=0.1 and broke paper output on legacy ckpts.
-            self.I_M.add_(I_nmda * dt_linear_scale)
+            # task #16: dt-correct NMDA->I_M coupling (exp-Euler step-source form).
+            # Flag OFF preserves legacy bare-add (dt-dependent); flag ON scales source
+            # by (1 - exp(-dt/tau_syn)). See debug_dt/final_proof.py Fix B for proof.
+            # task #147: reverted from task #135's `* dt_linear_scale` (×1.0 over-drive).
+            if self.dt_correct_nmda:
+                self.I_M.add_(I_nmda * nmda_source_scale)
+            else:
+                self.I_M.add_(I_nmda)
 
             release = (I_M_a_AMPA + I_M_v_AMPA)  # what you already had
             I_AMPA_tp = self.gAMPA * release * (self.Erev_ampa - self.v_msi)  # current
@@ -2278,10 +2283,13 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             mg_iA = 1.0 / (1.0 + torch.exp(-self.mg_k * (self.v_dend_inhA - self.mg_vhalf)))
             mg_iV = 1.0 / (1.0 + torch.exp(-self.mg_k * (self.v_dend_inhV - self.mg_vhalf)))
             I_nmda_inh = self.gNMDA * self.nmda_m_inh * (mg_iA + mg_iV) * (self.Erev_nmda - self.v_msi_inh)
-            # task #135: unified linear dt-scaling for inhibitory NMDA (same as
-            # the I_M site above; `dt_linear_scale = dt / 0.1` precomputed at
-            # L1997). Identity at dt=0.1, preserves per-ms injection elsewhere.
-            self.I_M_inh.add_(I_nmda_inh * dt_linear_scale)
+            # task #16: dt-correct NMDA->I_M_inh coupling (exp-Euler step-source form).
+            # Same tau_syn as excitatory path (no separate tau_syn_inh in this model).
+            # task #147: reverted from task #135's `* dt_linear_scale` (×1.0 over-drive).
+            if self.dt_correct_nmda:
+                self.I_M_inh.add_(I_nmda_inh * nmda_source_scale)
+            else:
+                self.I_M_inh.add_(I_nmda_inh)
 
             # MSI_inh->MSI_ex
             I_M_inh2exc = F.linear(delayed_spikes_msi_inh2exc, W_msiInh2Exc_GABA)
@@ -2339,10 +2347,15 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             if self._ei_record is not None:
                 # Excitatory onto MSI excitatory
                 _I_E_ampa = torch.clamp(I_AMPA_curr, min=0.0)
-                # task #135: mirror the unified linear dt-scaling applied at
-                # the NMDA->I_M injection site so the probe records the same
-                # scaled current that is actually injected (E/I symmetry).
-                _I_E_nmda = torch.clamp(I_nmda * dt_linear_scale, min=0.0)
+                # Task #42 fix: mirror the actual NMDA->I_M injection site.
+                # When dt_correct_nmda is True, NMDA is injected as
+                # I_nmda * nmda_source_scale (exp-Euler step-source form),
+                # so the probe must record the same scaled current to stay symmetric.
+                # task #147: reverted from task #135's `* dt_linear_scale` mirror.
+                if self.dt_correct_nmda:
+                    _I_E_nmda = torch.clamp(I_nmda * nmda_source_scale, min=0.0)
+                else:
+                    _I_E_nmda = torch.clamp(I_nmda, min=0.0)
                 _I_E = _I_E_ampa + _I_E_nmda
                 # Inhibitory onto MSI excitatory
                 _I_I_ff = torch.clamp(self.g_FFinh * (I_inA_inh + I_inV_inh), min=0.0)
