@@ -1970,7 +1970,8 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
                                 curr_debug=False,
                                 epoch_idx=0,
                                 return_delayed=False,
-                                return_spike_sum=False):  # optional spike-sum
+                                return_spike_sum=False,  # optional spike-sum
+                                return_first_spike_substep=False):  # task#147 sub-frame latency
         """
         Forward-prop one external time-step (100 Izhikevich sub-steps).
 
@@ -1978,12 +1979,23 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             sum_sM   (batch_size , n)
         containing the **total number of MSI spikes in this external frame**
         is appended to the return tuple.
+
+        If `return_first_spike_substep` is True (task#147, measurement-only,
+        OFF by default), returns ``(sA, sV, sM, sO, first_spike_substep)`` where
+        ``first_spike_substep`` is the integer index (0..n_substeps-1) of the
+        FIRST sub-step in this frame with any MSI-excit spike, or -1 if none.
+        It is a pure readout of the already-computed per-substep spikes
+        (``new_sM``): it adds NO dynamics and, when False, leaves the default
+        code path, return signature, and all numerics byte-identical.
         """
 
         batch_size = xA_batch.size(0)
 
         if return_spike_sum:
             sum_sM = torch.zeros(batch_size, self.n, device=self.device)
+
+        if return_first_spike_substep:
+            first_spike_substep = -1
 
         if valid_mask is not None:
             mask = valid_mask.view(batch_size, 1)
@@ -2395,6 +2407,14 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             if return_spike_sum:  # ****
                 sum_sM += new_sM  # ****
 
+            # task#147: sub-frame first-spike readout (measurement-only, OFF by
+            # default). Records the sub-step index of the first MSI-excit spike in
+            # this frame from the already-computed new_sM — no new dynamics. The
+            # `first_spike_substep < 0` guard makes the .any() sync fire only until
+            # the first spike is seen; the whole block is skipped when the flag is off.
+            if return_first_spike_substep and first_spike_substep < 0 and bool(new_sM.any()):
+                first_spike_substep = sub_i
+
             # iSTDP trace (decay pre-computed outside loop)
             self.post_i_trace.mul_(istdp_decay)
             self.post_i_trace.add_(new_sM)
@@ -2589,6 +2609,8 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
                 self.g_FFinh += alpha_slow * (exc_mean_long * self.pv_nmda - inh_mean_long)
                 self.g_FFinh = max(0.05, min(self.g_FFinh, 5.0))  # task #128: REVERTED task #80 INT-4
 
+        if return_first_spike_substep:  # task#147: measurement-only sub-frame latency
+            return sA, sV, sM, sO, first_spike_substep  # 5 objs (int last)
         if return_delayed and return_spike_sum:
             return (sA, sV, sM, sO,
                     delayed_spikes_a2msi, delayed_spikes_v2msi,

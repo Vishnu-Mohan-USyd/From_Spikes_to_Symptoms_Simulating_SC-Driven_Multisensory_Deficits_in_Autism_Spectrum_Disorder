@@ -651,10 +651,15 @@ def measure_latency(
 
     for t in range(n_frames):
         ret = net.update_all_layers_batch(xA[t].unsqueeze(0), xV[t].unsqueeze(0),
-                                          return_spike_sum=True)
-        sum_sM = ret[-1]
-        if sum_sM.sum().item() > 0:
-            return (t + 1) * frame_ms  # latency in ms (1‑based frame index)
+                                          return_first_spike_substep=True)
+        first_sub = ret[-1]  # substep index of first MSI spike this frame, or -1
+        if first_sub >= 0:
+            # task#147: true first-spike time (ms) at substep (dt) resolution =
+            # frame start (t * frame_ms) + end of the substep in which it fired.
+            # Reduces to the old (t+1)*frame_ms only if the spike is in the last
+            # substep; otherwise it resolves the sub-frame timing the frame index
+            # discarded.
+            return t * frame_ms + (first_sub + 1) * dt_ms
 
     return np.nan  # silent network → undefined latency
 
@@ -695,7 +700,12 @@ def run_latency_test(
         for modality in ("A", "V", "B"):
             net = load_msi_model(ckpt_path, device=device)
             setattr(net, 'gNMDA', 1.30)  # task #42 fix: override legacy gNMDA=0.05
-            net.aM, net.bM, net.cM, net.dM = 0.001, 0.2, -60.0, 0.1
+            # task#147: removed the forced Izhikevich override
+            # (net.aM,bM,cM,dM = 0.001,0.2,-60,0.1) over trained 0.02/0.2/-65/8.0.
+            # Debugger's single-variable test proved forced vs trained give
+            # byte-identical latencies (30/50/30 ms, SEM 0) → the override has
+            # zero effect, but is an unjustified departure from paper methods
+            # (which use no override) → use trained params.
             latencies[f"{modality}_ms"] = measure_latency(net, modality=modality)
             del net
             if device.startswith("cuda"):
