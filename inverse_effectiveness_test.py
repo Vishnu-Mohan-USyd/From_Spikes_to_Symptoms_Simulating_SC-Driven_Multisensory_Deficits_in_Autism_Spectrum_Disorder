@@ -193,6 +193,13 @@ def load_msi_model(ckpt_path: Path, *, device="cpu"):
     return net
 
 
+def configure_inverse_eval(net: MultiBatchAudVisMSINetworkTime) -> None:
+    """Configure a loaded network for state-preserving inverse-effectiveness evaluation."""
+    net.gNMDA = 1.30
+    net.freeze_g_FFinh = True
+    net.plasticity_enabled = False
+
+
 def spatial_binding_curve_fast(
         net,
         separations_deg=range(0, 61, 5),
@@ -661,7 +668,7 @@ def main():
             # intensity starts from the same trained-network state. Prevents the
             # AGC g_FFinh + plastic-weight drift documented in debugger #57.
             net = load_msi_model(path, device=DEVICE)
-            setattr(net, 'gNMDA', 1.30)  # task #42: override legacy gNMDA=0.05
+            configure_inverse_eval(net)
             resp_A[m_i, j] = integrated_spikes(net, "A", I)
             resp_V[m_i, j] = integrated_spikes(net, "V", I)
             resp_AV[m_i, j] = integrated_spikes(net, "B", I)
@@ -734,6 +741,5 @@ def main():
 # ───────────────────────── entry point ──────────────────────────
 if __name__ == "__main__":
     main()
-
 
 

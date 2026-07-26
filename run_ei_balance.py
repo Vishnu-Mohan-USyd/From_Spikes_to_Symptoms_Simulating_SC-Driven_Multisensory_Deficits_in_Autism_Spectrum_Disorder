@@ -236,7 +236,8 @@ def plot_ei_scatter(summary, *, out_path_base=None):
     print(f"  Saved: {base}.svg and {base}.png")
 
 
-if __name__ == "__main__":
+def main() -> dict:
+    """Run the canonical full-ensemble E/I analysis and write its figures."""
     print("E/I BALANCE — separated currents, evoked window (125ms)")
     print(f"Evoked window: {PULSE_FRAMES} frames stim + 7.5 frames tail = {EVOKED_FRAMES} frames ({EVOKED_FRAMES*10:.0f}ms)\n")
 
@@ -261,3 +262,8 @@ if __name__ == "__main__":
     print(f"    LatInh:   {summary['LatInh_mean_mean']:.4f} ({100*summary['LatInh_mean_mean']/total_I:.1f}%)")
 
     plot_ei_scatter(summary, out_path_base=str(SAVE / "EI_balance"))
+    return summary
+
+
+if __name__ == "__main__":
+    main()

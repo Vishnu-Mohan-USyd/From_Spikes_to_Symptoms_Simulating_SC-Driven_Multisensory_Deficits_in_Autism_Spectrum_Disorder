@@ -1,5 +1,11 @@
 # CHANGES — Optimized TBW/SBW/E-I Pipeline
 
+> **Historical engineering record:** this file preserves investigation history
+> and includes superseded parameters, commands, and results. It is not the
+> current onboarding or validation source of truth. Use the
+> [README](README.md) and [research log](docs/research_log.md) for the frozen
+> release workflow and accepted results.
+
 ## Overview
 
 This repository implements a Superior Colliculus (SC)-driven multisensory binding

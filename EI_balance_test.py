@@ -290,7 +290,14 @@ def main_separated():
 
 
 if __name__ == "__main__":
-    main_separated()
+    # Avoid loading this probe module a second time when the canonical runner
+    # imports ``EI_balance_test.run_ei_probe_separated``.
+    import sys
+    sys.modules.setdefault("EI_balance_test", sys.modules[__name__])
+
+    from run_ei_balance import main as _run_canonical_ei_balance
+
+    _run_canonical_ei_balance()
     # base = Path("checkpoint")
     # check_ei_single_model(base / "msi_model_surr_2_00.pt
 
@@ -327,5 +334,4 @@ if __name__ == "__main__":
 #     plot_temporal_binding_summary(
 #         pooled_mod,
 #     )
-
 

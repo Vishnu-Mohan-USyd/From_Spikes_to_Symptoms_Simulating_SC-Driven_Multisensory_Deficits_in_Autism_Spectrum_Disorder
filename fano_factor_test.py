@@ -1,29 +1,82 @@
 from Training import *
 from matplotlib import font_manager
+import warnings
+from typing import Any, Sequence
 
 
 def fano_factor(trial_tensor: np.ndarray) -> np.ndarray:
-    """
+    """Compute the conventional all-neuron Fano curve with an epsilon denominator.
+
+    This is retained as a secondary diagnostic. Neurons with zero trial-mean
+    spike count contribute zero because of the epsilon denominator; the primary
+    assay uses :func:`active_neuron_fano_factor` instead.
+
     Parameters
     ----------
-    trial_tensor : ndarray  shape = (T , B , n)
-        Spike counts per external frame *per neuron* collected across
-        B independent trials.
+    trial_tensor : ndarray, shape (T, B, N)
+        Per-frame spike counts for ``T`` time bins, ``B`` independent trials,
+        and ``N`` neurons. The bin duration is defined by the simulator.
 
     Returns
     -------
-    FF : ndarray  shape = (T,)
-        Fano factor at each time‑bin, obtained by
-            FF(t) = ⟨Var_i[  spikes_i(t,·)  ] / Mean_i[ spikes_i(t,·) ]⟩_neurons
+    ndarray, shape (T,)
+        Mean variance/mean ratio across all supplied neurons for each bin.
     """
+    if trial_tensor.ndim != 3 or trial_tensor.shape[1] < 2:
+        raise ValueError("trial_tensor must have shape (T, B, N) with B >= 2")
     mean = trial_tensor.mean(axis=1)         # (T , n)
     var  = trial_tensor.var(axis=1, ddof=1)  # (T , n)
     ff_per_neuron = var / (mean + 1e-12)     # avoid 0/0
     return ff_per_neuron.mean(axis=1)        # (T,)
 
 
+def active_neuron_fano_factor(trial_tensor: np.ndarray) -> np.ndarray:
+    """Compute the primary active-neuron Fano curve.
+
+    For each time bin and neuron, spike-count variance and mean are computed
+    across trials. A zero mean makes variance/mean undefined, so that neuron is
+    represented by ``NaN`` and excluded with ``numpy.nanmean``. This avoids the
+    downward bias caused by treating inactive neurons as Fano factor zero.
+
+    Parameters
+    ----------
+    trial_tensor : ndarray, shape (T, B, N)
+        Per-bin spike counts for ``T`` bins, ``B >= 2`` trials and ``N`` neurons.
+
+    Returns
+    -------
+    ndarray, shape (T,)
+        Active-neuron mean Fano factor per time bin. A bin with no active neuron
+        is ``NaN``.
+    """
+    if trial_tensor.ndim != 3 or trial_tensor.shape[1] < 2:
+        raise ValueError("trial_tensor must have shape (T, B, N) with B >= 2")
+    mean = trial_tensor.mean(axis=1)
+    variance = trial_tensor.var(axis=1, ddof=1)
+    per_neuron = np.full_like(mean, np.nan, dtype=float)
+    np.divide(variance, mean, out=per_neuron, where=mean > 0.0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        return np.nanmean(per_neuron, axis=1)
+
+
+def _physical_frame_ms(net: MultiBatchAudVisMSINetworkTime) -> float:
+    """Validate and return one external frame duration in milliseconds.
+
+    Fano calibration and measurement both assume the trained physical-time
+    discretisation: ``dt=0.1 ms`` and ``n_substeps=100``, hence 10 ms per
+    external frame. The function never changes either value.
+    """
+    assert net.n_substeps == 100, (
+        f"Fano evaluation requires n_substeps=100, got {net.n_substeps}"
+    )
+    frame_ms = float(net.dt * net.n_substeps)
+    assert frame_ms == 10.0, f"Fano frame must be 10.0 ms, got {frame_ms} ms"
+    return frame_ms
+
+
 # ---------------------------------------------------------------------
-#  Fast simulator that records *all* neurons
+#  Physical-time simulator that records *all* neurons
 # ---------------------------------------------------------------------
 @torch.inference_mode()
 def simulate_batch_trials(net: MultiBatchAudVisMSINetworkTime,
@@ -35,21 +88,50 @@ def simulate_batch_trials(net: MultiBatchAudVisMSINetworkTime,
                           target_rate_per_neuron: float = 0.01,   # spikes / 10 ms
                           stim_intensity: float = 1.0,
                           centre_deg: float = 90,
-                          fast_substeps: int = 25) -> np.ndarray:
-    """
+                          seed: int = 0) -> np.ndarray:
+    """Simulate deterministic Poisson-driven Fano trials at physical time.
+
+    Calibration and measurement both run with the loaded network's unchanged
+    ``n_substeps=100`` and ``dt*n_substeps=10 ms``. A dedicated torch generator
+    seeded by ``seed`` controls every Poisson draw without mutating global RNG
+    state. Network weights, ``g_FFinh`` and plasticity state are assumed to have
+    been frozen by the caller.
+
+    Parameters
+    ----------
+    net : MultiBatchAudVisMSINetworkTime
+        Evaluation network on ``net.device`` with 100 substeps per frame.
+    n_trials : int
+        Independent Poisson trials, forming axis 1 of the result.
+    warmup_frames, baseline_frames, stim_frames : int
+        Counts of 10 ms external frames. Warmup is not returned; baseline and
+        stimulus bins are returned in that order.
+    target_rate_per_neuron : float
+        Calibration target in spikes per neuron per 10 ms frame.
+    stim_intensity : float
+        Peak of the deterministic Gaussian audiovisual stimulus.
+    centre_deg : float
+        Stimulus centre in model-space degrees.
+    seed : int
+        Seed for calibration and measurement Poisson samples.
+
     Returns
     -------
-    counts : ndarray   shape = (T_rec , B , n)
-             Spike counts per frame (10 ms) for every neuron.
+    ndarray, shape (baseline_frames + stim_frames, n_trials, net.n)
+        Per-neuron spike counts in 10 ms bins.
     """
-    def _calibrate_baseline_gain():
+    _physical_frame_ms(net)
+    generator = torch.Generator(device=net.device)
+    generator.manual_seed(int(seed))
+
+    def _calibrate_baseline_gain() -> float:
         probe_int   = 0.3
         probe_steps = 6
         net.reset_state(batch_size=n_trials)
         for _ in range(probe_steps):
             lam = torch.full((n_trials, net.n), probe_int, device=net.device)
-            xA = torch.poisson(lam)            # independent Poisson drive
-            xV = torch.poisson(lam)
+            xA = torch.poisson(lam, generator=generator)
+            xV = torch.poisson(lam, generator=generator)
             *_, sSum = net.update_all_layers_batch(xA, xV, return_spike_sum=True)
         est_rate = sSum.mean().item()          # spikes / neuron / frame
         return probe_int * (target_rate_per_neuron / max(est_rate, 1e-3))
@@ -57,85 +139,203 @@ def simulate_batch_trials(net: MultiBatchAudVisMSINetworkTime,
     baseline_lambda = _calibrate_baseline_gain()
 
     # --- 2. simulation ---------------------------------------------------
-    old_sub = net.n_substeps
-    if fast_substeps and fast_substeps < old_sub:
-        net.n_substeps = fast_substeps
+    T_rec   = baseline_frames + stim_frames
+    T_total = warmup_frames + T_rec
+    B, n, dev = n_trials, net.n, net.device
 
-    try:
-        T_rec   = baseline_frames + stim_frames
-        T_total = warmup_frames + T_rec
-        B, n, dev = n_trials, net.n, net.device
+    idx_c = int(round(centre_deg * (n - 1) / (net.space_size - 1)))
+    xs    = torch.arange(n, device=dev)
+    gauss = torch.exp(-0.5 * ((xs - idx_c) / net.sigma_in) ** 2) \
+            * stim_intensity
 
-        idx_c = int(round(centre_deg * (n - 1) / (net.space_size - 1)))
-        xs    = torch.arange(n, device=dev)
-        gauss = torch.exp(-0.5 * ((xs - idx_c) / net.sigma_in) ** 2) \
-                * stim_intensity
+    counts = torch.zeros(T_rec, B, n, device=dev)
+    net.reset_state(batch_size=B)
 
-        counts = torch.zeros(T_rec, B, n, device=dev)  # keep neurons
-        net.reset_state(batch_size=B)
+    for t in range(T_total):
+        if t < warmup_frames + baseline_frames:
+            lam = torch.full((B, n), baseline_lambda, device=dev)
+            xA = torch.poisson(lam, generator=generator)
+            xV = torch.poisson(lam, generator=generator)
+        else:
+            xA = xV = gauss.expand(B, -1)
 
-        for t in range(T_total):
-            if t < warmup_frames + baseline_frames:
-                lam = torch.full((B, n), baseline_lambda, device=dev)
-                xA  = torch.poisson(lam)
-                xV  = torch.poisson(lam)
-            else:
-                xA = xV = gauss.expand(B, -1)
+        *_, sSum = net.update_all_layers_batch(xA, xV, return_spike_sum=True)
+        if t >= warmup_frames:
+            counts[t - warmup_frames] = sSum
 
-            *_, sSum = net.update_all_layers_batch(xA, xV, return_spike_sum=True)
-            if t >= warmup_frames:
-                counts[t - warmup_frames] = sSum
+    _physical_frame_ms(net)
+    return counts.cpu().numpy()
 
-        return counts.cpu().numpy()            # (T , B , n)
 
-    finally:
-        net.n_substeps = old_sub
+def _curve_mean_sem(curves: Sequence[np.ndarray], *, nan_aware: bool) -> tuple[np.ndarray, np.ndarray]:
+    """Aggregate equal-length model curves into mean and SEM arrays."""
+    stacked = np.vstack(curves)
+    mean_fn = np.nanmean if nan_aware else np.mean
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        mean = mean_fn(stacked, axis=0)
+        if stacked.shape[0] == 1:
+            sem = np.zeros_like(mean)
+        else:
+            std_fn = np.nanstd if nan_aware else np.std
+            valid_n = np.sum(~np.isnan(stacked), axis=0) if nan_aware else stacked.shape[0]
+            sem = std_fn(stacked, axis=0, ddof=1) / np.sqrt(valid_n)
+    return mean, sem
 
 
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
-def run_fano_factor_test_bio(model_paths,
+def run_fano_factor_test_bio(model_paths: Sequence[str | Path],
                              *,
                              n_trials: int = 32,
                              baseline_frames: int = 30,
                              stim_frames: int = 30,
                              device: str = "cpu",
-                             frame_dt_ms: int = 10):
+                             seed_base: int = 0,
+                             return_diagnostics: bool = False
+                             ) -> tuple[np.ndarray, np.ndarray, np.ndarray,
+                                        np.ndarray, np.ndarray, float] | dict[str, Any]:
+    """Run the primary physical-time Fano assay across fresh checkpoints.
 
-    fano_curves, rate_bin_curves = [], []
+    Each checkpoint is freshly loaded, configured with ``gNMDA=1.30``, frozen
+    feedforward inhibition and disabled plasticity, simulated once, then
+    discarded. Poisson draws use the documented seed ``seed_base + model_index``.
 
-    for ckpt in model_paths:
+    The primary statistic is active-neuron variance/mean within a fixed ROI
+    centred at 90 degrees with radius ``round(2 * net.sigma_in)`` neurons. Mean
+    rate uses all neurons in that same ROI. Frames are 10 ms, derived from the
+    asserted ``net.dt * net.n_substeps`` rather than a caller-provided label.
+
+    By default the legacy six-value tuple is preserved, now containing primary
+    ROI curves. With ``return_diagnostics=True``, a labelled dictionary also
+    exposes conventional epsilon/all-neuron ROI and active/conventional
+    whole-map curves as secondary diagnostics.
+    """
+    primary_fano_curves, roi_rate_curves = [], []
+    roi_conventional_curves = []
+    whole_active_curves, whole_conventional_curves, whole_rate_curves = [], [], []
+    frame_ms: float | None = None
+    roi_spec: tuple[int, int, int] | None = None
+    seeds: list[int] = []
+
+    for model_index, ckpt in enumerate(model_paths):
         net = _load_msi_model(Path(ckpt), device=device)
-        setattr(net, 'gNMDA', 1.30)  # task #42 fix: override legacy gNMDA=0.05 baked into checkpoints
+        net.gNMDA = 1.30
+        net.plasticity_enabled = False
+        net.freeze_g_FFinh = True
+
+        model_frame_ms = _physical_frame_ms(net)
+        if frame_ms is None:
+            frame_ms = model_frame_ms
+        else:
+            assert model_frame_ms == frame_ms
+
+        seed = int(seed_base + model_index)
+        seeds.append(seed)
 
         data = simulate_batch_trials(
             net,
             n_trials=n_trials,
             baseline_frames=baseline_frames,
-            stim_frames=stim_frames
-        )                                       # (T , B , n)
+            stim_frames=stim_frames,
+            centre_deg=90.0,
+            seed=seed,
+        )
 
-        # ❶ Fano factor
-        fano_curves.append(fano_factor(data))   # (T,)
+        centre_index = int(round(90.0 * (net.n - 1) / (net.space_size - 1)))
+        radius = int(round(2.0 * net.sigma_in))
+        roi_start = max(0, centre_index - radius)
+        roi_stop = min(net.n, centre_index + radius + 1)
+        current_roi = (centre_index, roi_start, roi_stop)
+        if roi_spec is None:
+            roi_spec = current_roi
+        else:
+            assert current_roi == roi_spec
+        roi_data = data[:, :, roi_start:roi_stop]
 
-        # ❷ spikes / frame / neuron
-        rate_bin_curves.append(data.mean(axis=(1, 2)))  # (T,)
+        primary_curve = active_neuron_fano_factor(roi_data)
+        roi_rate_curve = roi_data.mean(axis=(1, 2))
+        primary_fano_curves.append(primary_curve)
+        roi_rate_curves.append(roi_rate_curve)
+
+        roi_conventional_curves.append(fano_factor(roi_data))
+        whole_active_curves.append(active_neuron_fano_factor(data))
+        whole_conventional_curves.append(fano_factor(data))
+        whole_rate_curves.append(data.mean(axis=(1, 2)))
+
+        first_100ms_frames = min(stim_frames, int(round(100.0 / model_frame_ms)))
+        baseline_ff = float(np.nanmean(primary_curve[:baseline_frames]))
+        early_ff = float(np.nanmean(
+            primary_curve[baseline_frames:baseline_frames + first_100ms_frames]
+        ))
+        baseline_rate = float(roi_rate_curve[:baseline_frames].mean())
+        early_rate = float(
+            roi_rate_curve[baseline_frames:baseline_frames + first_100ms_frames].mean()
+        )
+        print(
+            f"  M{model_index:02d} primary active ±2σ ROI: "
+            f"FF={baseline_ff:.3f}->{early_ff:.3f}, "
+            f"rate={baseline_rate:.3f}->{early_rate:.3f}, seed={seed}"
+        )
 
         del net
         if device.startswith("cuda"):
             torch.cuda.empty_cache()
 
-    fano_curves     = np.vstack(fano_curves)
-    rate_bin_curves = np.vstack(rate_bin_curves)
+    if frame_ms is None or roi_spec is None:
+        raise ValueError("model_paths must contain at least one checkpoint")
 
-    meanF = fano_curves.mean(0)
-    semF  = fano_curves.std(0, ddof=1) / np.sqrt(fano_curves.shape[0])
-
-    meanR = rate_bin_curves.mean(0)
-    semR  = rate_bin_curves.std(0, ddof=1) / np.sqrt(rate_bin_curves.shape[0])
-
+    meanF, semF = _curve_mean_sem(primary_fano_curves, nan_aware=True)
+    meanR, semR = _curve_mean_sem(roi_rate_curves, nan_aware=False)
     t = np.arange(meanF.size)
-    return t, meanF, semF, meanR, semR, frame_dt_ms
+    if not return_diagnostics:
+        return t, meanF, semF, meanR, semR, frame_ms
+
+    roi_conv_mean, roi_conv_sem = _curve_mean_sem(
+        roi_conventional_curves, nan_aware=False
+    )
+    whole_active_mean, whole_active_sem = _curve_mean_sem(
+        whole_active_curves, nan_aware=True
+    )
+    whole_conv_mean, whole_conv_sem = _curve_mean_sem(
+        whole_conventional_curves, nan_aware=False
+    )
+    whole_rate_mean, whole_rate_sem = _curve_mean_sem(
+        whole_rate_curves, nan_aware=False
+    )
+    centre_index, roi_start, roi_stop = roi_spec
+    return {
+        "time_frames": t,
+        "frame_ms": frame_ms,
+        "stim_onset_frame": baseline_frames,
+        "seed_base": int(seed_base),
+        "seeds": tuple(seeds),
+        "roi": {
+            "centre_deg": 90.0,
+            "centre_index": centre_index,
+            "radius_neurons": int(round((roi_stop - roi_start - 1) / 2)),
+            "start": roi_start,
+            "stop": roi_stop,
+            "definition": "fixed stimulus-centred ±2*sigma_in neurons",
+        },
+        "primary": {
+            "label": "active-neuron Fano and all-neuron rate in fixed ±2σ ROI",
+            "fano_mean": meanF,
+            "fano_sem": semF,
+            "rate_mean": meanR,
+            "rate_sem": semR,
+        },
+        "secondary": {
+            "roi_conventional_fano_mean": roi_conv_mean,
+            "roi_conventional_fano_sem": roi_conv_sem,
+            "whole_active_fano_mean": whole_active_mean,
+            "whole_active_fano_sem": whole_active_sem,
+            "whole_conventional_fano_mean": whole_conv_mean,
+            "whole_conventional_fano_sem": whole_conv_sem,
+            "whole_rate_mean": whole_rate_mean,
+            "whole_rate_sem": whole_rate_sem,
+        },
+    }
 
 
 # ---------------------------------------------------------------------
@@ -184,7 +384,7 @@ def plot_fano_bio(t,
     ax_rate.plot(t, meanRbin, lw=2.5, color="k")
     ax_rate.fill_between(t, meanRbin - semRbin, meanRbin + semRbin,
                          color="k", alpha=0.15, linewidth=0)
-    ax_rate.set_ylabel(f"Spikes ({frame_dt_ms} ms bin)", labelpad=5)
+    ax_rate.set_ylabel(f"ROI spikes ({frame_dt_ms:g} ms bin)", labelpad=5)
     ax_rate.spines["right"].set_visible(False)
     ax_rate.spines["top"].set_visible(False)
 
@@ -193,14 +393,14 @@ def plot_fano_bio(t,
     ax_rate.yaxis.set_major_locator(MaxNLocator(nbins=4, integer=True))
     ax_rate.tick_params(axis="x", which="both", labelbottom=False, length=0)
 
-    ax_rate.text(0.02, 0.85, "Mean rate\n(non‑resp. conds.)",
+    ax_rate.text(0.02, 0.85, "Mean rate\n(fixed ±2σ ROI)",
                  transform=ax_rate.transAxes, fontsize=9, va="top")
 
     ax_fano.plot(t, meanF, lw=3, color="k")
     for alpha in (0.35, 0.25, 0.15):
         ax_fano.plot(t, meanF + semF, lw=1, color="k", alpha=alpha)
         ax_fano.plot(t, meanF - semF, lw=1, color="k", alpha=alpha)
-    ax_fano.set_ylabel("Fano factor", labelpad=5)
+    ax_fano.set_ylabel("Active-neuron Fano factor\n(fixed ±2σ ROI)", labelpad=5)
     ax_fano.set_xlabel("Time (external frames)")
 
     y_min = (meanF - semF).min() * 0.9
@@ -247,7 +447,7 @@ def main_fano_fast():
         baseline_frames=30,
         stim_frames=30,
         device="cuda:0" if torch.cuda.is_available() else "cpu",
-        frame_dt_ms=10)  # keep 10 ms external frame
+    )
 
     plot_fano_bio(t, meanF, semF, meanRbin, semRbin,
                   stim_onset=30,  # baseline_frames
@@ -329,7 +529,7 @@ def plot_fano_bio_with_biological(t,
     ax_rate.plot(t, bio_rate, lw=2.5, color="tab:blue", linestyle='--',
                  label="Biological (MT cortex)", alpha=0.8)
 
-    ax_rate.set_ylabel(f"Spikes ({frame_dt_ms} ms bin)", labelpad=5)
+    ax_rate.set_ylabel(f"ROI spikes ({frame_dt_ms:g} ms bin)", labelpad=5)
     ax_rate.spines["right"].set_visible(False)
     ax_rate.spines["top"].set_visible(False)
 
@@ -353,7 +553,7 @@ def plot_fano_bio_with_biological(t,
     # ax_fano.axhspan(0.6, 1.4, alpha=0.1, color="tab:blue",
     #                 label="Typical biological range")
 
-    ax_fano.set_ylabel("Fano factor", labelpad=5)
+    ax_fano.set_ylabel("Active-neuron Fano factor\n(fixed ±2σ ROI)", labelpad=5)
     ax_fano.set_xlabel("Time (external frames)")
     ax_fano.legend(loc="upper right", fontsize=70, frameon=False)
 
@@ -409,7 +609,7 @@ def main_fano_fast_with_bio():
         t, meanF, semF, meanR, semR,
         stim_onset=30,
         frame_dt_ms=dt,
-        title="MSI model – fixed Fano factor"
+        title="MSI model – active-neuron Fano factor in fixed ±2σ ROI"
     )
 
 

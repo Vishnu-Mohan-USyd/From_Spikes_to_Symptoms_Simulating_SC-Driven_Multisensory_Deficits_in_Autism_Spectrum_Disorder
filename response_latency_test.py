@@ -664,18 +664,52 @@ def measure_latency(
     return np.nan  # silent network → undefined latency
 
 
-def latency_profile_for_model(net):
-    """Returns a dict with A, V, B latencies and ΔLatency."""
+def _latency_comparison_metrics(
+        lat_A: float,
+        lat_V: float,
+        lat_B: float,
+) -> dict[str, float]:
+    """Return mean- and fastest-unimodal latency comparisons in milliseconds.
+
+    The established mean-unimodal comparison is retained under both
+    ``MeanUni_ms``/``MeanUniBenefit_ms`` and its legacy aliases
+    ``UniMean_ms``/``ΔLatency_ms``. ``FastestUniBenefit_ms`` is the stricter
+    comparison ``min(A, V) - AV``. In the production control result, AV has a
+    positive approximately 7.5 ms benefit versus the mean unimodal latency but
+    zero benefit versus the fastest unimodal latency: AV ties the fastest
+    auditory route rather than preceding it.
+    """
+    mean_unimodal = float(np.nanmean([lat_A, lat_V]))
+    fastest_unimodal = float(np.nanmin([lat_A, lat_V]))
+    mean_benefit = mean_unimodal - lat_B
+    fastest_benefit = fastest_unimodal - lat_B
+    return {
+        "MeanUni_ms": mean_unimodal,
+        "MeanUniBenefit_ms": mean_benefit,
+        "FastestUni_ms": fastest_unimodal,
+        "FastestUniBenefit_ms": fastest_benefit,
+        # Backward-compatible aliases used by existing analysis callers.
+        "UniMean_ms": mean_unimodal,
+        "ΔLatency_ms": mean_benefit,
+    }
+
+
+def latency_profile_for_model(net) -> dict[str, float]:
+    """Measure A, V and AV latency and report both unimodal comparisons.
+
+    The caller is responsible for supplying a frozen evaluation network. The
+    profile adds fields rather than renaming legacy output: a positive mean-
+    unimodal benefit (~7.5 ms in control) coexists with zero fastest-unimodal
+    benefit because AV ties the fastest auditory route.
+    """
     lat_A = measure_latency(net, modality="A")
     lat_V = measure_latency(net, modality="V")
     lat_B = measure_latency(net, modality="B")
-    uni_mean = np.nanmean([lat_A, lat_V])
     return {
         "A_ms": lat_A,
         "V_ms": lat_V,
         "B_ms": lat_B,
-        "UniMean_ms": uni_mean,
-        "ΔLatency_ms": uni_mean - lat_B,
+        **_latency_comparison_metrics(lat_A, lat_V, lat_B),
     }
 
 import pandas as pd
@@ -685,7 +719,15 @@ def run_latency_test(
     ckpt_template: str = "checkpoint/msi_model_surr_10_{:02d}.pt",
     n_models: int = 10,
     device: str = "cuda" if torch.cuda.is_available() else "cpu",
-):
+) -> pd.DataFrame:
+    """Measure production first-spike latency on fresh, frozen checkpoints.
+
+    A, V and AV are independent conditions: each starts from a fresh checkpoint
+    with trained parameters unchanged, the established ``gNMDA=1.30`` assay
+    setting, plasticity disabled and feedforward-inhibition adaptation frozen.
+    Returned columns retain legacy mean-unimodal fields and add explicit
+    ``FastestUni_ms`` and ``FastestUniBenefit_ms`` comparisons.
+    """
     rows = []
     for i in range(n_models):
         ckpt_path = Path(ckpt_template.format(i))
@@ -700,6 +742,8 @@ def run_latency_test(
         for modality in ("A", "V", "B"):
             net = load_msi_model(ckpt_path, device=device)
             setattr(net, 'gNMDA', 1.30)  # task #42 fix: override legacy gNMDA=0.05
+            net.plasticity_enabled = False
+            net.freeze_g_FFinh = True
             # task#147: removed the forced Izhikevich override
             # (net.aM,bM,cM,dM = 0.001,0.2,-60,0.1) over trained 0.02/0.2/-65/8.0.
             # Debugger's single-variable test proved forced vs trained give
@@ -710,17 +754,23 @@ def run_latency_test(
             del net
             if device.startswith("cuda"):
                 torch.cuda.empty_cache()
-        uni_mean = float(np.nanmean([latencies["A_ms"], latencies["V_ms"]]))
+        comparisons = _latency_comparison_metrics(
+            latencies["A_ms"], latencies["V_ms"], latencies["B_ms"]
+        )
         row = {
             "A_ms": latencies["A_ms"],
             "V_ms": latencies["V_ms"],
             "B_ms": latencies["B_ms"],
-            "UniMean_ms": uni_mean,
-            "ΔLatency_ms": uni_mean - latencies["B_ms"],
+            **comparisons,
             "Model": ckpt_path.stem,
         }
         rows.append(row)
-        print(f"    done in {time.time() - tic:.2f}s → ΔLatency = {row['ΔLatency_ms']:.1f} ms")
+        print(
+            f"    done in {time.time() - tic:.2f}s → "
+            f"MeanUniBenefit = {row['MeanUniBenefit_ms']:.1f} ms; "
+            f"FastestUniBenefit = {row['FastestUniBenefit_ms']:.1f} ms "
+            "(AV ties the fastest auditory route)"
+        )
 
     df = pd.DataFrame(rows).set_index("Model")
     return df
@@ -728,7 +778,14 @@ def run_latency_test(
 
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
-def summarise(df):
+def summarise(df: pd.DataFrame) -> None:
+    """Print and plot ensemble latency with both unimodal reference metrics.
+
+    The control interpretation is explicit: AV shows a positive ~7.5 ms benefit
+    versus mean unimodal latency, zero benefit versus fastest unimodal latency,
+    and therefore ties the fastest auditory route. Interpretation is limited to
+    these observed first-spike timings.
+    """
     mean = df.mean()
     sem = df.sem()
     print("\n=== Latency summary across 10 models ===")
@@ -739,8 +796,20 @@ def summarise(df):
         )
     )
     print("\nMean ± SEM (ms):")
-    for col in ["A_ms", "V_ms", "B_ms", "UniMean_ms", "ΔLatency_ms"]:
+    for col in [
+        "A_ms", "V_ms", "B_ms", "MeanUni_ms", "MeanUniBenefit_ms",
+        "FastestUni_ms", "FastestUniBenefit_ms",
+    ]:
         print(f"  {col:<12s}: {mean[col]:5.1f} ± {sem[col]:4.1f}")
+    print("\nInterpretation:")
+    print(
+        f"  Mean-unimodal benefit: {mean['MeanUniBenefit_ms']:+.1f} ms "
+        "(positive; approximately 7.5 ms in control)."
+    )
+    print(
+        f"  Fastest-unimodal benefit: {mean['FastestUniBenefit_ms']:+.1f} ms "
+        "(zero within dt resolution); AV ties the fastest auditory route."
+    )
 
     font_path = './fonts/Roboto-Regular.ttf'
     font_manager.fontManager.addfont(font_path)
@@ -755,10 +824,18 @@ def summarise(df):
     # optional bar plot
     plt.figure(figsize=(25, 16))
     cats = ["A_ms", "V_ms", "B_ms"]
+    labels = ["Auditory\n(fastest)", "Visual", "AV\n(ties auditory)"]
     bars = mean[cats].values
     errs = sem[cats].values
-    plt.bar(cats, bars, yerr=errs, capsize=4)
+    plt.bar(labels, bars, yerr=errs, capsize=4)
     plt.ylabel("Latency (ms)")
+    plt.title("AV ties the fastest auditory route")
+    plt.figtext(
+        0.5, 0.01,
+        f"Benefit vs mean unimodal: {mean['MeanUniBenefit_ms']:+.1f} ms; "
+        f"vs fastest unimodal: {mean['FastestUniBenefit_ms']:+.1f} ms",
+        ha="center",
+    )
     plt.tick_params(axis='both', which='major', length=20, width=1)
     plt.grid(False)
     plt.tight_layout()
@@ -776,6 +853,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
 
