@@ -203,12 +203,12 @@
       },
       "svg": {
         "path": "Saved_Images/TBW_dt_invariance_validated.svg",
-        "sha256": "f97d1db9ca30797d276b1b6f5e01b40ae78f4281c5ab4ff84fd878f13cf1d995",
-        "size_bytes": 87078
+        "sha256": "a8ff72718f4442e0720657514b0a868f4afe1da7a6333ba60cf8bffc5a0760f5",
+        "size_bytes": 86650
       }
     },
     "fit_source_sha256": "27ef0c5fa6d07ae8b1778eeafc26a27eff8f28f62e0bd6bc80ab62b34acc7ce3",
-    "replot_script_sha256": "fb9b0fa2d8c851b53760e994f35f9333206dbe632a1359fd7662423db4cfa867"
+    "replot_script_sha256": "91444b45236d68f385b68c92746cdb60d85800a1aebd7be1e0fe7816f649def6"
   },
   "command": "env CUDA_VISIBLE_DEVICES=1 MPLBACKEND=Agg python replot_tbw_dt_invariance.py",
   "figure": {

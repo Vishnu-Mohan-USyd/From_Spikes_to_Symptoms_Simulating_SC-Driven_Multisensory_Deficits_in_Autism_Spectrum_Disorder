@@ -12,6 +12,11 @@ All widths are in milliseconds. ``full width`` means the separation between
 the two fitted P(fusion)=0.5 crossings; ``half-width`` is half that separation.
 Random locations were frozen upstream with seed ``12345 + model_index``. This
 script performs no simulation and invokes no CUDA kernels.
+
+Runtime requires Python with NumPy, SciPy, Matplotlib, and the repository's
+``TBW_test.py`` module. The validated command sets ``CUDA_VISIBLE_DEVICES=1``
+for process isolation and ``MPLBACKEND=Agg`` for headless rendering; all work
+in this script remains CPU-only.
 """
 
 from __future__ import annotations
@@ -191,6 +196,19 @@ def _sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _normalise_svg_whitespace(path: Path) -> None:
+    """Remove trailing horizontal whitespace while preserving a final LF."""
+
+    lines = path.read_text(encoding="utf-8").splitlines()
+    normalised = "\n".join(line.rstrip(" \t") for line in lines) + "\n"
+    path.write_text(normalised, encoding="utf-8")
+    _require(normalised.endswith("\n"), "Normalised SVG must end with LF")
+    _require(
+        all(not line.endswith((" ", "\t")) for line in normalised.splitlines()),
+        f"Trailing horizontal whitespace remains in SVG: {path}",
+    )
 
 
 def _sha256_array(array: np.ndarray) -> str:
@@ -966,6 +984,7 @@ def _render_figure(
         format="svg",
         metadata={"Title": title, "Description": description, "Creator": "Matplotlib", "Date": None},
     )
+    _normalise_svg_whitespace(outputs["svg"])
     figure.savefig(
         outputs["pdf"],
         format="pdf",
@@ -1172,16 +1191,49 @@ def _write_provenance(
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        epilog=(
+            "Runtime: Python with NumPy, SciPy, Matplotlib, and repository "
+            "TBW_test.py. Set CUDA_VISIBLE_DEVICES=1 and MPLBACKEND=Agg for "
+            "the validated environment; validation and rendering are CPU-only "
+            "and invoke no CUDA kernels. Existing provenance and same-named "
+            "SVG/PDF/PNG exports are overwritten."
+        ),
+    )
     parser.add_argument(
         "--source-dir",
         type=Path,
         default=None,
-        help="One-time frozen paired_sweep directory used to verify/build the bundle.",
+        help=(
+            "One-time frozen paired_sweep directory used to verify and build "
+            "the bundle; omit for a bundle-only replot with no simulation."
+        ),
     )
-    parser.add_argument("--bundle", type=Path, default=DEFAULT_BUNDLE)
-    parser.add_argument("--provenance", type=Path, default=DEFAULT_PROVENANCE)
-    parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument(
+        "--bundle",
+        type=Path,
+        default=DEFAULT_BUNDLE,
+        help=(
+            "Durable validated NPZ input; rebuilt and overwritten only when "
+            "--source-dir is supplied."
+        ),
+    )
+    parser.add_argument(
+        "--provenance",
+        type=Path,
+        default=DEFAULT_PROVENANCE,
+        help="JSON sidecar written after rendering; an existing file is overwritten.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=DEFAULT_OUTPUT_DIR,
+        help=(
+            "Directory for SVG/PDF/PNG exports; same-named files are overwritten."
+        ),
+    )
     return parser.parse_args()
 
 

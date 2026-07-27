@@ -7,9 +7,11 @@ SC-Driven Multisensory Deficits in Autism Spectrum Disorder_**, revision 2:
 `manuscript_rev_2.pdf` (57 pages; document timestamp 2026-05-07 23:42:20 AEST;
 SHA-256
 `9d9f156e802462bac0c238c47f59749302204d8b5bc1b3c3424d4c040d6378eb`).
-The repository anchor is commit
-`ecadfd4d472cead684c2d49d18657df4c1b6525b`. The standalone assay validation
-ran on 2026-07-26; the final independent regression completed on 2026-07-27.
+The standalone-assay anchor is commit
+`ecadfd4d472cead684c2d49d18657df4c1b6525b` (validated 2026-07-26). The final
+corrected executable baseline is
+`cdeb66511ed1a07e3329d74c9cb30a7cde4c9c46`; its independent regression
+completed on 2026-07-27.
 This document and the versioned
 [validation protocol](validation_protocol.md) are the durable release record.
 Full command transcripts were captured during that session under
@@ -277,3 +279,15 @@ release tables report **half-width = full width / 2**. The corrected paired
 result above is a new validation result; its `+2.284500 ms` mean full-width
 drift (`+1.142250 ms` in half-width units) must not be presented as a
 manuscript threshold or substituted into the historical figure.
+
+The validated figure provenance truthfully records generation at commit
+`cdeb66511ed1a07e3329d74c9cb30a7cde4c9c46` while its six release artifacts
+were still untracked. Its `repository.head` and `repository.status_porcelain`
+fields are therefore generation-time evidence, not a claim about current-tree
+status. The committed
+[`Saved_Data/TBW_dt_invariance_validated.npz`](../Saved_Data/TBW_dt_invariance_validated.npz)
+is the durable default replot input; the recorded
+`/tmp/fsts10-tbw-validator.BWavAI/paired_sweep` location is ephemeral source
+provenance and is not a runtime dependency. See the
+[`provenance JSON`](../Saved_Data/TBW_dt_invariance_validated.provenance.json)
+for the frozen hashes and schema.

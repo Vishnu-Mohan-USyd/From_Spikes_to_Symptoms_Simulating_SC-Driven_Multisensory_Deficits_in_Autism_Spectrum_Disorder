@@ -19,7 +19,7 @@ checkpoint hash was unchanged after evaluation.
   `9d9f156e802462bac0c238c47f59749302204d8b5bc1b3c3424d4c040d6378eb`.
 - PDF metadata timestamp: 2026-05-07 23:42:20 AEST.
 - Validated executable baseline:
-  `ecadfd4d472cead684c2d49d18657df4c1b6525b`.
+  `cdeb66511ed1a07e3329d74c9cb30a7cde4c9c46`.
 
 The biological phenomenon is the primary acceptance target. Exact equality to
 an earlier manuscript number is not required when the current result is valid
@@ -133,6 +133,29 @@ The full pipeline writes
 `Saved_Images/{TBW,SBW}_{control,ff_inhibition,adaptation,nmda,nmda_increase}.{svg,png}`,
 `cache/tbw_<condition>.npz`, and
 `cache/sbw_<condition>_t1110.npz`.
+
+### Validated TBW integration-step replot
+
+The corrected paired `dt=.10/.05 ms` invariance result can be reproduced from
+the committed data bundle without rerunning a simulation:
+
+```bash
+env CUDA_VISIBLE_DEVICES=1 MPLBACKEND=Agg python replot_tbw_dt_invariance.py
+```
+
+| Artifact | Durable path |
+|---|---|
+| Replotter | [`replot_tbw_dt_invariance.py`](replot_tbw_dt_invariance.py) |
+| Validated data | [`Saved_Data/TBW_dt_invariance_validated.npz`](Saved_Data/TBW_dt_invariance_validated.npz) |
+| Provenance | [`Saved_Data/TBW_dt_invariance_validated.provenance.json`](Saved_Data/TBW_dt_invariance_validated.provenance.json) |
+| Figure exports | [`SVG`](Saved_Images/TBW_dt_invariance_validated.svg), [`PDF`](Saved_Images/TBW_dt_invariance_validated.pdf), [`PNG`](Saved_Images/TBW_dt_invariance_validated.png) |
+
+This is a CPU-only validation and rendering command: it invokes no simulation
+and no CUDA kernels. The environment prefix preserves the validated process
+isolation, while the default replot reads only the durable NPZ and has no
+`/tmp` dependency. The historical M00-only
+`Saved_Images/TBW_stepsize_sensitivity.{svg,png}` artifacts remain unchanged
+and must not be confused with this paired ten-checkpoint result.
 
 ## Regression gate
 
