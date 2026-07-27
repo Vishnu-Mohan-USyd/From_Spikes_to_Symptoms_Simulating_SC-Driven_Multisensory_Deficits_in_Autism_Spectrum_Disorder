@@ -1,0 +1,430 @@
+{
+  "aggregation": {
+    "mean": "arithmetic mean of 10 checkpoint-level p_fusion values at each SOA",
+    "sem": "sample SD across checkpoints (ddof=1) divided by sqrt(10)",
+    "sem_inputs": "p_fusion[condition, checkpoint, SOA] stored in the bundle"
+  },
+  "artifacts": {
+    "bundle": {
+      "path": "Saved_Data/TBW_dt_invariance_validated.npz",
+      "schema": {
+        "bundle_build_command": {
+          "dtype": "<U135",
+          "shape": [
+            1
+          ]
+        },
+        "condition_keys": {
+          "dtype": "<U6",
+          "shape": [
+            2
+          ]
+        },
+        "dt_ms": {
+          "dtype": "float64",
+          "shape": [
+            2
+          ]
+        },
+        "external_frame_ms": {
+          "dtype": "float64",
+          "shape": [
+            1
+          ]
+        },
+        "fused_flags": {
+          "dtype": "uint8",
+          "shape": [
+            2,
+            10,
+            51,
+            50
+          ]
+        },
+        "locations": {
+          "dtype": "int64",
+          "shape": [
+            10,
+            51,
+            50
+          ]
+        },
+        "locations_sha256": {
+          "dtype": "<U64",
+          "shape": [
+            10
+          ]
+        },
+        "model_indices": {
+          "dtype": "int64",
+          "shape": [
+            10
+          ]
+        },
+        "n_substeps": {
+          "dtype": "int64",
+          "shape": [
+            2
+          ]
+        },
+        "n_trials_per_soa": {
+          "dtype": "int64",
+          "shape": [
+            1
+          ]
+        },
+        "offsets_frames": {
+          "dtype": "int64",
+          "shape": [
+            51
+          ]
+        },
+        "offsets_ms": {
+          "dtype": "float64",
+          "shape": [
+            51
+          ]
+        },
+        "p_fusion": {
+          "dtype": "float64",
+          "shape": [
+            2,
+            10,
+            51
+          ]
+        },
+        "paired_full_width_drift_ms": {
+          "dtype": "float64",
+          "shape": [
+            10
+          ]
+        },
+        "paired_half_width_drift_ms": {
+          "dtype": "float64",
+          "shape": [
+            10
+          ]
+        },
+        "per_model_fit_r_squared": {
+          "dtype": "float64",
+          "shape": [
+            2,
+            10
+          ]
+        },
+        "per_model_full_width_ms": {
+          "dtype": "float64",
+          "shape": [
+            2,
+            10
+          ]
+        },
+        "per_model_half_width_ms": {
+          "dtype": "float64",
+          "shape": [
+            2,
+            10
+          ]
+        },
+        "pooled_mean_fusion": {
+          "dtype": "float64",
+          "shape": [
+            2,
+            51
+          ]
+        },
+        "pooled_sem_fusion": {
+          "dtype": "float64",
+          "shape": [
+            2,
+            51
+          ]
+        },
+        "seeds": {
+          "dtype": "int64",
+          "shape": [
+            10
+          ]
+        },
+        "source_analysis_summary_sha256": {
+          "dtype": "<U64",
+          "shape": [
+            1
+          ]
+        },
+        "source_npz_names": {
+          "dtype": "<U27",
+          "shape": [
+            20
+          ]
+        },
+        "source_npz_sha256": {
+          "dtype": "<U64",
+          "shape": [
+            20
+          ]
+        },
+        "source_paired_summary_sha256": {
+          "dtype": "<U64",
+          "shape": [
+            1
+          ]
+        },
+        "source_recorded_dir": {
+          "dtype": "<U45",
+          "shape": [
+            1
+          ]
+        },
+        "source_validator_manifest_sha256": {
+          "dtype": "<U64",
+          "shape": [
+            1
+          ]
+        }
+      },
+      "sha256": "2d8da8b04bf02055ae8e2a9f2a1c87d63237e703764613c4a604fc2c0d78e11b",
+      "size_bytes": 45062
+    },
+    "exports": {
+      "pdf": {
+        "path": "Saved_Images/TBW_dt_invariance_validated.pdf",
+        "sha256": "1129cf36f5941924f7a609f01a0265bb61bb8a2ce1b2b609aea2920366e912b2",
+        "size_bytes": 28532
+      },
+      "png": {
+        "path": "Saved_Images/TBW_dt_invariance_validated.png",
+        "pixel_dimensions": [
+          2400,
+          1500
+        ],
+        "sha256": "a3f66b01288bffe944d2c74ae5c31ffecd90b4de45d5bb9b10617c88e0d27444",
+        "size_bytes": 262291
+      },
+      "svg": {
+        "path": "Saved_Images/TBW_dt_invariance_validated.svg",
+        "sha256": "f97d1db9ca30797d276b1b6f5e01b40ae78f4281c5ab4ff84fd878f13cf1d995",
+        "size_bytes": 87078
+      }
+    },
+    "fit_source_sha256": "27ef0c5fa6d07ae8b1778eeafc26a27eff8f28f62e0bd6bc80ab62b34acc7ce3",
+    "replot_script_sha256": "fb9b0fa2d8c851b53760e994f35f9333206dbe632a1359fd7662423db4cfa867"
+  },
+  "command": "env CUDA_VISIBLE_DEVICES=1 MPLBACKEND=Agg python replot_tbw_dt_invariance.py",
+  "figure": {
+    "fit_aggregation": "fit_psychometric_curve_improved applied to each pooled mean curve; individual fits are never averaged",
+    "full_width_definition": "separation between fitted P(fusion)=0.5 crossings",
+    "half_width_definition": "full width divided by two",
+    "png_dpi": 300,
+    "sem_display": "mean \u00b11 SEM, clipped to [0,1] for error-bar display only",
+    "size_inches": [
+      8.0,
+      5.0
+    ],
+    "title": "Temporal binding window across integration step sizes"
+  },
+  "metrics": {
+    "minimum_individual_fit": "M02 dt=.05 ms / 200 substeps",
+    "minimum_individual_fit_r_squared": 0.995994918007222,
+    "paired_full_width_drift_ci90_ms": [
+      1.4823309194598147,
+      3.0866698165050885
+    ],
+    "paired_full_width_drift_ms": [
+      0.7230086849388329,
+      0.6487840536106262,
+      2.180528527087972,
+      2.3054376801146077,
+      2.7119566429086603,
+      1.1667952115736853,
+      2.3515275960202757,
+      5.487397692562581,
+      2.925393553414551,
+      2.3441740375927225
+    ],
+    "paired_mean_full_width_drift_ms": 2.2845003679824516,
+    "paired_mean_half_width_drift_ms": 1.1422501839912258,
+    "per_model_full_width_ms": [
+      [
+        222.41002132052122,
+        222.01999021885513,
+        219.1887947788059,
+        222.32948707647222,
+        218.73255308372342,
+        222.6683441265207,
+        217.40228839857934,
+        214.1245696733531,
+        219.8980564847057,
+        215.26672156278676
+      ],
+      [
+        223.13303000546006,
+        222.66877427246575,
+        221.3693233058939,
+        224.63492475658683,
+        221.44450972663208,
+        223.8351393380944,
+        219.75381599459962,
+        219.6119673659157,
+        222.82345003812026,
+        217.61089560037948
+      ]
+    ],
+    "pooled_curve_max_abs_delta": 0.06400000000000006,
+    "pooled_curve_mean_abs_delta": 0.0021960784313725503,
+    "pooled_curve_nrmse": 0.010151789178731595,
+    "pooled_curve_pearson_r": 0.99971242611273,
+    "pooled_curve_rmse": 0.010151789178731595,
+    "pooled_fit_r_squared": [
+      0.9983860472263326,
+      0.9985019179377927
+    ],
+    "pooled_full_width_drift_ms": 2.210523830809592,
+    "pooled_full_width_ms": [
+      219.76208778128776,
+      221.97261161209735
+    ],
+    "pooled_half_width_drift_ms": 1.105261915404796,
+    "pooled_half_width_ms": [
+      109.88104389064388,
+      110.98630580604868
+    ]
+  },
+  "repository": {
+    "branch": "agent/tbw-dt-invariance",
+    "head": "cdeb66511ed1a07e3329d74c9cb30a7cde4c9c46",
+    "status_porcelain": [
+      "?? Saved_Data/TBW_dt_invariance_validated.npz",
+      "?? Saved_Data/TBW_dt_invariance_validated.provenance.json",
+      "?? Saved_Images/TBW_dt_invariance_validated.pdf",
+      "?? Saved_Images/TBW_dt_invariance_validated.png",
+      "?? Saved_Images/TBW_dt_invariance_validated.svg",
+      "?? replot_tbw_dt_invariance.py"
+    ]
+  },
+  "sample": {
+    "checkpoints": 10,
+    "condition": "control, gNMDA=1.30, plasticity disabled",
+    "conditions": [
+      {
+        "dt_ms": 0.1,
+        "external_frame_ms": 10.0,
+        "n_substeps": 100
+      },
+      {
+        "dt_ms": 0.05,
+        "external_frame_ms": 10.0,
+        "n_substeps": 200
+      }
+    ],
+    "frames_per_trial": 60,
+    "fusion_classifier": {
+      "min_peak_height": 0.2,
+      "min_peak_separation_frames": 3,
+      "min_total_spikes": 10.0,
+      "sigma_frames": 2.0,
+      "valley_threshold": 0.4
+    },
+    "noise_std": 0.0,
+    "offsets_ms": [
+      -500.0,
+      -480.0,
+      -460.0,
+      -440.0,
+      -420.0,
+      -400.0,
+      -380.0,
+      -360.0,
+      -340.0,
+      -320.0,
+      -300.0,
+      -280.0,
+      -260.0,
+      -240.0,
+      -220.0,
+      -200.0,
+      -180.0,
+      -160.0,
+      -140.0,
+      -120.0,
+      -100.0,
+      -80.0,
+      -60.0,
+      -40.0,
+      -20.0,
+      0.0,
+      20.0,
+      40.0,
+      60.0,
+      80.0,
+      100.0,
+      120.0,
+      140.0,
+      160.0,
+      180.0,
+      200.0,
+      220.0,
+      240.0,
+      260.0,
+      280.0,
+      300.0,
+      320.0,
+      340.0,
+      360.0,
+      380.0,
+      400.0,
+      420.0,
+      440.0,
+      460.0,
+      480.0,
+      500.0
+    ],
+    "paired_inputs": "identical 51\u00d750 location matrix for both dt values per checkpoint",
+    "seed_rule": "12345 + model_index, reset per paired condition",
+    "soas": 51,
+    "stimulus_duration_frames": 5,
+    "stimulus_intensity": 1.0,
+    "total_condition_trials": 51000,
+    "trials_per_soa": 50
+  },
+  "schema_version": 1,
+  "software": {
+    "cuda_visible_devices": "1",
+    "matplotlib": "3.10.8",
+    "numpy": "2.3.5",
+    "platform": "Linux-6.8.0-124-generic-x86_64-with-glibc2.35",
+    "python": "3.13.7",
+    "renderer": "CPU-only Matplotlib Agg; no CUDA kernels invoked",
+    "scipy": "1.17.0"
+  },
+  "source": {
+    "analysis_summary_sha256": "1719f80e3a3f5ad5e3461fe7875954880aa45295965992dd1e922d0d241f2a81",
+    "bundle_build_command": "env CUDA_VISIBLE_DEVICES=1 MPLBACKEND=Agg python replot_tbw_dt_invariance.py --source-dir /tmp/fsts10-tbw-validator.BWavAI/paired_sweep",
+    "npz_sha256": {
+      "model00_dt0.050_nsub200.npz": "7c69f60c72d48a9c4eb34b294eda3bab0eede6a509cbf4d5762901194481f724",
+      "model00_dt0.100_nsub100.npz": "2f55a83f522d32003833a64f3f3608566239325d1043f565ee38d91654c9d3d0",
+      "model01_dt0.050_nsub200.npz": "ef8b99151d0fa1538c39eebfef87eee9b69c46da3f367a42edbb5bf1db9a9dde",
+      "model01_dt0.100_nsub100.npz": "a73a920377611fa290b6a6d1f687168daf9b99b4a5a8a38d6d439caadac06d0d",
+      "model02_dt0.050_nsub200.npz": "f2e70e0a50a0fbe2138c06254333f947e1bade0ae3dc0845717c049071dc4447",
+      "model02_dt0.100_nsub100.npz": "d925ba38419f98e7fcd8cff461b418c1ecc378edd9e951383cdf100c354f42cd",
+      "model03_dt0.050_nsub200.npz": "529dcc46d0a0c3437c333798411c38e8d0097c6a25b5d73d5cd0173f19722167",
+      "model03_dt0.100_nsub100.npz": "45c44eac0b6c69407604a47445e5def88e1531c6338f21ae0307e6e490363350",
+      "model04_dt0.050_nsub200.npz": "84e95b2b981f07a820eb961682064f7500c430873b57b3ed7d8699d5dcb7ee12",
+      "model04_dt0.100_nsub100.npz": "897c8223d147765b928e853997d67e7d7b95ea710c0b57cc387d543ace7a9b9e",
+      "model05_dt0.050_nsub200.npz": "b6cb9b942f4460a1f8df3bd04bb8f6897a4c58e0cc5257309723d4f48037a89f",
+      "model05_dt0.100_nsub100.npz": "82c073b1653deca6b68fc4f73d0b08b3cf6397f590269f56867a7f5f1ae63bfd",
+      "model06_dt0.050_nsub200.npz": "374a328bdcf5cdcd21f197c0fb2a17e3cde3e4e20bcdc4718a41c1593bfd948d",
+      "model06_dt0.100_nsub100.npz": "016593e5df5b47e24415293f6973d00caac8e64b75407a78f9da62696938acc0",
+      "model07_dt0.050_nsub200.npz": "7a87a843d5d1632c5288e3aeeaba1e5ce2dd1bf97670c62b75d151e67afccb7d",
+      "model07_dt0.100_nsub100.npz": "8b1bc6f893de6ca661d6414f854fc4080f82fc8d6dc61bdebf40f9ad3c1c57a3",
+      "model08_dt0.050_nsub200.npz": "399a7fb2eb1b3dbd941992ae9b4e02d3c5afbc4a867dccdcb347b797123ee61a",
+      "model08_dt0.100_nsub100.npz": "e75bf422a6435f4b73cb55311041e44bb4a9a3b00c2244e485113bcdc797392c",
+      "model09_dt0.050_nsub200.npz": "9ce55cb8f9d2944c6081b817c26f143c2b1c02c2080650f9ab14572631b7cbe9",
+      "model09_dt0.100_nsub100.npz": "819c65665375f7f0fa042d9574d4792575970ffa6c393cf3717dee050e5a03d0"
+    },
+    "paired_summary_sha256": "0c96c10237075030bed0155d61444c9ea4ce123f8c4b7e6b6887d3e9ade318bb",
+    "recorded_source_dir": "/tmp/fsts10-tbw-validator.BWavAI/paired_sweep",
+    "source_dir_is_required_for_replot": false,
+    "validator_manifest_sha256": "349386c66d871977eff6abc8920ab96df8dc8723e3b35abded7f5f072dabab59"
+  }
+}
