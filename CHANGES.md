@@ -6,6 +6,19 @@
 > [README](README.md) and [research log](docs/research_log.md) for the frozen
 > release workflow and accepted results.
 
+## 2026-07-27 — Presynaptic inhibitory-input STP correction
+
+- Corrected A/V→MSI-inhibitory AMPA short-term depression to track and consume
+  resources per presynaptic terminal before the `(n_inh, n)` projection; NMDA
+  routing and model parameters are unchanged.
+- Independent GPU1/A6000 validation passed the paired `dt=.1/.05 ms` protocol:
+  mean full-width drift `+2.284500 ms` (90% CI `[1.482331, 3.086670]`), worst
+  checkpoint `+5.487398 ms`, pooled-curve `r=.999712`, NRMSE `.010152`, with
+  every audited state finite and every STP resource in `[0,1]`.
+- Mechanism, assumptions, width terminology, and exact results are recorded in
+  the [research log](docs/research_log.md); preregistered gates are in the
+  [validation protocol](docs/validation_protocol.md).
+
 ## Overview
 
 This repository implements a Superior Colliculus (SC)-driven multisensory binding

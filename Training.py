@@ -1439,10 +1439,12 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self.R_v = torch.ones((self.batch_size, self.n), device=self.device)
         self.u_v = torch.full((self.batch_size, self.n), 0.2, device=self.device)
 
-        self.R_a_inh = torch.ones((self.batch_size, self.n_inh), device=self.device)
-        self.u_a_inh = torch.full((self.batch_size, self.n_inh), 0.2, device=self.device)
-        self.R_v_inh = torch.ones((self.batch_size, self.n_inh), device=self.device)
-        self.u_v_inh = torch.full((self.batch_size, self.n_inh), 0.2, device=self.device)
+        # A/V -> MSI_inh STP is indexed by the presynaptic unimodal neurons.
+        # R and u are dimensionless terminal states with shape (B, n).
+        self.R_a_inh = torch.ones((self.batch_size, self.n), device=self.device)
+        self.u_a_inh = torch.full((self.batch_size, self.n), 0.2, device=self.device)
+        self.R_v_inh = torch.ones((self.batch_size, self.n), device=self.device)
+        self.u_v_inh = torch.full((self.batch_size, self.n), 0.2, device=self.device)
 
         self.tau_rec = 400.0
         self.tau_fac = 20.0
@@ -1900,10 +1902,11 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
         self.R_v = torch.ones((self.batch_size, self.n), device=self.device)
         self.u_v = torch.full((self.batch_size, self.n), 0.2, device=self.device)
 
-        self.R_a_inh = torch.ones((self.batch_size, self.n_inh), device=self.device)
-        self.u_a_inh = torch.full((self.batch_size, self.n_inh), 0.2, device=self.device)
-        self.R_v_inh = torch.ones((self.batch_size, self.n_inh), device=self.device)
-        self.u_v_inh = torch.full((self.batch_size, self.n_inh), 0.2, device=self.device)
+        # Presynaptic terminal state for A/V -> MSI_inh, shape (B, n).
+        self.R_a_inh = torch.ones((self.batch_size, self.n), device=self.device)
+        self.u_a_inh = torch.full((self.batch_size, self.n), 0.2, device=self.device)
+        self.R_v_inh = torch.ones((self.batch_size, self.n), device=self.device)
+        self.u_v_inh = torch.full((self.batch_size, self.n), 0.2, device=self.device)
 
         self.post_i_trace = torch.zeros((self.batch_size, self.n),
                                         dtype=torch.float32,
@@ -2263,21 +2266,19 @@ class MultiBatchAudVisMSINetworkTime(nn.Module):
             # ============== A->MSI_inh, V->MSI_inh ==============
             self.R_a_inh += (1.0 - self.R_a_inh) * (self.dt / self.tau_rec)
             use_A_inh = self.u_a_inh * self.R_a_inh
-            spike_sum_a = delayed_spikes_a2msi_inh.sum(dim=1, keepdim=True)
-            self.R_a_inh -= use_A_inh * spike_sum_a
-
-            raw_inp_a_AMPA = F.linear(delayed_spikes_a2msi_inh, W_a2msiInh_AMPA)
-            I_Mi_a_AMPA = (use_A_inh * raw_inp_a_AMPA)
+            # Release is computed per presynaptic terminal (B, n) before the
+            # (n_inh, n) projection; R is a dimensionless available fraction.
+            released_A_inh = use_A_inh * delayed_spikes_a2msi_inh
+            self.R_a_inh -= released_A_inh
+            I_Mi_a_AMPA = F.linear(released_A_inh, W_a2msiInh_AMPA)
 
             raw_inp_a_NMDA = F.linear(delayed_spikes_a2msi_inh, W_a2msiInh_NMDA)
 
             self.R_v_inh += (1.0 - self.R_v_inh) * (self.dt / self.tau_rec)
             use_V_inh = self.u_v_inh * self.R_v_inh
-            spike_sum_v = delayed_spikes_v2msi_inh.sum(dim=1, keepdim=True)
-            self.R_v_inh -= use_V_inh * spike_sum_v
-
-            raw_inp_v_AMPA = F.linear(delayed_spikes_v2msi_inh, W_v2msiInh_AMPA)
-            I_Mi_v_AMPA = (use_V_inh * raw_inp_v_AMPA)
+            released_V_inh = use_V_inh * delayed_spikes_v2msi_inh
+            self.R_v_inh -= released_V_inh
+            I_Mi_v_AMPA = F.linear(released_V_inh, W_v2msiInh_AMPA)
 
             raw_inp_v_NMDA = F.linear(delayed_spikes_v2msi_inh, W_v2msiInh_NMDA)
 

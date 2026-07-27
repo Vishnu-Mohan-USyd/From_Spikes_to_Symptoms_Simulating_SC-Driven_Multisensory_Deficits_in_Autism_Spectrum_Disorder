@@ -8,7 +8,7 @@ adaptation alter model behaviour.
 ## Project status and manuscript anchor
 
 The pretrained analysis path is validated and frozen for this release. The
-final gate completed on 2026-07-26: six GPU regression tests passed, all seven
+final gate completed on 2026-07-27: seven GPU regression tests passed, all six
 standalone assays and the full TBW/SBW pipeline exited successfully, and every
 checkpoint hash was unchanged after evaluation.
 
@@ -89,7 +89,7 @@ python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_
 Final validation used physical GPU 1, exposed as logical CUDA device 0, on an
 NVIDIA RTX A6000. The assay code uses ordinary PyTorch CUDA device strings and
 does not contain A6000-specific kernels. The current regression tests do
-explicitly assert an A6000, so reproducing the exact six-test hardware gate
+explicitly assert an A6000, so reproducing the exact seven-test hardware gate
 requires one; other supported CUDA devices may run the assays but are outside
 the recorded release matrix. CPU support is not uniform across command-line
 entry points and was not part of the final validation.
@@ -140,14 +140,15 @@ The recommended scoped regression command targets the public tests directory
 so that historical diagnostic scripts under `debug_dt/` are not collected:
 
 ```bash
-CUDA_VISIBLE_DEVICES=1 MPLBACKEND=Agg python -m pytest -q tests
+env CUDA_VISIBLE_DEVICES=1 MPLBACKEND=Agg PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 python -m pytest -q tests
 ```
 
-The frozen release run reported `6 passed in 273.21s (0:04:33)`; its literal
-command is preserved in the [research log](docs/research_log.md). The tests
+The final independent A6000 run reported `7 passed in 268.02s (0:04:28)`; its
+literal command is preserved in the [research log](docs/research_log.md). The tests
 cover canonical E/I routing and state preservation, physical-time Fano
 measurement on one and ten checkpoints, inverse-effectiveness direction, and
-latency semantics/reporting.
+latency semantics/reporting, plus presynaptic inhibitory-input STP release,
+shape, finiteness, and resource bounds.
 
 ## Final validated metric matrix
 

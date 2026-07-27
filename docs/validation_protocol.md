@@ -1,8 +1,8 @@
 # Biological validation protocol
 
 - **Model:** SC-driven audiovisual spiking neural network
-- **Protocol version:** 2.0
-- **Frozen validation date:** 2026-07-26
+- **Protocol version:** 2.1
+- **Frozen validation date:** 2026-07-27
 - **Manuscript:** Mohan & Rideaux, _From Spikes to Symptoms: Simulating
   SC-Driven Multisensory Deficits in Autism Spectrum Disorder_, revision 2
 - **Manuscript SHA-256:**
@@ -17,7 +17,8 @@ criteria in `CHANGES.md` and diagnostic notes.
 The acceptance hierarchy is:
 
 1. Reproduce the named biological phenomenon with the specified estimator.
-2. Preserve checkpoint and model state during evaluation.
+2. Preserve checkpoints and registered parameter/buffer (`state_dict`) content;
+   allow dynamic state to evolve while auditing its finiteness and bounds.
 3. Apply the quantitative gate below.
 4. Compare with manuscript values as context, not as a requirement to degrade a
    stronger valid result.
@@ -240,14 +241,54 @@ Each condition pools 10 checkpoints × 50 trials.
 
 | Perturbation | TBW gate | Final TBW | SBW gate | Final SBW |
 |---|---:|---:|---:|---:|
-| Control | Reference | `110 ms` | Reference | `26.7°` |
-| Reduced feed-forward inhibition | Wider | `158 ms` | Wider | `29.0°` |
-| Reduced adaptation | Wider | `229 ms` | Wider | `30.2°` |
-| Reduced NMDA | Narrower | `94 ms` | Narrower | `13.2°` |
-| Increased NMDA | Stable/equivalent | `112 ms` | Wider | `30.6°` |
+| Control | Reference | `109.881044 ms` | Reference | `26.7°` |
+| Reduced feed-forward inhibition | Wider | `157.141585 ms` | Wider | `29.0°` |
+| Reduced adaptation | Wider | `228.440307 ms` | Wider | `30.2°` |
+| Reduced NMDA | Narrower | `95.194328 ms` | Narrower | `13.2°` |
+| Increased NMDA | Stable/equivalent | `111.546667 ms` | Wider | `30.6°` |
 
 All eight signed/equivalence perturbation predictions passed. The two control
 widths are model-operational references, not clinical norms.
+
+### 4.8 TBW step-size invariance
+
+**Property:** The control TBW is stable when the integration step is halved
+without changing physical frame duration, delays, stimuli, or trial labels.
+
+The canonical paired protocol uses checkpoints `00..09`, 51 SOAs, 50 trials
+per SOA, and seed `12345 + model_index`, reset identically for each step size.
+Compare `dt=.1 ms` × 100 substeps with `dt=.05 ms` × 200 substeps, so both
+external frames span 10 ms. Express drift first as the fitted left-to-right
+**full width**; the reported TBW half-width is exactly half that value.
+
+The predeclared acceptance gates are:
+
+- absolute mean paired full-width drift `<= 5 ms`;
+- absolute drift at every checkpoint `<= 10 ms`;
+- the complete 90% CI of paired full-width drift lies within `[-10, +10] ms`;
+- pooled-ensemble absolute full-width drift `<= 10 ms` (observed
+  `+2.210524 ms`);
+- the `dt=.1 ms` pooled control half-width lies within `110 ± 10 ms` (observed
+  `109.881044 ms`);
+- pooled fit `R² >= .90` (observed `.998386/.998502`) and every individual fit
+  `R² >= .80` (observed minimum `.995995`);
+- pooled-curve Pearson `r >= .95` and NRMSE `<= .10`; and
+- paired location hashes match at both step sizes (observed 10/10 checkpoint
+  pairs) and corrected-versus-prepatch location hashes match (observed 20/20
+  conditions).
+
+Invariant gates require exact 10 ms frames, physical delays preserved within
+half a substep, finite audited dynamic tensors at every frame, each STP
+resource in `[0,1]`, unchanged registered parameter/buffer (`state_dict`)
+content, and valid two-crossing fits with finite parameters/covariance and no
+fallback. Dynamic simulation state is expected to evolve; its finiteness and
+resource bounds, rather than immobility, are audited.
+
+**Final paired result:** mean full-width drift `+2.284500 ms` (90% CI
+`[1.482331, 3.086670] ms`), mean half-width drift `+1.142250 ms`, worst
+checkpoint `+5.487398 ms`, `r=.999712`, and NRMSE `.010152`; all acceptance and
+invariant gates passed. These are repository validation gates and results, not
+thresholds reported by the manuscript or its Supplementary Figure 1.
 
 ## 5. Recommended scoped regression gate
 
@@ -261,7 +302,7 @@ The frozen run on the RTX A6000 produced the result below; its literal command
 and environment are preserved in the [research log](research_log.md):
 
 ```text
-6 passed in 273.21s (0:04:33)
+7 passed in 268.02s (0:04:28)
 ```
 
 The current tests deliberately assert A6000 hardware for exact release
@@ -270,12 +311,15 @@ kernels.
 
 Coverage includes:
 
-- canonical E/I routing, value range, checkpoint hash, and in-memory state;
+- canonical E/I routing, value range, checkpoint hash, `state_dict`
+  preservation, and finite dynamic state;
 - Fano silent-neuron semantics, physical time, primary/secondary separation,
   fixed ROI, seeds, one-checkpoint ranges, and ten-checkpoint directions;
 - inverse-effectiveness low/high direction and stationary state; and
 - latency mean/fastest semantics, reporting, fresh modality state, and removal
-  of the old forced adaptation perturbation.
+  of the old forced adaptation perturbation; and
+- presynaptic inhibitory-input STP shape, release, finite state, and resource
+  bounds under synchronous production-path input.
 
 ## 6. Integrity and reporting
 
