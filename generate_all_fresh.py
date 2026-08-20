@@ -70,28 +70,25 @@ SAVE.mkdir(exist_ok=True)
 
 TBW_OFFSETS = list(range(-50, 51, 2))        # 51 values
 SBW_SEPARATIONS = tuple(range(-80, 85, 5))   # 33 values
-ENH_THRESHOLD = 1110.0  # task #56 recalibration: legacy 10.0 was tuned to the
-                        # buggy _latest_sMSI measurement; under the task #40 fix
-                        # (return_spike_sum=True) per-frame counts are ~100× larger.
-                        # 1110.0 picked by L2-minimization sweep vs paper 5-cond HW
-                        # (control 24.3, ff_inh 27.7, adapt 29.4, nmda 13.1, nmda_inc 30.0).
-                        # See task56_logs/calibrate_run.log.
+ENH_THRESHOLD = 1110.0  # calibrated for return_spike_sum=True per-frame counts,
+                        # which are ~100x larger than the older _latest_sMSI
+                        # measurement. 1110.0 was selected by an L2 sweep
+                        # against the five-condition SBW reference widths
+                        # (control 24.3, ff_inh 27.7, adapt 29.4, nmda 13.1,
+                        # nmda_inc 30.0).
 N_TRIALS = 50
 
 CONDITIONS = {
-    # Tasks #16/#27 Stage F: every condition explicitly sets gNMDA. This overrides
-    # the saved mutable_hparam gNMDA=0.05 in existing checkpoints (which were
-    # trained with the pre-fix legacy calibration); new checkpoints from
-    # run_training already have gNMDA=1.30 baked in, so this is a no-op for those.
-    # Without these overrides, the pipeline would silently use the legacy gNMDA
-    # on existing checkpoints and reproduce wrong HWs.
+    # Every condition explicitly sets gNMDA. This overrides the saved
+    # mutable_hparam gNMDA=0.05 in existing checkpoints, while newer
+    # run_training checkpoints that already carry gNMDA=1.30 are unaffected.
+    # Without these overrides, existing checkpoints would use the legacy gNMDA
+    # and reproduce wrong half-widths.
     #
-    # Task #60: REVERTED the task-#58 freeze_g_FFinh/plasticity_enabled additions.
-    # AGC is the network's inhibitory regulation mechanism (per researcher #59),
-    # not a measurement contamination. The right cross-test isolation is
-    # per-condition checkpoint reload, which `run_*_across_models` already
-    # provides at the per-checkpoint level. Cross-intensity isolation within
-    # one test (inv_eff) is handled inside that script's main loop.
+    # AGC is the network's inhibitory regulation mechanism, not a measurement
+    # contamination. Cross-condition isolation comes from per-condition
+    # checkpoint reloads in `run_*_across_models`; inverse-effectiveness
+    # handles cross-intensity isolation inside its own main loop.
     "control": lambda n: setattr(n, "gNMDA", 1.30),
     "ff_inhibition": lambda n: (setattr(n, "gNMDA", 1.30)
                                 or setattr(n, "pv_nmda", 0.8)

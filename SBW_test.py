@@ -432,7 +432,7 @@ def compute_spatial_binding_curve(
             for pr in profs:
                 fused_trials += is_fused(pr)
 
-            # Good GPU hygiene
+            # Release temporary tensors before clearing the CUDA cache.
             del xA, xV, msi_sum, gA, gV, idxA, idxV
             if net.device.type == "cuda":
                 torch.cuda.empty_cache()
@@ -701,7 +701,7 @@ def fit_pedestal_curve(pooled, k_edge=4.0):
     )
     xs = np.linspace(x.min(), x.max(), 600)
     ys = pedestal(xs, *popt, k_edge)
-    return xs, ys, popt  # you may want popt later
+    return xs, ys, popt  # fitted curve and pedestal parameters
 
 
 # ─────────────────── 2. run across checkpoints ───────────────────
@@ -805,13 +805,13 @@ def run_spatial_binding_across_models(
 
     if method == "enhancement":
         # P(fusion) is already in [0, 1] — no normalization needed.
-        # Just average across models and mirror.
+        # Average across models and mirror the one-sided curve.
         mean_onesided = curves_sym.mean(0)
         all_onesided = curves_sym
         baseline = 0.0
         peak_shift = 1.0
     else:
-        # Old normalization path for spike_profile / is_fused methods
+        # Legacy normalization path for spike_profile / is_fused methods.
         mean_sym = curves_sym.mean(0)
         baseline = ref_baseline if ref_baseline is not None else mean_sym[-1]
         peak_shift = ref_peak_shift if ref_peak_shift is not None else (mean_sym - baseline).max()
@@ -1057,7 +1057,7 @@ def plot_spatial_binding_gaussian(pooled):
     plt.tight_layout()
     plt.show()
 
-    # quick numeric log
+    # Numeric fit summary for interactive diagnostics.
     print(f"Gaussian fit: base={base:.3f}, amp={amp:.3f}, μ={mu:.2f}, σ={sigma:.2f}")
     if len(crossings) == 2:
         print(f"Spatial 50 % window: ±{abs(crossings[1]):.1f}°")
@@ -1172,7 +1172,7 @@ def add_msi_inset(parent_ax,
     xs = np.linspace(0, 180, profile.size, endpoint=False)
     if profile.max() > 0:
         ax_in.plot(xs, profile / profile.max(), color=color, lw=1.4)
-    else:  # silent vector – just plot zeros so the frame is visible
+    else:  # Silent profile: plot zeros so the frame remains visible.
         ax_in.plot(xs, profile, color=color, lw=1.4)
 
     ax_in.set_xticks([]), ax_in.set_yticks([])
@@ -1402,7 +1402,5 @@ def main():
 # usual guard
 if __name__ == "__main__":
     main()
-
-
 
 

@@ -1,6 +1,6 @@
 # Research and validation log
 
-## Frozen anchor
+## Validation anchor
 
 This closeout applies to **Mohan & Rideaux, _From Spikes to Symptoms: Simulating
 SC-Driven Multisensory Deficits in Autism Spectrum Disorder_**, revision 2:
@@ -13,14 +13,13 @@ corrected executable baseline is
 `cdeb66511ed1a07e3329d74c9cb30a7cde4c9c46`; its independent regression
 completed on 2026-07-27.
 This document and the versioned
-[validation protocol](validation_protocol.md) are the durable release record.
-Full command transcripts were captured during that session under
-`/tmp/fsts10-final-validation.SfSiSn/logs/`; that path is session-local and is
-not an authoritative or durable dependency of the repository.
+[validation protocol](validation_protocol.md) are the repository validation
+record. Full command transcripts were session-local and are not a repository
+dependency.
 
 ## Acceptance rule and evaluation lifecycle
 
-The primary gate is reproduction of the named **biological phenomenon**, not
+The main criterion is reproduction of the named **biological phenomenon**, not
 exact equality to a manuscript number. A stronger valid result is accepted—for
 example, the final cue-weighting agreement (`R² = .969`, `MAE = .063`) is retained
 rather than weakened to match an earlier value. TBW and SBW perturbations are
@@ -36,9 +35,9 @@ are never saved back to a checkpoint. The control calibration is `gNMDA = 1.30`;
 stationary estimators additionally disable plasticity and freeze feed-forward
 inhibitory adaptation where required. The TBW/SBW perturbation workflow applies
 only the named in-memory condition. Before/after hashes were identical for all 12
-checkpoint files covered by the integrity gate.
+checkpoint files covered by the integrity check.
 
-## Durable reproduction record
+## Reproduction record
 
 The final run selected physical GPU 1, which exposed an NVIDIA RTX A6000 as
 logical CUDA device 0, and used a headless plotting backend. From the repository
@@ -61,7 +60,7 @@ below. The final independent A6000 suite reported
 standalone wall times were 1m01s (E/I), 3m40s (Fano), 19m16s (localization),
 35s (cue reliability), 15m43s (inverse effectiveness), 32s (latency), and
 26m56s (TBW/SBW). These commands create or overwrite generated outputs; use an
-isolated copy when artifact hashes must remain clean.
+isolated copy when existing generated outputs must stay unchanged.
 
 The frozen run invoked the `EI_balance_test.py` compatibility entry point. Its
 command-line route delegated to the canonical `run_ei_balance.main`, so the
@@ -113,7 +112,7 @@ checkpoint files were included only in the repository-wide immutability check.
 
 ## Final observed matrix
 
-| Gate | Final observation | Acceptance | Durable reproducer |
+| Check | Final observation | Acceptance | Reproducer |
 |---|---|---|---|
 | Test and device gate | 7 tests passed in 268.02 s (0:04:28); physical GPU1 exposed as logical CUDA 0, NVIDIA RTX A6000 | Pass | `python -m pytest -q tests` with the exact environment above |
 | E/I | E `3.8158 ± .0526`, I `3.6328 ± .0399`; E/I `1.050 ± .004` | Pass: order-one balance | Frozen compatibility route `python EI_balance_test.py`; canonical route `python run_ei_balance.py` |
@@ -122,7 +121,7 @@ checkpoint files were included only in the repository-wide immutability check.
 | Inverse effectiveness | Ensemble MEI `.914724 → .030694` from intensity `.05 → 1.6`; low–high margin `.884030` | Pass: strong inverse trend | `python inverse_effectiveness_test.py` |
 | Latency | A/V/AV `26.7/41.7/26.7 ms`; benefit vs mean `+7.5 ms`; benefit vs fastest `0.0 ms` | Pass under mean-unimodal definition | `python response_latency_test.py` |
 | Fano | Primary active-ROI FF `1.123541 → .783592` in the first 100 ms; quenching 10/10; mean rate `.095922 → .121753`, rising 8/10 | Pass: variability quenching | `python fano_factor_test.py` and `python -m pytest -q tests` |
-| TBW | Control `110 ms`; reduced FF inhibition `158` (`+48`); reduced adaptation `229` (`+119`); reduced NMDA `94` (`−16`); increased NMDA `112` (`+2`, stable) | Pass: 4/4 directional/equivalence predictions | `python generate_all_fresh.py` |
+| TBW | Control `109.881 ms`; reduced FF inhibition `157.142` (`+47.261`); reduced adaptation `228.440` (`+118.559`); reduced NMDA `95.194` (`-14.687`); increased NMDA `111.547` (`+1.666`, stable) | Pass: 4/4 directional/equivalence predictions | `python generate_all_fresh.py` |
 | SBW | Control `26.7°`; reduced FF inhibition `29.0` (`+2.3`); reduced adaptation `30.2` (`+3.5`); reduced NMDA `13.2` (`−13.5`); increased NMDA `30.6` (`+3.9`) | Pass: 4/4 directional predictions | `python generate_all_fresh.py` |
 | Integrity | 12/12 checkpoint SHA-256 values identical before and after; scoped source hashes unchanged | Pass: read-only evaluation | Before/after `sha256sum checkpoint/*.pt` manifests and `cmp` |
 
@@ -280,14 +279,11 @@ result above is a new validation result; its `+2.284500 ms` mean full-width
 drift (`+1.142250 ms` in half-width units) must not be presented as a
 manuscript threshold or substituted into the historical figure.
 
-The validated figure provenance truthfully records generation at commit
-`cdeb66511ed1a07e3329d74c9cb30a7cde4c9c46` while its six release artifacts
-were still untracked. Its `repository.head` and `repository.status_porcelain`
-fields are therefore generation-time evidence, not a claim about current-tree
-status. The committed
+The figure sidecar records the commit and worktree status at generation time.
+Those fields document how the artifact was made; they do not describe the
+current checkout. The committed
 [`Saved_Data/TBW_dt_invariance_validated.npz`](../Saved_Data/TBW_dt_invariance_validated.npz)
-is the durable default replot input; the recorded
-`/tmp/fsts10-tbw-validator.BWavAI/paired_sweep` location is ephemeral source
-provenance and is not a runtime dependency. See the
+is the default replot input; any transient paired-sweep directory used during
+validation is not a runtime dependency. See the
 [`provenance JSON`](../Saved_Data/TBW_dt_invariance_validated.provenance.json)
 for the frozen hashes and schema.

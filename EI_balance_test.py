@@ -53,7 +53,7 @@ def load_msi_model(ckpt_path: Path, *, device="cuda"):
 
 
 # ============================================================================
-#  NEW: Separated E/I probe using individual synaptic current components
+#  Separated E/I probe using individual synaptic current components
 # ============================================================================
 
 def run_ei_probe_separated(
@@ -334,4 +334,3 @@ if __name__ == "__main__":
 #     plot_temporal_binding_summary(
 #         pooled_mod,
 #     )
-

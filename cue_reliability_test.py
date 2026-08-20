@@ -119,7 +119,7 @@ def plot_results(pooled, savefig=None):
 
     # Apply Gaussian smoothing to Z
     from scipy.ndimage import gaussian_filter
-    Z = gaussian_filter(Z, sigma=1.0)  # You can adjust sigma for more/less smoothing
+    Z = gaussian_filter(Z, sigma=1.0)  # Smooth the pooled mean-weight surface.
 
     font_path = './fonts/Roboto-Regular.ttf'
     font_manager.fontManager.addfont(font_path)
@@ -244,7 +244,7 @@ def main():
     for idx,p in enumerate(model_paths,1):
         print(f"[{idx}/10]  {p.name}  …", end="", flush=True)
         net = load_msi_model(p, device=device)
-        setattr(net, 'gNMDA', 1.30)  # task #42 fix: override legacy gNMDA=0.05 baked into checkpoints
+        setattr(net, 'gNMDA', 1.30)  # override legacy checkpoint gNMDA=0.05
         # speed lever: cut sub‑steps
         if args.substeps is not None:
             net.n_substeps = args.substeps
@@ -297,5 +297,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 

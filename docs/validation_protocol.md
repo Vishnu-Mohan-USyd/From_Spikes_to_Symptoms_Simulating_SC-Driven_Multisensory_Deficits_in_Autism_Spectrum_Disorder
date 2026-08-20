@@ -11,7 +11,7 @@
 ## 1. Purpose and acceptance hierarchy
 
 This protocol defines the current public commands, measurement contracts, and
-release gates for the supplied pretrained ensemble. It supersedes historical
+validation criteria for the supplied pretrained ensemble. It supersedes historical
 criteria in `CHANGES.md` and diagnostic notes.
 
 The acceptance hierarchy is:
@@ -19,7 +19,7 @@ The acceptance hierarchy is:
 1. Reproduce the named biological phenomenon with the specified estimator.
 2. Preserve checkpoints and registered parameter/buffer (`state_dict`) content;
    allow dynamic state to evolve while auditing its finiteness and bounds.
-3. Apply the quantitative gate below.
+3. Apply the quantitative criterion below.
 4. Compare with manuscript values as context, not as a requirement to degrade a
    stronger valid result.
 
@@ -63,7 +63,7 @@ The four perturbation configurations are:
 These are internal mechanistic probes. Passing their directional gates does
 not identify a unique ASD etiology.
 
-## 3. Canonical release commands
+## 3. Canonical commands
 
 With a selected CUDA device and a headless plotting backend where needed:
 
@@ -155,7 +155,7 @@ configure_inverse_eval(net)
 The mandatory gate is `MEI(intensity=.05) > MEI(intensity=1.6)`. The focused
 regression additionally requires a low-to-high margin greater than `.75` on
 M00. Intermediate points may show local variation; neither strict pointwise
-monotonicity nor a Spearman threshold is a release requirement.
+monotonicity nor a Spearman threshold is a validation requirement.
 
 **Final ensemble:** approximately `.914724 → .030694`, low-to-high margin
 `.884030`. The first two ensemble points rise modestly before the sustained
@@ -180,7 +180,7 @@ Each A, V, and AV measurement starts from a fresh, stationary checkpoint. The
 mandatory mean-unimodal benefit is positive and in the validated 5–10 ms range.
 The fastest-unimodal comparison is reported separately and must remain within
 one time step of zero in the control ensemble. There is no latency perturbation
-in the release protocol and no claim that AV is faster than both unimodal
+in this protocol and no claim that AV is faster than both unimodal
 routes.
 
 **Final ensemble:** A/V/AV `26.7/41.7/26.7 ms`; mean-unimodal benefit
@@ -290,7 +290,7 @@ checkpoint `+5.487398 ms`, `r=.999712`, and NRMSE `.010152`; all acceptance and
 invariant gates passed. These are repository validation gates and results, not
 thresholds reported by the manuscript or its Supplementary Figure 1.
 
-## 5. Recommended scoped regression gate
+## 5. Recommended regression check
 
 The focused tests are under `tests/`:
 
@@ -298,7 +298,7 @@ The focused tests are under `tests/`:
 CUDA_VISIBLE_DEVICES=1 MPLBACKEND=Agg python -m pytest -q tests
 ```
 
-The frozen run on the RTX A6000 produced the result below; its literal command
+The RTX A6000 validation run produced the result below; its literal command
 and environment are preserved in the [research log](research_log.md):
 
 ```text
@@ -323,7 +323,7 @@ Coverage includes:
 
 ## 6. Integrity and reporting
 
-For release validation, hash checkpoint files before the first command and
+For validation, hash checkpoint files before the first command and
 after the final command. The frozen run compared 12 checkpoint files and found
 12/12 SHA-256 values unchanged. It also confirmed that scoped source hashes did
 not change during execution.
@@ -334,5 +334,5 @@ artifact tree is required. Report the exact command, device mapping, result,
 runtime, and any deviations from this protocol.
 
 Primary biological sources, mechanism assumptions, interpretation limits, and
-the durable final result record are maintained in the
+the current result record are maintained in the
 [research log](research_log.md).

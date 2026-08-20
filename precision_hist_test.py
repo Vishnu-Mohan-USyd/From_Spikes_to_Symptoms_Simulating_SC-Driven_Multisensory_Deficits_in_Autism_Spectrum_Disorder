@@ -114,7 +114,7 @@ def check_msi_enhancement_hybrid(net, *,
                                  stimulus_intensity: float = 0.1,  # return delayed
                                  noise_std: float = 0.1):  # return delayed
     """
-    Same as before but lets you dial stimulus strength & noise.
+    Return localization errors under configurable stimulus strength and noise.
     Set intensity low (≈0.1–0.3) or raise noise to uncover inverse-effectiveness.
     """
     # 1. identical event set -------------------------------------------------
@@ -126,9 +126,9 @@ def check_msi_enhancement_hybrid(net, *,
         loc_seqs, mod_seqs, offs,
         n=net.n, space_size=net.space_size,
         sigma_in=net.sigma_in,
-        noise_std=noise_std,  # ← your knob
+        noise_std=noise_std,  # configurable sensory noise
         loc_jitter_std=net.loc_jitter_std,
-        stimulus_intensity=stimulus_intensity,  # ← your knob
+        stimulus_intensity=stimulus_intensity,  # configurable stimulus drive
         device=net.device, max_len=Tmax)
 
     err_A = _signed_errors_hybrid_fast(net, xA, torch.zeros_like(xV), valid,
@@ -270,7 +270,7 @@ def pool_hybrid_sensitivity_fast(model_paths, *, modify_net=None, **sens_kw):
 
     for p in model_paths:
         net = load_msi_model(Path(p))
-        setattr(net, 'gNMDA', 1.30)  # task #42 fix: override legacy gNMDA=0.05 baked into checkpoints
+        setattr(net, 'gNMDA', 1.30)  # override legacy checkpoint gNMDA=0.05
         if callable(modify_net):
             modify_net(net)
 
@@ -549,7 +549,7 @@ def main():
 
     for path in paths:
         rep_net = load_msi_model(path)
-        setattr(rep_net, 'gNMDA', 1.30)  # task #42 fix: override legacy gNMDA=0.05 baked into checkpoints
+        setattr(rep_net, 'gNMDA', 1.30)  # override legacy checkpoint gNMDA=0.05
         rep_out = compute_hybrid_sensitivity_fast(rep_net)
         all_err_A.extend(rep_out["err_A"])
         all_err_V.extend(rep_out["err_V"])
@@ -583,7 +583,7 @@ def main():
 
     for path in paths:
         rep_net2 = load_msi_model(path)
-        setattr(rep_net2, 'gNMDA', 1.30)  # task #42 fix: override legacy gNMDA=0.05 before manipulation tweak
+        setattr(rep_net2, 'gNMDA', 1.30)  # baseline gNMDA before manipulation
         tweak_fn(rep_net2)
         rep_out2 = compute_hybrid_sensitivity_fast(rep_net2)
         all_err_A_mod.extend(rep_out2["err_A"])

@@ -1,14 +1,14 @@
 """Replot all 10 TBW + SBW figures matching template style from cached data.
 
 Cosmetic-only re-plot: reads the pooled per-condition metrics produced
-by ``generate_all_fresh.py`` (saved to ``cache/{tbw,sbw}_{condition}.npz``)
-and re-renders the figures without re-running any simulations.  Use this
-when you only want to change colors, fonts, axis labels, fit ranges,
-control overlays, etc.
+by ``generate_all_fresh.py`` and saved under the canonical cache names
+and re-renders the figures without re-running any simulations.  This path is
+for cosmetic changes such as colors, fonts, axis labels, fit ranges, and
+control overlays.
 
 Inputs
 ------
-Reads:  ``cache/tbw_{cond}.npz``, ``cache/sbw_{cond}_t10.npz``
+Reads:  ``cache/tbw_{cond}.npz``, ``cache/sbw_{cond}_t1110.npz``
         for cond in
         {control, ff_inhibition, adaptation, nmda, nmda_increase}.
 
@@ -322,7 +322,7 @@ if __name__ == "__main__":
 
     all_sbw = {}
     for cname in CONDITIONS:
-        cache_path = CACHE / f"sbw_{cname}_t10.npz"
+        cache_path = CACHE / f"sbw_{cname}_t1110.npz"
         if not cache_path.exists():
             print(f"  SKIP SBW {cname}: not found")
             continue

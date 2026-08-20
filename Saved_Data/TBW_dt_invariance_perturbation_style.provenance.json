@@ -1,0 +1,286 @@
+{
+  "aggregation": {
+    "fine_dt_observations": "dt=0.05 ms pooled mean +/- SEM",
+    "fits": "canonical validated pooled fits; fits are not averaged",
+    "mean": "arithmetic mean across 10 checkpoint-level p_fusion curves at each SOA",
+    "sem": "sample SD across checkpoints (ddof=1) divided by sqrt(10)",
+    "width": "full separation of the two fitted P(fusion)=0.5 crossings"
+  },
+  "artifacts": {
+    "exports": {
+      "pdf": {
+        "path": "Saved_Images/TBW_dt_invariance_perturbation_style.pdf",
+        "sha256": "6230abee94bc33961f76ca621e2f2403caead6800c90f9118656f1f1bedfca53",
+        "size_bytes": 15500
+      },
+      "png": {
+        "path": "Saved_Images/TBW_dt_invariance_perturbation_style.png",
+        "pixel_dimensions": [
+          3000,
+          1680
+        ],
+        "sha256": "25ecd351247c741b6e148d909a4d925c13dceb9123c15241760cf12a98e649a8",
+        "size_bytes": 171102
+      },
+      "svg": {
+        "path": "Saved_Images/TBW_dt_invariance_perturbation_style.svg",
+        "sha256": "7a5f6e771da5048024e425569f7d3a06336a92fa4709270cb20d615665e52469",
+        "size_bytes": 46336
+      }
+    },
+    "renderer": {
+      "path": "replot_tbw_dt_invariance_perturbation_style.py",
+      "sha256": "c8eeee4c1b0a880fdd69abd81edfa975bc96219684c043e0c3b86993cb3d3dd7"
+    }
+  },
+  "command": "env CUDA_VISIBLE_DEVICES=-1 MPLBACKEND=Agg python replot_tbw_dt_invariance_perturbation_style.py",
+  "determinism": {
+    "matching_export_sha256": {
+      "pdf": "6230abee94bc33961f76ca621e2f2403caead6800c90f9118656f1f1bedfca53",
+      "png": "25ecd351247c741b6e148d909a4d925c13dceb9123c15241760cf12a98e649a8",
+      "svg": "7a5f6e771da5048024e425569f7d3a06336a92fa4709270cb20d615665e52469"
+    },
+    "method": "two independent temporary-directory renders compared byte for byte",
+    "passed": true,
+    "timestamp_free_svg_pdf_metadata": true
+  },
+  "metrics": {
+    "paired_full_width_drift_ci90_ms": [
+      1.4823309194598147,
+      3.0866698165050885
+    ],
+    "paired_mean_full_width_drift_ms": 2.2845003679824516,
+    "paired_mean_half_width_drift_ms": 1.1422501839912258,
+    "pooled_curve_max_abs_delta": 0.06400000000000006,
+    "pooled_curve_nrmse": 0.010151789178731595,
+    "pooled_curve_pearson_r": 0.99971242611273,
+    "pooled_full_width_drift_ms": 2.210523830809592,
+    "pooled_full_width_ms": [
+      219.76208778128776,
+      221.97261161209735
+    ],
+    "pooled_half_width_drift_ms": 1.105261915404796,
+    "pooled_half_width_ms": [
+      109.88104389064388,
+      110.98630580604868
+    ]
+  },
+  "purpose": "Alternate perturbation-panel-style rendering of the unchanged validated TBW dt-invariance dataset; no simulation or scientific value was changed.",
+  "qa": {
+    "file_types": {
+      "pdf": "PDF document, version 1.4, 1 pages",
+      "png": "PNG image data, 3000 x 1680, 8-bit/color RGBA, non-interlaced",
+      "svg": "SVG Scalable Vector Graphics image"
+    },
+    "geometry_nonoverlap_and_canvas_clipping_assertions": "passed during both renders",
+    "pdf_embeds_roboto": true,
+    "pdf_pages": 1,
+    "pdf_size_points": [
+      720.0,
+      403.2
+    ],
+    "png_dimensions": [
+      3000,
+      1680
+    ],
+    "protected_existing_tbw_export_sha256": {
+      "Saved_Images/TBW_adaptation.png": "5372e38d0f1a396ab20df7739a119b588c9ae4c43d954cebadcec8fbf531062d",
+      "Saved_Images/TBW_adaptation.svg": "8d519bf81a256bf24d60f6f0bb21cfe6086e7ff8b5116bd3c67f9fe9ebe5b842",
+      "Saved_Images/TBW_control.png": "9408aa0a0f155b58330e9eb9d1913650cf2bd916f706f50f74943d4f651ae3d5",
+      "Saved_Images/TBW_control.svg": "85182f287f5f9bc66c6bc537990e0191adb376adc4b5e89ac88197c34614a861",
+      "Saved_Images/TBW_dt_invariance_validated.pdf": "1129cf36f5941924f7a609f01a0265bb61bb8a2ce1b2b609aea2920366e912b2",
+      "Saved_Images/TBW_dt_invariance_validated.png": "a3f66b01288bffe944d2c74ae5c31ffecd90b4de45d5bb9b10617c88e0d27444",
+      "Saved_Images/TBW_dt_invariance_validated.svg": "a8ff72718f4442e0720657514b0a868f4afe1da7a6333ba60cf8bffc5a0760f5",
+      "Saved_Images/TBW_ff_inhibition.png": "fd1b9edcdff728a4c5f3543a4fa8ad371269e64aaa6c348e668f3243bca63d01",
+      "Saved_Images/TBW_ff_inhibition.svg": "fa9fa0aa51211d22bd0800432d797ecfaa2ff3ed44b66a8b940a3689b443a59d",
+      "Saved_Images/TBW_nmda.png": "7d6b863da8a7dacfb0283f3c021560e26fb35518dd3976dc7dff07dda5fa4c23",
+      "Saved_Images/TBW_nmda.svg": "72b7a0b64c4530d11e70f33c99b3a192ef9c3b87d6a4b04f7a1bfaa4d3b09e6e",
+      "Saved_Images/TBW_nmda_increase.png": "f2d0ba8f5a37f1dd2e320590bccf5655d7958225e276a243aeebdc378e2d4025",
+      "Saved_Images/TBW_nmda_increase.svg": "15796c2afe56ab5b9a589f6337b24bfad350f03f13abcd9b30b918c83195e582",
+      "Saved_Images/TBW_stepsize_sensitivity.png": "141909e3ba5fef2ee02338c2bfa624ad620a508d827294d744c02a5353300876",
+      "Saved_Images/TBW_stepsize_sensitivity.svg": "daf3aac28273a979c58b8b615f178c3e744b3a872b13793ca22803e362c3858d"
+    },
+    "protected_existing_tbw_exports_unchanged": true,
+    "searchable_pdf_text": true,
+    "searchable_svg_text": true,
+    "svg_contains_raster_image": false,
+    "svg_size_points": [
+      720.0,
+      403.2
+    ],
+    "svg_trailing_whitespace": false,
+    "visual_inspection": "performed separately on the full-resolution PNG and thumbnail"
+  },
+  "repository": {
+    "branch": "agent/tbw-dt-invariance",
+    "head": "70cb74935b13161b876ac88db36efb9a3f8e58a4",
+    "scope_note": "Status is intentionally limited to the perturbation-style renderer, sidecar, and exports; files outside that scope are excluded.",
+    "status_porcelain": [
+      "?? Saved_Data/TBW_dt_invariance_perturbation_style.provenance.json",
+      "?? Saved_Images/TBW_dt_invariance_perturbation_style.pdf",
+      "?? Saved_Images/TBW_dt_invariance_perturbation_style.png",
+      "?? Saved_Images/TBW_dt_invariance_perturbation_style.svg",
+      "?? replot_tbw_dt_invariance_perturbation_style.py"
+    ],
+    "status_scope": [
+      "replot_tbw_dt_invariance_perturbation_style.py",
+      "Saved_Data/TBW_dt_invariance_perturbation_style.provenance.json",
+      "Saved_Images/TBW_dt_invariance_perturbation_style.svg",
+      "Saved_Images/TBW_dt_invariance_perturbation_style.pdf",
+      "Saved_Images/TBW_dt_invariance_perturbation_style.png"
+    ]
+  },
+  "sample": {
+    "checkpoints": 10,
+    "conditions_in_bundle_order": [
+      {
+        "dt_ms": 0.1,
+        "n_substeps": 100,
+        "role": "control reference"
+      },
+      {
+        "dt_ms": 0.05,
+        "n_substeps": 200,
+        "role": "fine-dt comparison"
+      }
+    ],
+    "offsets_ms": [
+      -500.0,
+      -480.0,
+      -460.0,
+      -440.0,
+      -420.0,
+      -400.0,
+      -380.0,
+      -360.0,
+      -340.0,
+      -320.0,
+      -300.0,
+      -280.0,
+      -260.0,
+      -240.0,
+      -220.0,
+      -200.0,
+      -180.0,
+      -160.0,
+      -140.0,
+      -120.0,
+      -100.0,
+      -80.0,
+      -60.0,
+      -40.0,
+      -20.0,
+      0.0,
+      20.0,
+      40.0,
+      60.0,
+      80.0,
+      100.0,
+      120.0,
+      140.0,
+      160.0,
+      180.0,
+      200.0,
+      220.0,
+      240.0,
+      260.0,
+      280.0,
+      300.0,
+      320.0,
+      340.0,
+      360.0,
+      380.0,
+      400.0,
+      420.0,
+      440.0,
+      460.0,
+      480.0,
+      500.0
+    ],
+    "paired_inputs": "one shared 51\u00d750 location matrix per checkpoint across dt values",
+    "soas": 51,
+    "trials_per_soa": 50
+  },
+  "schema_version": 1,
+  "software": {
+    "cuda_visible_devices": "-1",
+    "matplotlib": "3.10.8",
+    "numpy": "2.3.5",
+    "platform": "Linux-6.8.0-136-generic-x86_64-with-glibc2.35",
+    "python": "3.13.7",
+    "renderer": "CPU-only Matplotlib Agg; GPUs hidden and no simulation invoked",
+    "scipy": "1.17.0"
+  },
+  "source": {
+    "bundle": {
+      "path": "Saved_Data/TBW_dt_invariance_validated.npz",
+      "sha256": "2d8da8b04bf02055ae8e2a9f2a1c87d63237e703764613c4a604fc2c0d78e11b",
+      "size_bytes": 45062
+    },
+    "source_data_policy": "Only the validated bundle and its provenance supply plotted data.",
+    "validated_provenance": {
+      "path": "Saved_Data/TBW_dt_invariance_validated.provenance.json",
+      "sha256": "4828747678945040e0553e8626b99c2a4caa094ea2a3e6ecd568e426259391f5"
+    }
+  },
+  "style_contract": {
+    "axis_labels": {
+      "x": "Audio \u2013 Visual onset (ms)",
+      "y": "fusion probability"
+    },
+    "control": {
+      "color": "#39b54a",
+      "crossing_verticals": true,
+      "line": "dashed",
+      "linewidth_pt": 2.5,
+      "markers": false
+    },
+    "family": "legacy TBW perturbation panel",
+    "figure_size_inches": [
+      10.0,
+      5.6
+    ],
+    "fine_dt": {
+      "crossing_verticals": true,
+      "data_color": "#939598",
+      "fit_color": "#b469a3",
+      "fit_line": "solid",
+      "fit_linewidth_pt": 3,
+      "mean_sem_points": true,
+      "span_shading_alpha": 0.18
+    },
+    "font": {
+      "family": "Roboto",
+      "path": "fonts/Roboto-Regular.ttf"
+    },
+    "guides": "black dashed y=0.5 and x=0, linewidth 1.5 pt",
+    "labels_pt": 14,
+    "png_dpi": 300,
+    "ticks_pt": 12,
+    "title": null,
+    "vector_size_points": [
+      720.0,
+      403.2
+    ],
+    "xlim_ms": [
+      -520,
+      520
+    ],
+    "xticks_ms": [
+      -400,
+      -200,
+      0,
+      200,
+      400
+    ],
+    "ylim": [
+      -0.05,
+      1.05
+    ],
+    "yticks": [
+      0,
+      0.5,
+      1
+    ]
+  }
+}

@@ -362,9 +362,9 @@ def plot_fano_bio(t,
                   scale_bar_ms: int = 200,
                   title: str = ""):
     """
-    Replacement for `plot_fano_styled`.
+    Biological-style Fano-factor plot for binned MSI spike counts.
 
-    • y‑axis of the upper panel is now “Spikes ({} ms bin)” with the
+    • y‑axis of the upper panel is “Spikes ({} ms bin)” with the
       bin width inferred from `frame_dt_ms`.
     • The numbers plotted are exactly the values returned from
       `run_fano_factor_test_bio` – no hidden unit conversions.
@@ -495,7 +495,7 @@ def plot_fano_bio_with_biological(t,
                 -(time_since_stim - 30) / tau_recovery)
 
     from scipy.ndimage import gaussian_filter1d
-    meanF_smoothed = gaussian_filter1d(meanF, sigma=2)  # Adjust sigma as needed
+    meanF_smoothed = gaussian_filter1d(meanF, sigma=2)  # Smooth the empirical Fano trace.
 
     np.random.seed(42)  # For reproducibility
     bio_ff += np.random.normal(0, 0.02, size=bio_ff.shape)

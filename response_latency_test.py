@@ -15,8 +15,8 @@ def spatial_binding_diagnostics(
         method: str = "ratio"):
     """
     GPU-batched P(fusion) curve  +  illustrative rasters/profiles.
-    Now draws a *linear fit* through the summary points, **and marks the 50 %-fusion
-    threshold on the plot**.
+    Draws a linear fit through the summary points and marks the 50 %-fusion
+    threshold on the plot.
     """
     # ───── helpers ────────────────────────────────────────────────────────
     N = net.n
@@ -249,7 +249,7 @@ def spatial_binding_curve_fast(
     net.reset_state(batch_size=B)
     msi_sum = torch.zeros(B, N, device=net.device)
 
-    for t in range(duration):  # only 20 calls now
+    for t in range(duration):  # One network update per stimulus frame.
         ret = net.update_all_layers_batch(xA[:, t], xV[:, t], return_spike_sum=True)
         sum_sM = ret[-1]
         msi_sum += sum_sM
@@ -260,7 +260,7 @@ def spatial_binding_curve_fast(
     for k in range(n_sep):
         s, e = k * n_trials, (k + 1) * n_trials
         for j in range(n_trials):
-            flags[k, j] = is_fused(profs[s + j])  # your existing helper
+            flags[k, j] = is_fused(profs[s + j])  # spatial-profile classifier
 
     return flags.mean(1)  #  P(fusion) curve
 
@@ -354,7 +354,7 @@ def compute_spatial_binding_curve(
             for pr in profs:
                 fused_trials += is_fused(pr)
 
-            # Good GPU hygiene
+            # Release temporary tensors before clearing the CUDA cache.
             del xA, xV, msi_sum, gA, gV, idxA, idxV
             if net.device.type == "cuda":
                 torch.cuda.empty_cache()
@@ -372,7 +372,7 @@ def fit_pedestal_curve(pooled, k_edge=4.0):
     )
     xs = np.linspace(x.min(), x.max(), 600)
     ys = pedestal(xs, *popt, k_edge)
-    return xs, ys, popt  # you may want popt later
+    return xs, ys, popt  # fitted curve and pedestal parameters
 
 
 # ─────────────────── 2. run across checkpoints ───────────────────
@@ -389,7 +389,7 @@ def run_spatial_binding_across_models(
     curves = []
     for p in model_paths:
         net = load_msi_model(Path(p), device=device)
-        setattr(net, 'gNMDA', 1.30)  # task #42 fix: override legacy gNMDA=0.05 baked into checkpoints
+        setattr(net, 'gNMDA', 1.30)  # override legacy checkpoint gNMDA=0.05
 
         if callable(modify_net):
             modify_net(net)  # tweak parameters *in‑place*
@@ -606,7 +606,7 @@ def plot_spatial_binding_gaussian(pooled):
     plt.tight_layout()
     plt.show()
 
-    # quick numeric log
+    # Numeric fit summary for interactive diagnostics.
     print(f"Gaussian fit: base={base:.3f}, amp={amp:.3f}, μ={mu:.2f}, σ={sigma:.2f}")
     if len(crossings) == 2:
         print(f"Spatial 50 % window: ±{abs(crossings[1]):.1f}°")
@@ -654,7 +654,7 @@ def measure_latency(
                                           return_first_spike_substep=True)
         first_sub = ret[-1]  # substep index of first MSI spike this frame, or -1
         if first_sub >= 0:
-            # task#147: true first-spike time (ms) at substep (dt) resolution =
+            # True first-spike time (ms) at substep (dt) resolution =
             # frame start (t * frame_ms) + end of the substep in which it fired.
             # Reduces to the old (t+1)*frame_ms only if the spike is in the last
             # substep; otherwise it resolves the sub-frame timing the frame index
@@ -735,21 +735,18 @@ def run_latency_test(
             raise FileNotFoundError(f"Checkpoint not found: {ckpt_path}")
         print(f"[{i}] loading {ckpt_path.name} …")
         tic = time.time()
-        # Task #60 principled fix: each modality A/V/B is an independent
-        # test condition and must start from the same trained-network state.
+        # Each modality A/V/B is an independent measurement condition and must
+        # start from the same trained-network state.
         # Reload the checkpoint fresh for each modality measurement.
         latencies = {}
         for modality in ("A", "V", "B"):
             net = load_msi_model(ckpt_path, device=device)
-            setattr(net, 'gNMDA', 1.30)  # task #42 fix: override legacy gNMDA=0.05
+            setattr(net, 'gNMDA', 1.30)  # override legacy checkpoint gNMDA=0.05
             net.plasticity_enabled = False
             net.freeze_g_FFinh = True
-            # task#147: removed the forced Izhikevich override
-            # (net.aM,bM,cM,dM = 0.001,0.2,-60,0.1) over trained 0.02/0.2/-65/8.0.
-            # Debugger's single-variable test proved forced vs trained give
-            # byte-identical latencies (30/50/30 ms, SEM 0) → the override has
-            # zero effect, but is an unjustified departure from paper methods
-            # (which use no override) → use trained params.
+            # Use trained Izhikevich parameters rather than forcing
+            # (net.aM,bM,cM,dM = 0.001,0.2,-60,0.1). The override has no
+            # latency effect here and would depart from the paper methods.
             latencies[f"{modality}_ms"] = measure_latency(net, modality=modality)
             del net
             if device.startswith("cuda"):
@@ -853,4 +850,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

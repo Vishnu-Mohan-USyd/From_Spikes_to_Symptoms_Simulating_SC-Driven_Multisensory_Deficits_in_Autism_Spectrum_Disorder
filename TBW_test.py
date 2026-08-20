@@ -347,7 +347,7 @@ def diagnose_tbw_fit(offs_ms, int_spikes, fit_result):
 
 
 def tbw_gaussian_fit_curve(pooled):
-    """Updated to use improved fitting"""
+    """Fit the TBW summary with the robust Gaussian fitting routine."""
     offs = np.asarray(pooled["offsets_ms"])
     fit = fit_tbw_curve_improved(offs, pooled["mean_int_spikes"],
                                  model="gaussian",
@@ -365,10 +365,10 @@ def plot_temporal_binding_summary(
         *,
         fit_model="gaussian",
         reference_fit=None,
-        compare_methods=False,  # New parameter
+        compare_methods=False,  # Enable side-by-side fit-method diagnostics.
         **fit_kw,
 ):
-    """Updated with improved fitting and optional method comparison"""
+    """Plot a TBW summary with robust fitting and optional method comparison."""
     offs = np.asarray(pooled_res["offsets_ms"])
     mean = np.asarray(pooled_res["mean_int_spikes"])
     sem = np.asarray(pooled_res["sem_int_spikes"])
@@ -664,7 +664,7 @@ def fit_psychometric_curve(offsets_ms, fusion_probs, p0=None,
 
         p0 = [base_guess, amp_guess, mu_guess, sigma_guess]
 
-    # CRITICAL: Set appropriate bounds
+    # Bounds constrain the fit to physiologically plausible TBW parameters.
     max_amp = 1.5 * (fusion_probs.max() - np.percentile(fusion_probs, 10))
 
     bounds = ([0, 0, -300, 5],  # lower bounds
@@ -1171,7 +1171,7 @@ def run_fusion_across_models(model_paths, offsets, device="cuda",
             "mean_fusion": all_pfusion.mean(0),
             "sem_fusion": all_pfusion.std(0, ddof=1) / np.sqrt(n_models),
             "all_fusion": all_pfusion,
-            "mean_int_spikes": all_pfusion.mean(0),  # placeholder
+            "mean_int_spikes": all_pfusion.mean(0),  # Fusion-probability proxy for plotting compatibility.
             "sem_int_spikes": all_pfusion.std(0, ddof=1) / np.sqrt(n_models),
             "enhancement_threshold": float(enhancement_threshold),
         }
@@ -1383,10 +1383,10 @@ def plot_psychometric_tbw(
         show_diagnostics=True
 ):
     """
-    Plot the manipulated TBW (orange) and – optionally – the *unaltered*
-    control curve (grey dashed).  The control outline is now drawn **exactly
-    as it was in the single‑condition plot** – no amplitude rescaling, no
-    baseline shifting – so the two figures are directly comparable.
+    Plot the manipulated TBW (orange) and, optionally, the unaltered
+    control curve (grey dashed).  The control outline uses the same rendering
+    as the single-condition plot, without amplitude rescaling or baseline
+    shifting, so the two figures are directly comparable.
     """
     # ───────── 0)  pull fusion‑probability data ─────────────────────────
     offs = np.asarray(pooled_res["offsets_ms"])
@@ -1872,7 +1872,7 @@ def plot_timecourse_figure(timecourse: np.ndarray,
     fig, ax = plt.subplots(figsize=figsize)
     ax.plot(xs, timecourse_norm, color=color, lw=0.5)  # Use normalized data
     ax.set(xlabel="Time (ms)",
-           ylabel="Normalized MSI spikes",  # Update ylabel
+           ylabel="Normalized MSI spikes",  # Label normalized timecourse units.
            title=title,
            xlim=(xs.min(), xs.max()),
            ylim=(0, 1.05))  # Set ylim to normalized range
@@ -1951,4 +1951,3 @@ def main_tbw_profiles():
 # keep the entry‑point guard
 if __name__ == "__main__":
     main_tbw_profiles()
-

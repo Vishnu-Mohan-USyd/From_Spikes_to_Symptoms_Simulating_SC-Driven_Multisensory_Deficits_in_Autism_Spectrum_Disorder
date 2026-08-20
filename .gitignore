@@ -6,6 +6,9 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+/cache/
+/debug_dt/
+/task*_logs/
 
 # Local Python environments and test coverage
 .venv/
@@ -13,6 +16,14 @@ __pycache__/
 htmlcov/
 *.egg-info/
 
-# Local assistant/session state
-/.claude/
-/MEMORY.md
+# Local manuscript build artifacts
+/manuscript_assets/
+/manuscript_build_logs/
+/manuscript_sources/
+/manuscript_rev_4.docx
+/manuscript_rev_5_minimal.docx
+/manuscript_rev4_edits.json
+/manuscript_rev5_minimal_edits.json
+/build_manuscript_figures.py
+/build_manuscript_rev4.py
+/generate_fano_model_only.py
